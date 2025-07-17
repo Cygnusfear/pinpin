@@ -1,0 +1,76 @@
+# Node/Bun dependencies
+node_modules
+bun.lockb
+
+# Build output
+dist
+build
+out
+*.tgz
+
+# Vite
+.vite
+
+# Logs
+logs
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Test reports
+coverage
+*.lcov
+test-results/
+report.*.json
+
+# TypeScript
+*.tsbuildinfo
+*.d.ts
+
+# Cache
+.cache
+.eslintcache
+
+# Env files
+.env
+.env.*.local
+.env.local
+.env.production
+
+# Security files
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Personal files
+*.local.*
+.idea
+*.swp
+*.swo
+
+# macOS system files
+.DS_Store
+**/.DS_Store
+
+# Docker
+docker-compose.override.yml
+.docker
+*.dockerfile
+*.containerbuild
+*.tar
+
+# System-specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# React Router
+.react-router/
+
+# Claude
+.claude/*.local*
+
+# Keys
+*.pem
