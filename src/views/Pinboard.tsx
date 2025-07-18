@@ -31,13 +31,13 @@ const Pinboard: React.FC = () => {
         const demoData = [
           {
             type: 'image',
-            data: 'https://picsum.photos/200/150?random=1',
+            data: { src: 'https://picsum.photos/200/150?random=1', alt: 'Demo Image 1' },
             position: { x: 100, y: 100 },
             metadata: { demo: true, demoId: 'demo-image-1' }
           },
           {
             type: 'image', 
-            data: 'https://picsum.photos/180/120?random=2',
+            data: { src: 'https://picsum.photos/180/120?random=2', alt: 'Demo Image 2' },
             position: { x: 350, y: 200 },
             metadata: { demo: true, demoId: 'demo-image-2' }
           },

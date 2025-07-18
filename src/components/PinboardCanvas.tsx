@@ -85,11 +85,17 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   // Update widgets in interaction controller
   useEffect(() => {
     // Convert widgets to the format expected by the interaction controller
-    const canvasWidgets = widgets.map(widget => ({
-      ...widget,
-      src: widget.type === 'image' ? (widget as any).src : undefined,
-      alt: widget.type === 'image' ? (widget as any).alt : undefined,
-    }));
+    const canvasWidgets = widgets.map(widget => {
+      const baseWidget = { ...widget };
+      
+      // Only add image-specific properties for image widgets
+      if (widget.type === 'image') {
+        (baseWidget as any).src = (widget as any).src;
+        (baseWidget as any).alt = (widget as any).alt;
+      }
+      
+      return baseWidget;
+    });
     interactionControllerRef.current?.setWidgets(canvasWidgets as any);
   }, [widgets]);
 

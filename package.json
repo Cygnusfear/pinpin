@@ -8,10 +8,9 @@
     "server"
   ],
   "scripts": {
-    "dev": "concurrently \"pnpm dev:client\" \"pnpm dev:server\" \"pnpm dev:sync\"",
+    "dev": "concurrently \"pnpm dev:client\" \"pnpm dev:server\"",
     "dev:client": "vite",
     "dev:server": "pnpm --filter server dev",
-    "dev:sync": "pnpm --filter server dev:sync",
     "clean": "rm -rf dist",
     "build": "npm run clean && tsc && vite build && tsx scripts/exportApiConfig.ts",
     "serve": "vite preview",

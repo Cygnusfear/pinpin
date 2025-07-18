@@ -11,6 +11,20 @@ import {
 import { SelectionManager } from "./SelectionManager";
 import { KeyboardManager, KeyboardCommand } from "./KeyboardManager";
 import { DragManager } from "./DragManager";
+import {
+	StateMachine,
+	StateMachineCallbacks,
+	StateContext,
+	StateMachineEvent,
+	InteractionStateName,
+	IdleState,
+	AreaSelectState,
+	DraggingState,
+	PanningState,
+	ResizingState,
+	RotatingState,
+	TextEditingState
+} from "./stateMachine";
 
 export interface InteractionCallbacks {
 	onWidgetUpdate: (id: string, updates: Partial<Widget>) => void;
@@ -28,6 +42,7 @@ export class InteractionController {
 	private selectionManager: SelectionManager;
 	private keyboardManager: KeyboardManager;
 	private dragManager: DragManager;
+	private stateMachine: StateMachine;
 
 	private widgets: Widget[] = [];
 	private canvasTransform: CanvasTransform = { x: 0, y: 0, scale: 1 };
@@ -38,7 +53,6 @@ export class InteractionController {
 	};
 
 	private justEndedDrag = false;
-
 
 	private callbacks: InteractionCallbacks;
 	private canvasElement: HTMLElement | null = null;
@@ -60,6 +74,56 @@ export class InteractionController {
 			this.handleDragUpdate.bind(this),
 			this.handleDragEnd.bind(this),
 		);
+
+		// Initialize state machine
+		this.initializeStateMachine();
+	}
+
+	private initializeStateMachine(): void {
+		const stateContext: StateContext = {
+			widgets: this.widgets,
+			canvasTransform: this.canvasTransform,
+			selectedIds: [],
+			hoveredId: null,
+		};
+
+		const stateMachineCallbacks: StateMachineCallbacks = {
+			onWidgetUpdate: this.callbacks.onWidgetUpdate,
+			onWidgetsUpdate: this.callbacks.onWidgetsUpdate,
+			onWidgetRemove: this.callbacks.onWidgetRemove,
+			onCanvasTransform: (transform) => {
+				this.canvasTransform = transform;
+				this.callbacks.onCanvasTransform(transform);
+			},
+			onSelectionChange: (selectedIds) => {
+				this.selectionManager.selectMultiple(selectedIds, false);
+				this.callbacks.onSelectionChange(selectedIds);
+			},
+			onHoverChange: (hoveredId) => {
+				this.selectionManager.setHovered(hoveredId);
+				this.callbacks.onHoverChange(hoveredId);
+			},
+			onCursorChange: (cursor) => {
+				// Update cursor through DOM or callback
+				if (this.canvasElement) {
+					this.canvasElement.style.cursor = cursor;
+				}
+			},
+		};
+
+		this.stateMachine = new StateMachine('idle', stateContext, stateMachineCallbacks);
+
+		// Register all states
+		this.stateMachine.registerState('idle', IdleState);
+		this.stateMachine.registerState('areaSelect', AreaSelectState);
+		this.stateMachine.registerState('dragging', DraggingState);
+		this.stateMachine.registerState('panning', PanningState);
+		this.stateMachine.registerState('resizing', ResizingState);
+		this.stateMachine.registerState('rotating', RotatingState);
+		this.stateMachine.registerState('textEditing', TextEditingState);
+
+		// Initialize with idle state
+		this.stateMachine.initialize('idle');
 	}
 
 	// Setup and teardown
@@ -76,14 +140,25 @@ export class InteractionController {
 	// State management
 	setWidgets(widgets: Widget[]): void {
 		this.widgets = [...widgets];
+		// Update state machine context
+		this.stateMachine.updateContext({ widgets: this.widgets });
 	}
 
 	setCanvasTransform(transform: CanvasTransform): void {
 		this.canvasTransform = { ...transform };
+		// Update state machine context
+		this.stateMachine.updateContext({ canvasTransform: this.canvasTransform });
 	}
 
 	getInteractionState(): InteractionState {
-		return { ...this.interactionState };
+		// Map state machine state to legacy InteractionState
+		const currentState = this.stateMachine.getCurrentStateName();
+		const legacyMode = this.mapStateToMode(currentState);
+		
+		return {
+			...this.interactionState,
+			mode: legacyMode,
+		};
 	}
 
 	getSelectedWidgets(): Widget[] {
@@ -96,7 +171,57 @@ export class InteractionController {
 		if (this.interactionState.mode !== mode) {
 			this.interactionState.mode = mode;
 			this.callbacks.onModeChange(mode);
+			
+			// Map legacy mode to state machine state if needed
+			const stateName = this.mapModeToState(mode);
+			if (stateName && stateName !== this.stateMachine.getCurrentStateName()) {
+				this.stateMachine.forceTransition(stateName);
+			}
 		}
+	}
+
+	private mapStateToMode(stateName: InteractionStateName): InteractionMode {
+		const stateToModeMap: Record<InteractionStateName, InteractionMode> = {
+			'idle': 'select',
+			'areaSelect': 'area-select',
+			'dragging': 'drag',
+			'panning': 'hand',
+			'resizing': 'resize',
+			'rotating': 'rotate',
+			'textEditing': 'text',
+		};
+		return stateToModeMap[stateName] || 'select';
+	}
+
+	private mapModeToState(mode: InteractionMode): InteractionStateName | null {
+		const modeToStateMap: Record<InteractionMode, InteractionStateName> = {
+			'select': 'idle',
+			'area-select': 'areaSelect',
+			'drag': 'dragging',
+			'hand': 'panning',
+			'resize': 'resizing',
+			'rotate': 'rotating',
+			'text': 'textEditing',
+			'zoom': 'idle', // No specific zoom state, handle in idle
+			'draw': 'idle', // No draw state yet
+			'transform': 'idle', // Generic transform maps to idle
+			'drop-target': 'idle', // Drop target maps to idle
+		};
+		return modeToStateMap[mode] || null;
+	}
+
+	private updateLegacyInteractionState(): void {
+		// Update legacy interaction state based on current state machine state
+		const currentState = this.stateMachine.getCurrentStateName();
+		const legacyMode = this.mapStateToMode(currentState);
+		
+		if (this.interactionState.mode !== legacyMode) {
+			this.interactionState.mode = legacyMode;
+			this.callbacks.onModeChange(legacyMode);
+		}
+		
+		// Update isActive based on state
+		this.interactionState.isActive = currentState !== 'idle';
 	}
 
 	// Canvas event handlers
@@ -127,6 +252,10 @@ export class InteractionController {
 			this.handleGlobalMouseMove.bind(this),
 		);
 		document.addEventListener("mouseup", this.handleGlobalMouseUp.bind(this));
+		
+		// Keyboard events for state machine
+		document.addEventListener("keydown", this.handleKeyDown.bind(this));
+		document.addEventListener("keyup", this.handleKeyUp.bind(this));
 	}
 
 	private unbindCanvasEvents(): void {
@@ -161,6 +290,10 @@ export class InteractionController {
 			"mouseup",
 			this.handleGlobalMouseUp.bind(this),
 		);
+		
+		// Remove keyboard event listeners
+		document.removeEventListener("keydown", this.handleKeyDown.bind(this));
+		document.removeEventListener("keyup", this.handleKeyUp.bind(this));
 	}
 
 	public handleMouseDown(event: MouseEvent): void {
@@ -173,17 +306,28 @@ export class InteractionController {
 		this.interactionState.startPosition = canvasPoint;
 		this.interactionState.currentPosition = canvasPoint;
 
-		// Handle different interaction modes
-		switch (this.interactionState.mode) {
-			case "select":
-				this.handleSelectModeMouseDown(canvasPoint, modifiers, hitWidget);
-				break;
-			case "hand":
-				this.startPanning(screenPoint);
-				break;
-			default:
-				break;
+		// Create state machine event
+		const stateMachineEvent: StateMachineEvent = {
+			type: 'mousedown',
+			point: canvasPoint,
+			screenPoint: screenPoint,
+			button: event.button,
+			modifiers: modifiers,
+			hitWidget: hitWidget
+		};
+
+		// Process through state machine
+		const result = this.stateMachine.processEvent(stateMachineEvent);
+		
+		if (result.preventDefault) {
+			event.preventDefault();
 		}
+		if (result.stopPropagation) {
+			event.stopPropagation();
+		}
+
+		// Update legacy interaction state for backward compatibility
+		this.updateLegacyInteractionState();
 	}
 
 	private handleSelectModeMouseDown(
@@ -222,31 +366,37 @@ export class InteractionController {
 
 	private handleMouseMove(event: MouseEvent): void {
 		const point = this.getCanvasPoint(event);
+		const screenPoint = this.getScreenPoint(event);
+		const modifiers = this.getModifiers(event);
+		const hitWidget = this.getWidgetAtPoint(point);
+
 		this.interactionState.currentPosition = point;
 
-		// Update hover state
-		const hitWidget = this.getWidgetAtPoint(point);
-		this.selectionManager.setHovered(hitWidget?.id || null);
+		// Create state machine event
+		const stateMachineEvent: StateMachineEvent = {
+			type: 'mousemove',
+			point: point,
+			screenPoint: screenPoint,
+			modifiers: modifiers,
+			hitWidget: hitWidget
+		};
+
+		// Process through state machine
+		const result = this.stateMachine.processEvent(stateMachineEvent);
+		
+		if (result.preventDefault) {
+			event.preventDefault();
+		}
+		if (result.stopPropagation) {
+			event.stopPropagation();
+		}
+
+		this.updateLegacyInteractionState();
 	}
 
 	private handleGlobalMouseMove(event: MouseEvent): void {
-		if (!this.interactionState.isActive) return;
-
-		const canvasPoint = this.getCanvasPoint(event);
-		const screenPoint = this.getScreenPoint(event);
-		const modifiers = this.getModifiers(event);
-
-		switch (this.interactionState.mode) {
-			case "drag":
-				this.dragManager.updateDrag(canvasPoint, modifiers);
-				break;
-			case "area-select":
-				this.selectionManager.updateAreaSelection(canvasPoint);
-				break;
-			case "hand":
-				this.updatePanning(screenPoint);
-				break;
-		}
+		// Route through regular mouse move handler
+		this.handleMouseMove(event);
 	}
 
 	public handleMouseUp(event: MouseEvent): void {
@@ -254,53 +404,130 @@ export class InteractionController {
 	}
 
 	private handleGlobalMouseUp(event: MouseEvent): void {
+		const canvasPoint = this.getCanvasPoint(event);
+		const screenPoint = this.getScreenPoint(event);
 		const modifiers = this.getModifiers(event);
 
-		switch (this.interactionState.mode) {
-			case "drag":
-				this.dragManager.endDrag();
-				this.setMode("select");
-				// Set flag to prevent immediate selection clearing
-				this.justEndedDrag = true;
-				// Clear the flag after a short delay to allow for the next mouse event
-				setTimeout(() => {
-					this.justEndedDrag = false;
-				}, 10);
-				break;
-			case "area-select":
-				this.selectionManager.endAreaSelection(
-					this.widgets,
-					modifiers.meta || modifiers.ctrl,
-				);
-				this.setMode("select");
-				break;
-			case "hand":
-				this.endPanning();
-				this.setMode("select");
-				break;
-			default:
-				break;
+		// Create state machine event
+		const stateMachineEvent: StateMachineEvent = {
+			type: 'mouseup',
+			point: canvasPoint,
+			screenPoint: screenPoint,
+			button: event.button,
+			modifiers: modifiers
+		};
+
+		// Process through state machine
+		const result = this.stateMachine.processEvent(stateMachineEvent);
+		
+		if (result.preventDefault) {
+			event.preventDefault();
+		}
+		if (result.stopPropagation) {
+			event.stopPropagation();
 		}
 
-		this.interactionState.isActive = false;
+		this.updateLegacyInteractionState();
 	}
 
 	private handleWheel(event: WheelEvent): void {
-		if (event.ctrlKey || event.metaKey) {
-			// Zoom
+		const canvasPoint = this.getCanvasPoint(event);
+		const screenPoint = this.getScreenPoint(event);
+		const modifiers = this.getModifiers(event);
+
+		// Create state machine event
+		const stateMachineEvent: StateMachineEvent = {
+			type: 'wheel',
+			point: canvasPoint,
+			screenPoint: screenPoint,
+			deltaX: event.deltaX,
+			deltaY: event.deltaY,
+			modifiers: modifiers
+		};
+
+		// Process through state machine
+		const result = this.stateMachine.processEvent(stateMachineEvent);
+		
+		if (result.preventDefault) {
 			event.preventDefault();
-			const screenPoint = this.getScreenPoint(event);
-			const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
-			this.zoomToPoint(screenPoint, this.canvasTransform.scale * zoomFactor);
-		} else {
-			// Pan
-			this.panBy({ x: -event.deltaX, y: -event.deltaY });
 		}
+		if (result.stopPropagation) {
+			event.stopPropagation();
+		}
+
+		this.updateLegacyInteractionState();
 	}
 
 	private handleContextMenu(event: MouseEvent): void {
-		event.preventDefault();
-		// TODO: Show context menu
+		const canvasPoint = this.getCanvasPoint(event);
+		const screenPoint = this.getScreenPoint(event);
+		const modifiers = this.getModifiers(event);
+
+		// Create state machine event
+		const stateMachineEvent: StateMachineEvent = {
+			type: 'contextmenu',
+			point: canvasPoint,
+			screenPoint: screenPoint,
+			modifiers: modifiers
+		};
+
+		// Process through state machine
+		const result = this.stateMachine.processEvent(stateMachineEvent);
+		
+		if (result.preventDefault) {
+			event.preventDefault();
+		}
+		if (result.stopPropagation) {
+			event.stopPropagation();
+		}
+
+		this.updateLegacyInteractionState();
+	}
+
+	private handleKeyDown(event: KeyboardEvent): void {
+		const modifiers = this.getModifiers(event);
+
+		// Create state machine event
+		const stateMachineEvent: StateMachineEvent = {
+			type: 'keydown',
+			key: event.key,
+			modifiers: modifiers
+		};
+
+		// Process through state machine
+		const result = this.stateMachine.processEvent(stateMachineEvent);
+		
+		if (result.preventDefault) {
+			event.preventDefault();
+		}
+		if (result.stopPropagation) {
+			event.stopPropagation();
+		}
+
+		this.updateLegacyInteractionState();
+	}
+
+	private handleKeyUp(event: KeyboardEvent): void {
+		const modifiers = this.getModifiers(event);
+
+		// Create state machine event
+		const stateMachineEvent: StateMachineEvent = {
+			type: 'keyup',
+			key: event.key,
+			modifiers: modifiers
+		};
+
+		// Process through state machine
+		const result = this.stateMachine.processEvent(stateMachineEvent);
+		
+		if (result.preventDefault) {
+			event.preventDefault();
+		}
+		if (result.stopPropagation) {
+			event.stopPropagation();
+		}
+
+		this.updateLegacyInteractionState();
 	}
 
 	// Panning
@@ -649,7 +876,9 @@ export class InteractionController {
 
 	// Public methods for accessing manager state
 	getSelectionBox(): BoundingBox | null {
-		return this.selectionManager.getSelectionBox();
+		// Get selection box from state machine context
+		const context = this.stateMachine.getContext();
+		return context.selectionBox || null;
 	}
 
 	getSnapIndicators(): SnapTarget[] {
