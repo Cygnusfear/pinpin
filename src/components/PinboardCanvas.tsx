@@ -148,17 +148,39 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     return () => clearInterval(interval);
   }, [setSelectionBox]); // Re-run when setSelectionBox changes
 
-  // Handle file drop
+  // Handle file drop with proper event target checking to prevent flickering
+  const dragCounterRef = useRef(0);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Increment counter to track nested drag enters
+    dragCounterRef.current++;
+    
+    // Only set file over on first enter
+    if (dragCounterRef.current === 1) {
+      setFileOver(true);
+    }
+  }, [setFileOver]);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setFileOver(true);
-  }, [setFileOver]);
+    // Don't change state on dragover - just prevent default
+  }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setFileOver(false);
+    
+    // Decrement counter
+    dragCounterRef.current--;
+    
+    // Only clear file over when all nested elements are left
+    if (dragCounterRef.current === 0) {
+      setFileOver(false);
+    }
   }, [setFileOver]);
 
   // Common handler for both drop and paste
@@ -202,6 +224,9 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Reset drag counter and file over state
+    dragCounterRef.current = 0;
     setFileOver(false);
     
     await handleContentDrop(e.dataTransfer, {
@@ -387,6 +412,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
         backgroundColor: '#f5f5f5',
         cursor: getCursorStyle(),
       }}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -429,7 +455,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
 
       {/* File drop overlay */}
       {isFileOver && (
-        <motion.div 
+        <motion.div
           className="absolute inset-0 bg-blue-500/20 backdrop-blur-sm flex items-center justify-center z-50"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
