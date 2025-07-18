@@ -50,7 +50,6 @@ export const GenericWidgetRenderer: React.FC<GenericWidgetRendererProps> = ({
         top: widget.y,
         width: widget.width,
         height: widget.height + 20, // Extra space for pin
-        transform: `rotate(${widget.rotation}deg)`,
         transformOrigin: 'center',
         zIndex: state.isSelected ? 1000 : widget.zIndex,
         opacity: state.isSelected ? 0.9 : widget.locked ? 0.7 : 1,
@@ -58,7 +57,7 @@ export const GenericWidgetRenderer: React.FC<GenericWidgetRendererProps> = ({
         pointerEvents: widget.locked ? 'none' : 'auto',
       }}
       className="select-none"
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={{ opacity: 0, scale: 0.8, rotate: widget.rotation }}
       animate={{ 
         opacity: 1, 
         scale: state.isHovered ? 1.02 : 1,
@@ -223,62 +222,63 @@ const UrlWidgetContent: React.FC<{
   widget: UrlWidget;
   state: WidgetRenderState;
   events: WidgetEvents;
-}> = ({ widget, state, events }) => (
-  <div className="h-full flex flex-col">
-    {/* Header with favicon and title */}
-    <div className="flex items-center gap-2 mb-2 min-h-0">
-      {widget.favicon && (
-        <img 
-          src={widget.favicon} 
-          alt="" 
-          className="w-4 h-4 flex-shrink-0"
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-        />
-      )}
-      <div className="font-medium text-sm truncate">
-        {widget.title || new URL(widget.url).hostname}
-      </div>
-    </div>
-    
-    {/* Embedded content or preview */}
-    <div className="flex-1 min-h-0">
-      {widget.embedType === 'iframe' && widget.embedData?.html ? (
-        <iframe
-          src={widget.url}
-          className="w-full h-full border-0 rounded"
-          title={widget.title || 'Embedded content'}
-          sandbox="allow-scripts allow-same-origin"
-        />
-      ) : widget.embedType === 'video' && widget.embedData?.html ? (
-        <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded">
-          <div className="text-center">
-            <div className="text-lg mb-1">🎥</div>
-            <div className="text-xs">Video Content</div>
+}> = ({ widget, state, events }) => {
+  const domain = new URL(widget.url).hostname;
+  
+  return (
+    <div className="h-full flex flex-col">
+      {/* Preview card */}
+      <div className="flex-1 min-h-0 bg-white rounded border border-gray-200 overflow-hidden">
+        {/* Preview image */}
+        {widget.preview && (
+          <div className="w-full h-24 bg-gray-100">
+            <img 
+              src={widget.preview} 
+              alt=""
+              className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          </div>
+        )}
+        
+        {/* Card content */}
+        <div className="p-3">
+          {/* Title */}
+          <div className="font-medium text-sm text-gray-900 mb-1 line-clamp-2">
+            {widget.title || domain}
+          </div>
+          
+          {/* Description */}
+          {widget.description && (
+            <div className="text-xs text-gray-600 line-clamp-2 mb-2">
+              {widget.description}
+            </div>
+          )}
+          
+          {/* Domain and favicon */}
+          <div className="flex items-center gap-2">
+            {widget.favicon && (
+              <img 
+                src={widget.favicon} 
+                alt="" 
+                className="w-3 h-3 flex-shrink-0"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            )}
+            <div className="text-xs text-gray-500 truncate">
+              {domain}
+            </div>
           </div>
         </div>
-      ) : widget.preview ? (
-        <img 
-          src={widget.preview} 
-          alt="" 
-          className="w-full h-full object-cover rounded"
-        />
-      ) : widget.description ? (
-        <div className="text-xs text-gray-600 line-clamp-3">
-          {widget.description}
-        </div>
-      ) : (
-        <div className="text-xs text-gray-400 italic">
-          Click to open link
-        </div>
-      )}
+      </div>
+      
+      {/* URL bar */}
+      <div className="text-xs text-blue-500 truncate mt-2 px-1">
+        {widget.url}
+      </div>
     </div>
-    
-    {/* URL */}
-    <div className="text-xs text-blue-500 truncate mt-1">
-      {widget.url}
-    </div>
-  </div>
-);
+  );
+};
 
 // Note widget content
 const NoteWidgetContent: React.FC<{

@@ -84,7 +84,7 @@ export class ImageWidgetFactory implements WidgetFactory<ImageWidget> {
 			y: position.y - displayHeight / 2,
 			width: displayWidth,
 			height: displayHeight,
-			rotation: (Math.random() - 0.5) * 20, // Random slight rotation
+			rotation: (Math.random() - 0.5) * 70, // Random slight rotation
 			locked: false,
 			metadata: {
 				originalFile: data instanceof File ? data.name : undefined,
