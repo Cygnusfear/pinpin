@@ -7,14 +7,11 @@ import { SYNC_CONFIG } from "../config/syncEngine";
 // Synced store data structure (what gets synchronized)
 export interface PinboardData {
 	widgets: Widget[];
-	canvasTransform: CanvasTransform;
 	lastModified: number;
 }
 
-// Store state interface
-export interface PinboardState extends PinboardData {
-	selectedWidgets: Set<string>; // Local state, not synced
-}
+// Store state interface (only synced data)
+export interface PinboardState extends PinboardData {}
 
 // Store actions interface
 export interface PinboardActions {
@@ -25,14 +22,6 @@ export interface PinboardActions {
 		updates: Array<{ id: string; updates: Partial<Widget> }>,
 	) => void;
 	removeWidget: (id: string) => void;
-
-	// Canvas operations
-	setCanvasTransform: (transform: CanvasTransform) => void;
-
-	// Selection operations (local only)
-	selectWidget: (id: string, selected: boolean) => void;
-	clearSelection: () => void;
-	getSelectedWidgets: () => Widget[];
 
 	// Utility operations
 	reset: () => void;
@@ -67,7 +56,6 @@ const cleanWidgetData = (widget: any): any => {
 // Initial synced data
 const initialSyncedData: PinboardData = {
 	widgets: [],
-	canvasTransform: { x: 0, y: 0, scale: 1 },
 	lastModified: Date.now(),
 };
 
@@ -77,7 +65,6 @@ export const useSyncedPinboardStore = create<SyncedPinboardStore>(
 		(set, get) => ({
 			// Initial state
 			...initialSyncedData,
-			selectedWidgets: new Set<string>(),
 
 			      // Widget operations
       addWidget: (widgetData: WidgetCreateData) => {
@@ -133,61 +120,12 @@ export const useSyncedPinboardStore = create<SyncedPinboardStore>(
 					widgets: state.widgets.filter((widget) => widget.id !== id),
 					lastModified: Date.now(),
 				}));
-
-				// Also remove from local selection
-				const { selectedWidgets } = get();
-				if (selectedWidgets.has(id)) {
-					selectedWidgets.delete(id);
-					set({ selectedWidgets: new Set(selectedWidgets) });
-				}
-			},
-
-			// Canvas operations
-			setCanvasTransform: (transform: CanvasTransform) => {
-				set({
-					canvasTransform: transform,
-					lastModified: Date.now(),
-				});
-			},
-
-			// Selection operations (local only, not synced)
-			selectWidget: (id: string, selected: boolean) => {
-				set((state) => {
-					const newSelectedWidgets = new Set(state.selectedWidgets);
-					if (selected) {
-						newSelectedWidgets.add(id);
-					} else {
-						newSelectedWidgets.delete(id);
-					}
-
-					return {
-						selectedWidgets: newSelectedWidgets,
-						widgets: state.widgets.map((widget) =>
-							widget.id === id ? ({ ...widget, selected } as Widget) : widget,
-						),
-					};
-				});
-			},
-
-			clearSelection: () => {
-				set((state) => ({
-					selectedWidgets: new Set(),
-					widgets: state.widgets.map(
-						(widget) => ({ ...widget, selected: false }) as Widget,
-					),
-				}));
-			},
-
-			getSelectedWidgets: () => {
-				const { widgets, selectedWidgets } = get();
-				return widgets.filter((widget) => selectedWidgets.has(widget.id));
 			},
 
 			// Utility operations
 			reset: () => {
 				set({
 					...initialSyncedData,
-					selectedWidgets: new Set(),
 					lastModified: Date.now(),
 				});
 			},

@@ -5,6 +5,7 @@ import { SelectionIndicator } from './SelectionIndicator';
 import { WidgetContainer } from './WidgetContainer';
 import { getWidgetRegistry } from '../core/WidgetRegistry';
 import { getGenericWidgetFactory } from '../core/GenericWidgetFactory';
+import { useSelection, useInteractionMode, useUIStore } from '../stores/pinboardStore';
 import {
   Widget,
   WidgetRenderState,
@@ -34,14 +35,36 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   onWidgetRemove,
   onCanvasTransform,
 }) => {
+  // Use UI store for local state
+  const {
+    selectedWidgets: selectedWidgetIds,
+    hoveredWidget: hoveredWidgetId,
+    selectWidget,
+    selectWidgets,
+    clearSelection,
+    setHoveredWidget,
+  } = useSelection();
+
+  const {
+    mode,
+    setMode,
+  } = useInteractionMode();
+
+  const {
+    isFileOver,
+    selectionBox,
+    setFileOver,
+    setSelectionBox,
+  } = useUIStore();
+
+  // Local state for canvas transform (synced with store)
   const [transform, setTransform] = useState<CanvasTransform>(
     canvasTransform || { x: 0, y: 0, scale: 1 }
   );
-  const [mode, setMode] = useState<InteractionMode>('select');
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [isFileOver, setIsFileOver] = useState(false);
-  const [selectionBox, setSelectionBox] = useState<import('../types/canvas').BoundingBox | null>(null);
+
+  // Convert selectedWidgets Set to array for compatibility
+  const selectedIds = Array.from(selectedWidgetIds);
+  const hoveredId = hoveredWidgetId;
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const interactionControllerRef = useRef<InteractionController | null>(null);
@@ -68,8 +91,12 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
       onWidgetRemove,
       onCanvasTransform: handleCanvasTransformUpdate,
       onModeChange: setMode,
-      onSelectionChange: setSelectedIds,
-      onHoverChange: setHoveredId,
+      onSelectionChange: (ids: string[]) => {
+        // Clear current selection and select new widgets
+        clearSelection();
+        selectWidgets(ids, true);
+      },
+      onHoverChange: setHoveredWidget,
     };
 
     interactionControllerRef.current = new InteractionController(callbacks);
@@ -81,7 +108,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     return () => {
       interactionControllerRef.current?.destroy();
     };
-  }, [onWidgetUpdate, onWidgetsUpdate, onWidgetRemove, handleCanvasTransformUpdate]);
+  }, [onWidgetUpdate, onWidgetsUpdate, onWidgetRemove, handleCanvasTransformUpdate, setMode, clearSelection, selectWidgets, setHoveredWidget]);
 
   // Update widgets in interaction controller
   useEffect(() => {
@@ -119,20 +146,20 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     const interval = setInterval(updateSelectionBox, 16); // ~60fps
 
     return () => clearInterval(interval);
-  }, [mode]); // Re-run when mode changes
+  }, [setSelectionBox]); // Re-run when setSelectionBox changes
 
   // Handle file drop
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFileOver(true);
-  }, []);
+    setFileOver(true);
+  }, [setFileOver]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFileOver(false);
-  }, []);
+    setFileOver(false);
+  }, [setFileOver]);
 
   // Common handler for both drop and paste
   const handleContentDrop = useCallback(async (
@@ -175,13 +202,13 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFileOver(false);
+    setFileOver(false);
     
     await handleContentDrop(e.dataTransfer, {
       x: e.clientX,
       y: e.clientY,
     });
-  }, [handleContentDrop]);
+  }, [handleContentDrop, setFileOver]);
 
   // Handle paste
   const handlePaste = useCallback(async (e: ClipboardEvent) => {

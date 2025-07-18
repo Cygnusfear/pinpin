@@ -1,6 +1,5 @@
 import React, { useEffect, useState, ReactNode } from 'react';
 import { initializeSyncEngine } from '../config/syncEngine';
-import { setSyncAvailability } from '../stores/storeSelector';
 
 interface SyncProviderProps {
   children: ReactNode;
@@ -35,7 +34,6 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
       
       if (success) {
         setStatus('synced');
-        setSyncAvailability(true);
         console.log('Sync engine initialized successfully');
       } else {
         throw new Error('Sync engine initialization failed');
@@ -46,7 +44,6 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
       
       setError(errorMessage);
       setStatus('offline');
-      setSyncAvailability(false);
     }
   }, []);
 
@@ -77,7 +74,6 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
     const handleOffline = () => {
       console.log('Network connection lost, switching to offline mode');
       setStatus('offline');
-      setSyncAvailability(false);
     };
 
     window.addEventListener('online', handleOnline);

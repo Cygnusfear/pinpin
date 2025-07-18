@@ -2,20 +2,24 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { PinboardCanvas } from '../components/PinboardCanvas';
 import { SyncDemo } from '../components/SyncDemo';
 import { Widget, WidgetCreateData } from '../types/widgets';
-import { usePinboardStore } from '../stores/pinboardStore';
+import { usePinboardStore, useCanvasTransform } from '../stores/pinboardStore';
 import { getWidgetRegistry } from '../core/WidgetRegistry';
 
 const Pinboard: React.FC = () => {
-  // Use the smart store selector that handles sync/fallback automatically
+  // Use the synced pinboard store for widget data
   const {
     widgets,
     updateWidget,
     updateWidgets,
     addWidget,
     removeWidget,
+  } = usePinboardStore();
+
+  // Use the UI store for canvas transform
+  const {
     canvasTransform,
     setCanvasTransform,
-  } = usePinboardStore();
+  } = useCanvasTransform();
 
   // Track if demo widgets have been initialized to prevent duplicates
   const demoInitializedRef = useRef(false);

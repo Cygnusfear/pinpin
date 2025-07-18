@@ -46,6 +46,11 @@ export class PanningState extends BaseState {
 
     const delta = this.calculateDelta(this.context.startPosition, event.screenPoint);
     
+    // Only update if there's meaningful movement to prevent spam
+    if (Math.abs(delta.x) < 1 && Math.abs(delta.y) < 1) {
+      return null;
+    }
+    
     // Update canvas transform
     const newTransform = {
       ...this.context.canvasTransform,
@@ -53,7 +58,7 @@ export class PanningState extends BaseState {
       y: this.context.canvasTransform.y + delta.y,
     };
 
-    this.updateContext({ 
+    this.updateContext({
       canvasTransform: newTransform,
       startPosition: event.screenPoint, // Update start position for continuous panning
       currentPosition: event.screenPoint

@@ -7,6 +7,7 @@ import {
 	WidgetSerializationOptions,
 } from "../../types/widgets";
 import { ImageWidget, ImageWidgetCreateData } from "./types";
+import { getGenericWidgetFactory } from "../../core/GenericWidgetFactory";
 
 export class ImageWidgetFactory implements WidgetFactory<ImageWidget> {
 	type = "image";
@@ -82,18 +83,20 @@ export class ImageWidgetFactory implements WidgetFactory<ImageWidget> {
 		const displayWidth = aspectRatio > 1 ? maxSize : maxSize * aspectRatio;
 		const displayHeight = aspectRatio > 1 ? maxSize / aspectRatio : maxSize;
 
-		const widgetData: any = {
-			type: "image",
+		// Get default widget data from GenericWidgetFactory
+		const genericFactory = getGenericWidgetFactory();
+		const defaultData = genericFactory.getDefaultWidgetData(
+			"image",
+			position,
+			{ width: displayWidth, height: displayHeight }
+		);
+
+		// Merge with image-specific data
+		const widgetData: WidgetCreateData<ImageWidget> = {
+			...defaultData,
 			src,
 			originalDimensions,
-			x: position.x - displayWidth / 2,
-			y: position.y - displayHeight / 2,
-			width: displayWidth,
-			height: displayHeight,
-			rotation: (Math.random() - 0.5) * 10, // Random slight rotation
-			locked: false,
-			metadata: {},
-		};
+		} as WidgetCreateData<ImageWidget>;
 
 		// Only include alt if it has a meaningful value
 		if (alt && alt.trim() !== "") {

@@ -1,21 +1,33 @@
 // Main pinboard store export
-// This file provides a clean interface for components to import the store
+// This file provides a clean interface for components to import the stores
 
-export { 
-  usePinboardStore,
-  useSyncedPinboardStore, 
-  useFallbackPinboardStore,
-  setSyncAvailability,
-  getSyncAvailability
-} from './storeSelector';
+// Export the synced pinboard store (for actual pinboard data)
+export {
+  useSyncedPinboardStore as usePinboardStore,
+  getSyncStatus
+} from './syncedPinboardStore';
 
-export type { 
+// Export the UI store (for local UI state)
+export {
+  useUIStore,
+  useSelection,
+  useCanvasTransform,
+  useInteractionMode
+} from './uiStore';
+
+// Export types
+export type {
   SyncedPinboardStore,
-  FallbackPinboardStore,
   PinboardData,
   PinboardState,
-  PinboardActions 
-} from './storeSelector';
+  PinboardActions
+} from './syncedPinboardStore';
+
+export type {
+  UIStore,
+  UIState,
+  UIActions
+} from './uiStore';
 
 // Re-export widget and canvas types for convenience
 export type { Widget, WidgetCreateData } from '../types/widgets';

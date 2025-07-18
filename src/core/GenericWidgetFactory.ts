@@ -3,6 +3,30 @@ import { Widget, WidgetCreateData } from '../types/widgets';
 
 export class GenericWidgetFactory {
   /**
+   * Provides default widget data that all plugin factories should inherit from
+   * Plugin factories should only override what's specific to their widget type
+   */
+  getDefaultWidgetData(
+    type: string,
+    position: { x: number; y: number },
+    size: { width: number; height: number }
+  ): Partial<WidgetCreateData<any>> {
+    return {
+      type,
+      x: position.x - size.width / 2,
+      y: position.y - size.height / 2,
+      width: size.width,
+      height: size.height,
+      rotation: (Math.random() - 0.5) * 8, // Slight random rotation
+      locked: false,
+      metadata: {
+        createdFrom: 'factory',
+        createdAt: Date.now(),
+      },
+    };
+  }
+
+  /**
    * Attempts to create a widget from the provided data by checking all registered plugins
    * Uses first-match strategy - iterates through plugins in registration order
    */
@@ -170,4 +194,4 @@ export const genericWidgetFactory = new GenericWidgetFactory();
 // Helper function to get the global factory
 export function getGenericWidgetFactory(): GenericWidgetFactory {
   return genericWidgetFactory;
-}
+} 

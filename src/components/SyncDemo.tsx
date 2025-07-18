@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSyncContext } from './SyncProvider';
-import { usePinboardStore } from '../stores/storeSelector';
+import { usePinboardStore } from '../stores/pinboardStore';
 
 export const SyncDemo: React.FC = () => {
   const { status } = useSyncContext();
