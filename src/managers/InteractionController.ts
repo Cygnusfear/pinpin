@@ -98,6 +98,8 @@ export class InteractionController {
 			onSelectionChange: (selectedIds) => {
 				this.selectionManager.selectMultiple(selectedIds, false);
 				this.callbacks.onSelectionChange(selectedIds);
+				// Force a re-render by triggering a mode change
+				this.updateLegacyInteractionState();
 			},
 			onHoverChange: (hoveredId) => {
 				this.selectionManager.setHovered(hoveredId);

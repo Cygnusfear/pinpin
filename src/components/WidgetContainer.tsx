@@ -60,14 +60,14 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         opacity: state.isSelected ? 0.9 : widget.locked ? 0.7 : 1,
         cursor: widget.locked ? 'not-allowed' : (state.isSelected ? 'move' : 'pointer'),
         pointerEvents: widget.locked ? 'none' : 'auto',
-        transform: `rotate(${widget.rotation}deg)`,
       }}
       className="select-none"
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ 
         opacity: 1, 
         scale: state.isHovered ? 1.02 : 1,
-        transition: { duration: 0.2 }
+        transition: { duration: 0.2 },
+        rotate: widget.rotation,
       }}
       exit={{ opacity: 0, scale: 0.8 }}
       onClick={widget.locked ? undefined : events.onSelect}
@@ -124,7 +124,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
           height: '8px',
           backgroundColor: 'rgba(0,0,0,0.2)',
           borderRadius: '50%',
-          filter: 'blur(2px)',
+          filter: 'blur(4px)',
           zIndex: -1,
         }}
       />

@@ -41,6 +41,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isFileOver, setIsFileOver] = useState(false);
+  const [selectionBox, setSelectionBox] = useState<import('../types/canvas').BoundingBox | null>(null);
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const interactionControllerRef = useRef<InteractionController | null>(null);
@@ -103,6 +104,22 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   useEffect(() => {
     interactionControllerRef.current?.setCanvasTransform(transform);
   }, [transform]);
+
+  // Update selection box state when mode changes (to trigger re-renders)
+  useEffect(() => {
+    const updateSelectionBox = () => {
+      const currentSelectionBox = interactionControllerRef.current?.getSelectionBox() || null;
+      setSelectionBox(currentSelectionBox);
+    };
+
+    // Update immediately
+    updateSelectionBox();
+
+    // Set up an interval to check for changes (temporary solution)
+    const interval = setInterval(updateSelectionBox, 16); // ~60fps
+
+    return () => clearInterval(interval);
+  }, [mode]); // Re-run when mode changes
 
   // Handle file drop
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -378,7 +395,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
         <SelectionIndicator
           selectedWidgets={selectedWidgets}
           hoveredWidget={hoveredWidget}
-          selectionBox={interactionControllerRef.current?.getSelectionBox() || null}
+          selectionBox={selectionBox}
           snapTargets={interactionControllerRef.current?.getSnapIndicators() || []}
         />
       </div>
