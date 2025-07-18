@@ -23,6 +23,36 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
   // Render widget content using plugin renderer or fallback
   const renderWidgetContent = () => {
+    // Handle special widget types for separated architecture
+    if (widget.type === 'loading') {
+      return (
+        <div className="h-full flex flex-col items-center justify-center text-center p-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2" />
+          <div className="text-sm font-medium mb-1">Loading Content</div>
+          <div className="text-xs text-gray-500">
+            {(widget as any).message || 'Please wait...'}
+          </div>
+        </div>
+      );
+    }
+
+    if (widget.type === 'error') {
+      return (
+        <div className="h-full flex flex-col items-center justify-center text-center p-4">
+          <div className="text-2xl mb-2">⚠️</div>
+          <div className="text-sm font-medium mb-1 text-red-600">Content Error</div>
+          <div className="text-xs text-gray-500">
+            {(widget as any).errorMessage || 'Failed to load content'}
+          </div>
+          {(widget as any).originalType && (
+            <div className="text-xs text-gray-400 mt-1">
+              Type: {(widget as any).originalType}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (renderer?.component) {
       const RendererComponent = renderer.component;
       return (

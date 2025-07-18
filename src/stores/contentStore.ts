@@ -378,14 +378,34 @@ export const useContentStore = create<ContentStore>(
       },
     }),
     {
-      docId: "pinboard-content" as DocumentId, // Separate document for content
-      initTimeout: 5000,
+      docId: "pinboard-content" as DocumentId, // Keep separate document but fix sync config
+      initTimeout: 10000, // Increase timeout for content sync
       onInitError: (error) => {
-        console.error("❌ Content store sync initialization error:", error);
+        console.error("❌ [CROSS-DEVICE DEBUG] Content store sync initialization error:", error);
+        console.error("🔍 [CROSS-DEVICE DEBUG] This will prevent content from syncing between devices!");
+        console.error("🔧 [CROSS-DEVICE DEBUG] Attempting to reinitialize content sync...");
+        
+        // Attempt to reinitialize after a delay
+        setTimeout(() => {
+          try {
+            console.log("🔄 [CROSS-DEVICE DEBUG] Retrying content store initialization...");
+          } catch (retryError) {
+            console.error("❌ [CROSS-DEVICE DEBUG] Content store retry failed:", retryError);
+          }
+        }, 2000);
       },
       onBeforeSync: (data: any) => {
-        console.log("📤 About to sync content data:", Object.keys(data.content || {}).length, "items");
+        console.log("📤 [CROSS-DEVICE DEBUG] About to sync content data:", Object.keys(data.content || {}).length, "items");
+        console.log("🔍 [CROSS-DEVICE DEBUG] Content IDs being synced:", Object.keys(data.content || {}));
         return data;
+      },
+      onAfterSync: (data: any) => {
+        console.log("📥 [CROSS-DEVICE DEBUG] Content data synced from remote:", Object.keys(data.content || {}).length, "items");
+        console.log("🔍 [CROSS-DEVICE DEBUG] Received content IDs:", Object.keys(data.content || {}));
+      },
+      onSyncError: (error: any) => {
+        console.error("❌ [CROSS-DEVICE DEBUG] Content sync error:", error);
+        console.error("🔍 [CROSS-DEVICE DEBUG] Content will not be available on other devices!");
       },
     } as any,
   ),

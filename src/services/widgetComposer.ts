@@ -34,6 +34,21 @@ export class WidgetComposer {
     // Get content data
     const contentData = this.contentStore.getContent(widgetData.contentId);
     
+    // Enhanced debug logging for cross-device sync issues
+    console.log(`🔍 [CROSS-DEVICE DEBUG] Composing widget ${widgetData.id} with contentId: ${widgetData.contentId}`);
+    console.log(`📦 [CROSS-DEVICE DEBUG] Content found:`, !!contentData, contentData ? 'YES' : 'NO');
+    console.log(`🏪 [CROSS-DEVICE DEBUG] Content store state:`, {
+      totalContentItems: Object.keys(this.contentStore.content || {}).length,
+      availableContentIds: Object.keys(this.contentStore.content || {}),
+      requestedContentId: widgetData.contentId,
+      contentStoreLastModified: this.contentStore.lastModified,
+    });
+    
+    if (!contentData) {
+      console.error(`❌ [CROSS-DEVICE DEBUG] Content not found! This suggests a sync issue between devices.`);
+      console.error(`🔍 [CROSS-DEVICE DEBUG] Widget was created on another device but content didn't sync.`);
+    }
+    
     const composedWidget: ComposedWidget = {
       ...widgetData,
       content: contentData,

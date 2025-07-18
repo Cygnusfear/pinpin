@@ -8,9 +8,11 @@ import {
 	CanvasTransform,
 	SnapTarget,
 } from "../types/canvas";
+import { WidgetData } from "../types/separatedWidgets";
 import { SelectionManager } from "./SelectionManager";
 import { KeyboardManager, KeyboardCommand } from "./KeyboardManager";
-import { DragManager } from "./DragManager";
+import { SeparatedDragManager } from "./SeparatedDragManager";
+import { useWidgetTransforms } from "../stores/separatedPinboardStore";
 import {
 	StateMachine,
 	StateMachineCallbacks,
@@ -41,7 +43,7 @@ export interface InteractionCallbacks {
 export class InteractionController {
 	private selectionManager: SelectionManager;
 	private keyboardManager: KeyboardManager;
-	private dragManager: DragManager;
+	private dragManager: SeparatedDragManager;
 	private stateMachine: StateMachine;
 
 	private widgets: Widget[] = [];
@@ -69,14 +71,59 @@ export class InteractionController {
 		this.keyboardManager = new KeyboardManager();
 		this.setupKeyboardCommands();
 
-		this.dragManager = new DragManager(
+		// Initialize SeparatedDragManager with performance-optimized callbacks
+		this.dragManager = new SeparatedDragManager(
 			this.handleDragStart.bind(this),
 			this.handleDragUpdate.bind(this),
 			this.handleDragEnd.bind(this),
+			undefined, // onSnapChange - will be handled by state machine
+			this.getOptimizedWidgetTransformUpdate(),
+			this.getOptimizedMultipleWidgetTransformUpdate()
 		);
 
 		// Initialize state machine
 		this.initializeStateMachine();
+	}
+
+	// Get optimized widget transform update function for SeparatedDragManager
+	private getOptimizedWidgetTransformUpdate() {
+		return (id: string, transform: { x?: number; y?: number; width?: number; height?: number; rotation?: number }) => {
+			// This bypasses the general widget update mechanism and only updates position data
+			// This is the key performance optimization - only syncing lightweight transform data
+			this.callbacks.onWidgetUpdate(id, transform as any);
+		};
+	}
+
+	// Get optimized multiple widget transform update function for SeparatedDragManager
+	private getOptimizedMultipleWidgetTransformUpdate() {
+		return (updates: Array<{ id: string; transform: { x?: number; y?: number; width?: number; height?: number; rotation?: number } }>) => {
+			// Convert to the format expected by onWidgetsUpdate
+			const widgetUpdates = updates.map(({ id, transform }) => ({
+				id,
+				updates: transform as any
+			}));
+			this.callbacks.onWidgetsUpdate(widgetUpdates);
+		};
+	}
+
+	// Convert legacy Widget to WidgetData for SeparatedDragManager
+	private convertWidgetToWidgetData(widget: Widget): WidgetData {
+		return {
+			id: widget.id,
+			type: widget.type,
+			x: widget.x,
+			y: widget.y,
+			width: widget.width,
+			height: widget.height,
+			rotation: widget.rotation,
+			zIndex: widget.zIndex,
+			locked: widget.locked,
+			selected: widget.selected,
+			contentId: `content_${widget.id}`, // Temporary contentId for legacy widgets
+			metadata: widget.metadata,
+			createdAt: widget.createdAt,
+			updatedAt: widget.updatedAt,
+		};
 	}
 
 	private initializeStateMachine(): void {
@@ -349,7 +396,9 @@ export class InteractionController {
 			// Start drag if widget is selected
 			if (this.selectionManager.isSelected(hitWidget.id)) {
 				const selectedIds = this.selectionManager.getSelectedIds();
-				this.dragManager.startDrag(selectedIds, point, this.widgets);
+				// Convert legacy widgets to WidgetData for SeparatedDragManager
+				const widgetDataArray = this.widgets.map(w => this.convertWidgetToWidgetData(w));
+				this.dragManager.startDrag(selectedIds, point, widgetDataArray);
 				this.setMode("drag");
 			} else {
 			}

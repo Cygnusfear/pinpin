@@ -100,15 +100,28 @@ export interface UnknownWidget extends BaseWidget {
   errorMessage?: string;
 }
 
+export interface LoadingWidget extends BaseWidget {
+  type: 'loading';
+  message?: string;
+}
+
+export interface ErrorWidget extends BaseWidget {
+  type: 'error';
+  errorMessage: string;
+  originalType?: string;
+}
+
 // Union type for all widgets
-export type Widget = 
-  | ImageWidget 
-  | DocumentWidget 
-  | UrlWidget 
-  | NoteWidget 
-  | AppWidget 
-  | GroupWidget 
-  | UnknownWidget;
+export type Widget =
+  | ImageWidget
+  | DocumentWidget
+  | UrlWidget
+  | NoteWidget
+  | AppWidget
+  | GroupWidget
+  | UnknownWidget
+  | LoadingWidget
+  | ErrorWidget;
 
 // Widget creation data (without id, timestamps, etc.)
 export type WidgetCreateData<T extends Widget = Widget> = Omit<
