@@ -74,7 +74,8 @@ export class WidgetRegistry implements IWidgetRegistry {
   // Plugin management
   async installPlugin(plugin: WidgetPlugin): Promise<void> {
     if (this.plugins.has(plugin.id)) {
-      throw new Error(`Plugin '${plugin.id}' is already installed`);
+      console.warn(`Plugin '${plugin.id}' is already installed. Skipping.`);
+      return;
     }
 
     try {

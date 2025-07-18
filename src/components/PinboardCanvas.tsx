@@ -15,22 +15,31 @@ import { CanvasTransform, InteractionMode } from '../types/canvas';
 
 interface PinboardCanvasProps {
   widgets: Widget[];
+  canvasTransform?: CanvasTransform;
   onWidgetUpdate: (id: string, updates: Partial<Widget>) => void;
   onWidgetsUpdate: (updates: Array<{ id: string; updates: Partial<Widget> }>) => void;
   onWidgetAdd: (widget: WidgetCreateData) => void;
   onWidgetRemove: (id: string) => void;
+  onCanvasTransform?: (transform: CanvasTransform) => void;
 }
 
 const CORKBOARD_TEXTURE = 'https://thumbs.dreamstime.com/b/wooden-cork-board-seamless-tileable-texture-29991843.jpg';
 
+// Global flag to prevent multiple registry initializations
+let registryInitialized = false;
+
 export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   widgets,
+  canvasTransform,
   onWidgetUpdate,
   onWidgetsUpdate,
   onWidgetAdd,
   onWidgetRemove,
+  onCanvasTransform,
 }) => {
-  const [transform, setTransform] = useState<CanvasTransform>({ x: 0, y: 0, scale: 1 });
+  const [transform, setTransform] = useState<CanvasTransform>(
+    canvasTransform || { x: 0, y: 0, scale: 1 }
+  );
   const [mode, setMode] = useState<InteractionMode>('select');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -38,17 +47,16 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const interactionControllerRef = useRef<InteractionController | null>(null);
-  const registryInitialized = useRef(false);
 
   // Initialize widget registry and install core plugin
   useEffect(() => {
     const initializeRegistry = async () => {
-      if (registryInitialized.current) return;
+      if (registryInitialized) return;
       
       try {
         const registry = getWidgetRegistry();
         await registry.installPlugin(coreWidgetPlugin);
-        registryInitialized.current = true;
+        registryInitialized = true;
         console.log('Widget registry initialized with core plugin');
       } catch (error) {
         console.error('Failed to initialize widget registry:', error);
@@ -58,13 +66,26 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     initializeRegistry();
   }, []);
 
+  // Sync canvas transform with store
+  useEffect(() => {
+    if (canvasTransform) {
+      setTransform(canvasTransform);
+    }
+  }, [canvasTransform]);
+
+  // Handle canvas transform updates
+  const handleCanvasTransformUpdate = useCallback((newTransform: CanvasTransform) => {
+    setTransform(newTransform);
+    onCanvasTransform?.(newTransform);
+  }, [onCanvasTransform]);
+
   // Initialize interaction controller
   useEffect(() => {
     const callbacks: InteractionCallbacks = {
       onWidgetUpdate,
       onWidgetsUpdate,
       onWidgetRemove,
-      onCanvasTransform: setTransform,
+      onCanvasTransform: handleCanvasTransformUpdate,
       onModeChange: setMode,
       onSelectionChange: setSelectedIds,
       onHoverChange: setHoveredId,
@@ -79,7 +100,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     return () => {
       interactionControllerRef.current?.destroy();
     };
-  }, [onWidgetUpdate, onWidgetsUpdate, onWidgetRemove]);
+  }, [onWidgetUpdate, onWidgetsUpdate, onWidgetRemove, handleCanvasTransformUpdate]);
 
   // Update widgets in interaction controller
   useEffect(() => {
@@ -445,7 +466,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
         <button
           type="button"
-          onClick={() => setTransform({ x: 0, y: 0, scale: 1 })}
+          onClick={() => handleCanvasTransformUpdate({ x: 0, y: 0, scale: 1 })}
           className="bg-white/90 hover:bg-white px-4 py-2 rounded-lg shadow-md transition-colors"
         >
           Reset View

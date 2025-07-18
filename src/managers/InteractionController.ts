@@ -156,31 +156,25 @@ export class InteractionController {
   }
 
   private handleSelectModeMouseDown(point: Point, modifiers: KeyModifiers, hitWidget?: Widget): void {
-    console.log('🐛 DEBUG: handleSelectModeMouseDown - hitWidget:', hitWidget?.id, 'modifiers:', modifiers, 'justEndedDrag:', this.justEndedDrag);
     
     if (hitWidget) {
       // Handle widget selection and start potential drag
-      console.log('🐛 DEBUG: Calling selectionManager.handleClick for widget:', hitWidget.id);
       this.selectionManager.handleClick(point, this.widgets, modifiers, hitWidget);
       
       // Start drag if widget is selected
       if (this.selectionManager.isSelected(hitWidget.id)) {
-        console.log('🐛 DEBUG: Widget is selected, starting drag mode for:', hitWidget.id);
         const selectedIds = this.selectionManager.getSelectedIds();
         this.dragManager.startDrag(selectedIds, point, this.widgets);
         this.setMode('drag');
       } else {
-        console.log('🐛 DEBUG: Widget is NOT selected after handleClick:', hitWidget.id);
       }
     } else {
       // Check if we just ended a drag - if so, don't clear selection immediately
       if (this.justEndedDrag) {
-        console.log('🐛 DEBUG: Ignoring canvas click - just ended drag');
         this.justEndedDrag = false;
         return;
       }
       
-      console.log('🐛 DEBUG: No widget hit, starting area selection');
       // Start area selection
       this.selectionManager.handleClick(point, this.widgets, modifiers);
       this.selectionManager.startAreaSelection(point);
@@ -221,18 +215,14 @@ export class InteractionController {
   }
 
   public handleMouseUp(event: MouseEvent): void {
-    console.log('🐛 DEBUG: handleMouseUp called, current mode:', this.interactionState.mode, 'isActive:', this.interactionState.isActive);
-    console.log('🐛 DEBUG: Current selection before mouseUp:', this.selectionManager.getSelectedIds());
     this.handleGlobalMouseUp(event);
   }
 
   private handleGlobalMouseUp(event: MouseEvent): void {
     const modifiers = this.getModifiers(event);
-    console.log('🐛 DEBUG: handleGlobalMouseUp - mode:', this.interactionState.mode, 'isActive:', this.interactionState.isActive);
 
     switch (this.interactionState.mode) {
       case 'drag':
-        console.log('🐛 DEBUG: Ending drag mode, switching to select');
         this.dragManager.endDrag();
         this.setMode('select');
         // Set flag to prevent immediate selection clearing
@@ -243,27 +233,22 @@ export class InteractionController {
         }, 10);
         break;
       case 'area-select':
-        console.log('🐛 DEBUG: Ending area-select mode, switching to select');
         this.selectionManager.endAreaSelection(this.widgets, modifiers.meta || modifiers.ctrl);
         this.setMode('select');
         break;
       case 'hand':
-        console.log('🐛 DEBUG: Ending hand mode, switching to select');
         this.endPanning();
         this.setMode('select');
         break;
       case 'transform':
-        console.log('🐛 DEBUG: Ending transform mode, switching to select');
         this.endTransform();
         this.setMode('select');
         break;
       default:
-        console.log('🐛 DEBUG: Mouse up in select mode - no mode change needed');
         break;
     }
 
     this.interactionState.isActive = false;
-    console.log('🐛 DEBUG: Selection after mouseUp:', this.selectionManager.getSelectedIds());
   }
 
   private handleWheel(event: WheelEvent): void {

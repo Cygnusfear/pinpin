@@ -81,8 +81,6 @@ export class SelectionManager {
   }
 
   clearSelection(): void {
-    console.log('🐛 DEBUG: clearSelection() called - clearing', Array.from(this.selectedIds));
-    console.trace('🐛 DEBUG: clearSelection stack trace');
     this.selectedIds.clear();
     this.notifySelectionChange();
   }

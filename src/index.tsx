@@ -2,38 +2,35 @@ import React from "react";
 import "./index.css";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { initializeSyncEngine } from "./config/syncEngine";
 import App from "./App";
-import { configureSyncEngine } from "@tonk/keepsync";
-import { BrowserWebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
-import { IndexedDBStorageAdapter } from "@automerge/automerge-repo-storage-indexeddb";
 
-// Setup sync engine
-const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-const wsUrl = `${wsProtocol}//${window.location.host}/sync`;
-const wsAdapter = new BrowserWebSocketClientAdapter(wsUrl);
-const storage = new IndexedDBStorageAdapter();
+// Initialize sync engine before rendering the app
+async function initApp() {
+  try {
+    await initializeSyncEngine();
+    console.log("Sync engine ready, starting app...");
+  } catch (error) {
+    console.warn("Sync engine failed to initialize, continuing in offline mode:", error);
+  }
 
-const engine = configureSyncEngine({
-  url: `${window.location.protocol}//${window.location.host}`,
-  network: [wsAdapter as any],
-  storage,
-});
+  const container = document.getElementById("root");
+  if (!container) throw new Error("Failed to find the root element");
+  const root = createRoot(container);
 
-await engine.whenReady();
+  const basename =
+    import.meta.env.VITE_BASE_PATH !== "/"
+      ? import.meta.env.VITE_BASE_PATH?.replace(/\/$/, "")
+      : "";
 
-const container = document.getElementById("root");
-if (!container) throw new Error("Failed to find the root element");
-const root = createRoot(container);
+  root.render(
+    <React.StrictMode>
+      <BrowserRouter basename={basename}>
+        <App />
+      </BrowserRouter>
+    </React.StrictMode>,
+  );
+}
 
-const basename =
-  import.meta.env.VITE_BASE_PATH !== "/"
-    ? import.meta.env.VITE_BASE_PATH?.replace(/\/$/, "")
-    : "";
-
-root.render(
-  <React.StrictMode>
-    <BrowserRouter basename={basename}>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>,
-);
+// Start the application
+initApp().catch(console.error);

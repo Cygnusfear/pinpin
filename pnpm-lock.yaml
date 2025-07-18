@@ -129,6 +129,9 @@ importers:
       http-proxy-middleware:
         specifier: ^3.0.0
         version: 3.0.5
+      ws:
+        specifier: ^8.16.0
+        version: 8.18.3
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -136,6 +139,9 @@ importers:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.23
+      '@types/ws':
+        specifier: ^8.5.14
+        version: 8.18.1
       tsx:
         specifier: ^4.7.0
         version: 4.20.3
