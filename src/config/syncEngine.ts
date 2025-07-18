@@ -17,22 +17,26 @@ export const initializeSyncEngine = async () => {
 	try {
 		let engine = await getSyncEngine();
 
-		console.warn("engine", engine);
+		console.warn("🔧 Sync engine:", engine);
 
 		if (!engine) {
+			console.log("🔧 Configuring new sync engine...");
 			await configureSyncEngine({
 				url,
 				network: [wsAdapter as any],
 				storage,
 			});
 			engine = await getSyncEngine();
+			console.log("✅ Sync engine configured:", engine);
 		}
 
+		console.log("⏳ Waiting for sync engine to be ready...");
 		await engine.whenReady();
+		console.log("✅ Sync engine ready");
 
 		return true;
 	} catch (error) {
-		console.error("Failed to initialize sync engine:", error);
+		console.error("❌ Failed to initialize sync engine:", error);
 		return false;
 	}
 };

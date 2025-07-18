@@ -34,7 +34,17 @@ const generateId = () =>
 	`widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 // Clean widget data by removing undefined values that can't be serialized
-const cleanWidgetData = (widget: any): any => {
+const cleanWidgetData = (widget: any, visited = new WeakSet()): any => {
+	// Check for circular references
+	if (visited.has(widget)) {
+		console.error("🔄 RECURSION DETECTED: Circular reference found in widget data", widget);
+		return "[Circular Reference Removed]";
+	}
+
+	if (widget && typeof widget === "object" && !Array.isArray(widget)) {
+		visited.add(widget);
+	}
+
 	const cleaned = { ...widget };
 
 	// Remove undefined values recursively
@@ -46,7 +56,12 @@ const cleanWidgetData = (widget: any): any => {
 			typeof cleaned[key] === "object" &&
 			!Array.isArray(cleaned[key])
 		) {
-			cleaned[key] = cleanWidgetData(cleaned[key]);
+			try {
+				cleaned[key] = cleanWidgetData(cleaned[key], visited);
+			} catch (error) {
+				console.error(`🔄 RECURSION ERROR in key "${key}":`, error);
+				cleaned[key] = "[Recursion Error - Removed]";
+			}
 		}
 	});
 
@@ -67,22 +82,46 @@ export const useSyncedPinboardStore = create<SyncedPinboardStore>(
 			...initialSyncedData,
 
 			      // Widget operations
-      addWidget: (widgetData: WidgetCreateData) => {
-        const now = Date.now();
-        const newWidget = cleanWidgetData({
-          ...widgetData,
-          id: generateId(),
-          zIndex: get().widgets.length,
-          selected: false,
-          createdAt: now,
-          updatedAt: now,
-        } as Widget);
-
-        set((state) => ({
-          widgets: [...state.widgets, newWidget],
-          lastModified: now,
-        }));
-      },
+			      addWidget: (widgetData: WidgetCreateData) => {
+			        const now = Date.now();
+			        
+			        // Log widget creation for debugging
+			        console.log("🔧 Adding widget:", widgetData.type, widgetData);
+			        
+			        // Check for potential circular references in GroupWidget
+			        if (widgetData.type === 'group' && 'children' in widgetData) {
+			          const groupData = widgetData as any;
+			          console.log("👥 GroupWidget children:", groupData.children);
+			          
+			          // Check if any children reference back to this group (potential circular ref)
+			          const currentWidgets = get().widgets;
+			          const circularRefs = groupData.children?.filter((childId: string) => {
+			            const child = currentWidgets.find(w => w.id === childId);
+			            return child?.type === 'group' && 'children' in child &&
+			                   (child as any).children?.includes(groupData.id);
+			          });
+			          
+			          if (circularRefs?.length > 0) {
+			            console.error("🔄 POTENTIAL CIRCULAR GROUP REFERENCE:", circularRefs);
+			          }
+			        }
+			        
+			        const newWidget = cleanWidgetData({
+			          ...widgetData,
+			          id: generateId(),
+			          zIndex: get().widgets.length,
+			          selected: false,
+			          createdAt: now,
+			          updatedAt: now,
+			        } as Widget);
+			
+			        console.log("✅ Cleaned widget data:", newWidget);
+			
+			        set((state) => ({
+			          widgets: [...state.widgets, newWidget],
+			          lastModified: now,
+			        }));
+			      },
 
 			updateWidget: (id: string, updates: Partial<Widget>) => {
 				const now = Date.now();
@@ -134,10 +173,22 @@ export const useSyncedPinboardStore = create<SyncedPinboardStore>(
 			docId: SYNC_CONFIG.DOCUMENT_ID as DocumentId,
 			initTimeout: SYNC_CONFIG.INIT_TIMEOUT,
 			onInitError: (error) => {
-				console.error("Sync initialization error:", error);
+				console.error("❌ Sync initialization error:", error);
 				// The store selector will handle fallback to offline mode
 			},
-		},
+			// Add serialization monitoring
+			onBeforeSync: (data: any) => {
+				console.log("📤 About to sync data:", data);
+				try {
+					const serialized = JSON.stringify(data);
+					console.log("✅ Data serialization successful, size:", serialized.length);
+				} catch (error) {
+					console.error("🔄 SERIALIZATION ERROR - Potential circular reference:", error);
+					console.error("🔄 Problematic data:", data);
+				}
+				return data;
+			},
+		} as any,
 	),
 );
 

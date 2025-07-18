@@ -110,6 +110,20 @@ export class ImageWidgetFactory implements WidgetFactory<ImageWidget> {
 			if (data.type) widgetData.metadata.mimeType = data.type;
 		}
 
+		// 🔍 RECURSION DEBUG: Check for potential circular references in widget data
+		console.log("🖼️ Image widget data before return:", JSON.stringify(widgetData, null, 2));
+		
+		// Check if the data object itself is being included (potential circular ref)
+		if (typeof data === "object" && data !== null && !(data instanceof File)) {
+			console.log("🔍 Checking object data for circular refs:", data);
+			try {
+				JSON.stringify(data);
+				console.log("✅ Object data serializes successfully");
+			} catch (error) {
+				console.error("🔄 CIRCULAR REFERENCE in input data:", error);
+			}
+		}
+
 		return widgetData;
 	}
 
@@ -223,12 +237,18 @@ export class ImageWidgetFactory implements WidgetFactory<ImageWidget> {
 		return new Promise((resolve) => {
 			const img = new Image();
 			img.onload = () => {
+				console.log("🖼️ Image loaded successfully, dimensions:", img.naturalWidth, img.naturalHeight);
 				resolve({ width: img.naturalWidth, height: img.naturalHeight });
 			};
 			img.onerror = () => {
+				console.warn("⚠️ Image failed to load, using default dimensions");
 				// Fallback to default dimensions
 				resolve({ width: 200, height: 150 });
 			};
+			
+			// 🔍 RECURSION DEBUG: Check if Image object could cause issues
+			console.log("🔍 Creating Image object for src:", src.substring(0, 100) + "...");
+			
 			img.src = src;
 		});
 	}
