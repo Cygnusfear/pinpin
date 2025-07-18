@@ -7,7 +7,10 @@ import {
   ImageWidget,
   UrlWidget,
   NoteWidget,
-  UnknownWidget
+  UnknownWidget,
+  DocumentWidget,
+  AppWidget,
+  GroupWidget
 } from '../types/widgets';
 import { getWidgetRegistry } from '../core/WidgetRegistry';
 
@@ -50,8 +53,9 @@ export const GenericWidgetRenderer: React.FC<GenericWidgetRendererProps> = ({
         transform: `rotate(${widget.rotation}deg)`,
         transformOrigin: 'center',
         zIndex: state.isSelected ? 1000 : widget.zIndex,
-        opacity: state.isSelected ? 0.9 : 1,
-        cursor: state.isSelected ? 'move' : 'pointer',
+        opacity: state.isSelected ? 0.9 : widget.locked ? 0.7 : 1,
+        cursor: widget.locked ? 'not-allowed' : (state.isSelected ? 'move' : 'pointer'),
+        pointerEvents: widget.locked ? 'none' : 'auto',
       }}
       className="select-none"
       initial={{ opacity: 0, scale: 0.8 }}
@@ -61,9 +65,9 @@ export const GenericWidgetRenderer: React.FC<GenericWidgetRendererProps> = ({
         transition: { duration: 0.2 }
       }}
       exit={{ opacity: 0, scale: 0.8 }}
-      onClick={events.onSelect}
-      onMouseEnter={events.onHover}
-      onMouseLeave={events.onUnhover}
+      onClick={widget.locked ? undefined : events.onSelect}
+      onMouseEnter={widget.locked ? undefined : events.onHover}
+      onMouseLeave={widget.locked ? undefined : events.onUnhover}
     >
       {/* Pin/Thumbtack */}
       <div
@@ -75,9 +79,9 @@ export const GenericWidgetRenderer: React.FC<GenericWidgetRendererProps> = ({
           zIndex: 10,
           width: '12px',
           height: '12px',
-          backgroundColor: state.isSelected ? '#3b82f6' : '#dc2626',
+          backgroundColor: widget.locked ? '#9ca3af' : (state.isSelected ? '#3b82f6' : '#dc2626'),
           borderRadius: '50%',
-          border: `2px solid ${state.isSelected ? '#1d4ed8' : '#b91c1c'}`,
+          border: `2px solid ${widget.locked ? '#6b7280' : (state.isSelected ? '#1d4ed8' : '#b91c1c')}`,
           boxShadow: '0 2px 4px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.3)',
         }}
       />
@@ -120,6 +124,16 @@ export const GenericWidgetRenderer: React.FC<GenericWidgetRendererProps> = ({
         }}
       />
 
+      {/* Locked indicator */}
+      {widget.locked && (
+        <div className="absolute inset-0 bg-gray-500/20 flex items-center justify-center">
+          <div className="text-gray-600 text-center p-2">
+            <div className="text-lg">🔒</div>
+            <div className="text-xs">Locked</div>
+          </div>
+        </div>
+      )}
+
       {/* Loading indicator */}
       {state.isLoading && (
         <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
@@ -152,6 +166,15 @@ function renderWidgetContent(widget: Widget, state: WidgetRenderState, events: W
     case 'note':
       return <NoteWidgetContent widget={widget as NoteWidget} state={state} events={events} />;
     
+    case 'document':
+      return <DocumentWidgetContent widget={widget as DocumentWidget} state={state} events={events} />;
+    
+    case 'app':
+      return <AppWidgetContent widget={widget as AppWidget} state={state} events={events} />;
+    
+    case 'group':
+      return <GroupWidgetContent widget={widget as GroupWidget} state={state} events={events} />;
+    
     case 'unknown':
       return <UnknownWidgetContent widget={widget as UnknownWidget} state={state} events={events} />;
     
@@ -166,25 +189,33 @@ const ImageWidgetContent: React.FC<{
   state: WidgetRenderState;
   events: WidgetEvents;
 }> = ({ widget, state, events }) => (
-  <img
-    src={widget.src}
-    alt={widget.alt || 'Pinned image'}
+  <div
     style={{
       width: '100%',
       height: '100%',
-      objectFit: 'cover',
+      position: 'relative',
+      overflow: 'hidden',
       borderRadius: '1px',
-      pointerEvents: 'none',
-      filter: widget.filters ? `
-        brightness(${widget.filters.brightness || 1})
-        contrast(${widget.filters.contrast || 1})
-        saturate(${widget.filters.saturation || 1})
-        blur(${widget.filters.blur || 0}px)
-      ` : undefined,
     }}
-    draggable={false}
-    onDoubleClick={events.onEdit}
-  />
+  >
+    <img
+      src={widget.src}
+      alt={widget.alt || 'Pinned image'}
+      style={{
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        pointerEvents: 'none',
+        filter: widget.filters ? `
+          brightness(${widget.filters.brightness || 1})
+          contrast(${widget.filters.contrast || 1})
+          saturate(${widget.filters.saturation || 1})
+          blur(${widget.filters.blur || 0}px)
+        ` : undefined,
+      }}
+      draggable={false}
+    />
+  </div>
 );
 
 // URL widget content
@@ -209,9 +240,23 @@ const UrlWidgetContent: React.FC<{
       </div>
     </div>
     
-    {/* Preview or description */}
+    {/* Embedded content or preview */}
     <div className="flex-1 min-h-0">
-      {widget.preview ? (
+      {widget.embedType === 'iframe' && widget.embedData?.html ? (
+        <iframe
+          src={widget.url}
+          className="w-full h-full border-0 rounded"
+          title={widget.title || 'Embedded content'}
+          sandbox="allow-scripts allow-same-origin"
+        />
+      ) : widget.embedType === 'video' && widget.embedData?.html ? (
+        <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded">
+          <div className="text-center">
+            <div className="text-lg mb-1">🎥</div>
+            <div className="text-xs">Video Content</div>
+          </div>
+        </div>
+      ) : widget.preview ? (
         <img 
           src={widget.preview} 
           alt="" 
@@ -257,11 +302,196 @@ const NoteWidgetContent: React.FC<{
       fontStyle: widget.formatting?.italic ? 'italic' : 'normal',
       textDecoration: widget.formatting?.underline ? 'underline' : 'none',
     }}
-    onDoubleClick={events.onEdit}
   >
     {widget.content.split('\n').map((line, index) => (
       <div key={`line-${index}-${line.slice(0, 10)}`}>{line || '\u00A0'}</div>
     ))}
+  </div>
+);
+
+// Document widget content
+const DocumentWidgetContent: React.FC<{
+  widget: DocumentWidget;
+  state: WidgetRenderState;
+  events: WidgetEvents;
+}> = ({ widget, state, events }) => (
+  <div className="h-full flex flex-col p-3">
+    {/* File icon and name */}
+    <div className="flex items-center gap-2 mb-2">
+      <div className="text-lg">
+        {widget.fileType === 'pdf' ? '📄' : 
+         widget.fileType === 'doc' || widget.fileType === 'docx' ? '📝' :
+         widget.fileType === 'txt' ? '📃' :
+         widget.fileType === 'xls' || widget.fileType === 'xlsx' ? '📊' :
+         widget.fileType === 'ppt' || widget.fileType === 'pptx' ? '📽️' :
+         '📄'}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium truncate">
+          {widget.fileName}
+        </div>
+        <div className="text-xs text-gray-500">
+          {widget.fileType.toUpperCase()} • {(widget.fileSize / 1024).toFixed(1)}KB
+        </div>
+      </div>
+    </div>
+    
+    {/* Thumbnail or preview */}
+    <div className="flex-1 min-h-0 mb-2">
+      {widget.thumbnail ? (
+        <img 
+          src={widget.thumbnail} 
+          alt="Document preview"
+          className="w-full h-full object-cover rounded"
+        />
+      ) : widget.content ? (
+        <div className="text-xs text-gray-600 line-clamp-4 bg-gray-50 p-2 rounded">
+          {widget.content.slice(0, 200)}...
+        </div>
+      ) : (
+        <div className="flex items-center justify-center h-full text-gray-400">
+          <div className="text-center">
+            <div className="text-2xl mb-1">📄</div>
+            <div className="text-xs">No preview</div>
+          </div>
+        </div>
+      )}
+    </div>
+    
+    {/* Actions */}
+    <div className="flex gap-1">
+      {widget.downloadUrl && (
+        <button 
+          type="button"
+          className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(widget.downloadUrl, '_blank');
+          }}
+        >
+          Download
+        </button>
+      )}
+      {widget.previewUrl && (
+        <button 
+          type="button"
+          className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(widget.previewUrl, '_blank');
+          }}
+        >
+          Preview
+        </button>
+      )}
+    </div>
+  </div>
+);
+
+// App widget content
+const AppWidgetContent: React.FC<{
+  widget: AppWidget;
+  state: WidgetRenderState;
+  events: WidgetEvents;
+}> = ({ widget, state, events }) => (
+  <div className="h-full flex flex-col p-3">
+    {/* App header */}
+    <div className="flex items-center gap-2 mb-2">
+      <div className="text-lg">💻</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium truncate">
+          {widget.appName}
+        </div>
+        <div className="text-xs text-gray-500">
+          v{widget.appVersion}
+        </div>
+      </div>
+    </div>
+    
+    {/* App content */}
+    <div className="flex-1 min-h-0">
+      {widget.iframe ? (
+        <iframe
+          src={widget.iframe}
+          className="w-full h-full border-0 rounded"
+          title={widget.appName}
+          sandbox="allow-scripts allow-same-origin"
+        />
+      ) : (
+        <div className="flex items-center justify-center h-full text-gray-400">
+          <div className="text-center">
+            <div className="text-2xl mb-1">💻</div>
+            <div className="text-xs">App Widget</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {widget.appId}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+// Group widget content
+const GroupWidgetContent: React.FC<{
+  widget: GroupWidget;
+  state: WidgetRenderState;
+  events: WidgetEvents;
+}> = ({ widget, state, events }) => (
+  <div 
+    className="h-full flex flex-col p-3"
+    style={{
+      backgroundColor: widget.backgroundColor || '#f3f4f6',
+      border: widget.borderColor ? `2px solid ${widget.borderColor}` : '2px solid #d1d5db',
+    }}
+  >
+    {/* Group header */}
+    <div className="flex items-center gap-2 mb-2">
+      <div className="text-lg">👥</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium truncate">
+          {widget.label || 'Widget Group'}
+        </div>
+        <div className="text-xs text-gray-500">
+          {widget.children.length} widgets
+        </div>
+      </div>
+      <div className="text-xs text-gray-400">
+        {widget.collapsed ? '📁' : '📂'}
+      </div>
+    </div>
+    
+    {/* Group content */}
+    <div className="flex-1 min-h-0">
+      {widget.collapsed ? (
+        <div className="flex items-center justify-center h-full text-gray-400">
+          <div className="text-center">
+            <div className="text-lg mb-1">📁</div>
+            <div className="text-xs">Collapsed</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {widget.children.length} items
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="text-xs text-gray-600">
+          <div className="mb-2">Widgets in this group:</div>
+          <div className="space-y-1">
+            {widget.children.slice(0, 3).map((childId, index) => (
+              <div key={childId} className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                <span className="truncate">Widget {index + 1}</span>
+              </div>
+            ))}
+            {widget.children.length > 3 && (
+              <div className="text-gray-400 italic">
+                +{widget.children.length - 3} more...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   </div>
 );
 
