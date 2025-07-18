@@ -7,11 +7,6 @@ interface SelectionIndicatorProps {
 	hoveredWidget: Widget | null;
 	selectionBox: BoundingBox | null;
 	snapTargets: SnapTarget[];
-	onTransformStart?: (
-		type: "resize" | "rotate",
-		handle: string,
-		position: { x: number; y: number },
-	) => void;
 }
 
 export const SelectionIndicator: React.FC<SelectionIndicatorProps> = ({
@@ -19,7 +14,6 @@ export const SelectionIndicator: React.FC<SelectionIndicatorProps> = ({
 	hoveredWidget,
 	selectionBox,
 	snapTargets,
-	onTransformStart,
 }) => {
 	const calculateSelectionBounds = (widgets: Widget[]): BoundingBox | null => {
 		if (widgets.length === 0) return null;
@@ -44,174 +38,7 @@ export const SelectionIndicator: React.FC<SelectionIndicatorProps> = ({
 		};
 	};
 
-	const renderTransformHandles = (bounds: BoundingBox) => {
-		const handleSize = 8;
-		const handles = [
-			{
-				position: "nw",
-				x: bounds.x - handleSize / 2,
-				y: bounds.y - handleSize / 2,
-			},
-			{
-				position: "n",
-				x: bounds.x + bounds.width / 2 - handleSize / 2,
-				y: bounds.y - handleSize / 2,
-			},
-			{
-				position: "ne",
-				x: bounds.x + bounds.width - handleSize / 2,
-				y: bounds.y - handleSize / 2,
-			},
-			{
-				position: "e",
-				x: bounds.x + bounds.width - handleSize / 2,
-				y: bounds.y + bounds.height / 2 - handleSize / 2,
-			},
-			{
-				position: "se",
-				x: bounds.x + bounds.width - handleSize / 2,
-				y: bounds.y + bounds.height - handleSize / 2,
-			},
-			{
-				position: "s",
-				x: bounds.x + bounds.width / 2 - handleSize / 2,
-				y: bounds.y + bounds.height - handleSize / 2,
-			},
-			{
-				position: "sw",
-				x: bounds.x - handleSize / 2,
-				y: bounds.y + bounds.height - handleSize / 2,
-			},
-			{
-				position: "w",
-				x: bounds.x - handleSize / 2,
-				y: bounds.y + bounds.height / 2 - handleSize / 2,
-			},
-		];
-
-		const handleTransformStart = (e: React.MouseEvent, position: string) => {
-			e.preventDefault();
-			e.stopPropagation();
-			console.log(`🔧 Transform handle clicked: ${position}`, e.target);
-			console.log(`🔧 Event details:`, {
-				clientX: e.clientX,
-				clientY: e.clientY,
-				target: e.target,
-			});
-
-			if (onTransformStart) {
-				const rect = e.currentTarget.getBoundingClientRect();
-				onTransformStart("resize", position, {
-					x: e.clientX,
-					y: e.clientY,
-				});
-			}
-		};
-
-		return handles.map((handle, index) => (
-			<div
-				key={`handle-${handle.position}`}
-				className="absolute bg-white border-2 border-blue-500 cursor-pointer hover:bg-blue-50"
-				style={{
-					left: handle.x,
-					top: handle.y,
-					width: handleSize,
-					height: handleSize,
-					borderRadius: "2px",
-					cursor: `${handle.position}-resize`,
-					zIndex: 1005,
-					pointerEvents: "auto",
-				}}
-				onMouseDown={(e) => handleTransformStart(e, handle.position)}
-				onMouseUp={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-				}}
-				onClick={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-				}}
-			/>
-		));
-	};
-
-	const renderRotationHandle = (bounds: BoundingBox) => {
-		const handleSize = 12; // Larger handle for better detection
-		const offset = 25;
-		const x = bounds.x + bounds.width / 2 - handleSize / 2;
-		const y = bounds.y - offset - handleSize / 2;
-
-		const handleRotationStart = (e: React.MouseEvent) => {
-			e.preventDefault();
-			e.stopPropagation();
-			console.log("🔄 Rotation handle clicked", e.target);
-			console.log("🔄 Rotation event details:", {
-				clientX: e.clientX,
-				clientY: e.clientY,
-				target: e.target,
-			});
-
-			if (onTransformStart) {
-				onTransformStart("rotate", "rotation", {
-					x: e.clientX,
-					y: e.clientY,
-				});
-			}
-		};
-
-		return (
-			<>
-				{/* Connection line */}
-				<div
-					className="absolute border-l border-blue-500 pointer-events-none"
-					style={{
-						left: bounds.x + bounds.width / 2,
-						top: bounds.y - offset,
-						height: offset,
-						width: 0,
-					}}
-				/>
-				{/* Rotation handle with larger clickable area */}
-				<div
-					className="absolute bg-white border-2 border-blue-500 cursor-pointer hover:bg-blue-50"
-					style={{
-						left: x - 4, // Expand clickable area
-						top: y - 4,
-						width: handleSize + 8,
-						height: handleSize + 8,
-						borderRadius: "50%",
-						cursor: "grab",
-						zIndex: 1010, // Higher z-index
-						pointerEvents: "auto",
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-					}}
-					onMouseDown={handleRotationStart}
-					onMouseUp={(e) => {
-						e.preventDefault();
-						e.stopPropagation();
-					}}
-					onClick={(e) => {
-						e.preventDefault();
-						e.stopPropagation();
-					}}
-				>
-					{/* Inner visual handle */}
-					<div
-						style={{
-							width: handleSize,
-							height: handleSize,
-							backgroundColor: "white",
-							border: "2px solid #3b82f6",
-							borderRadius: "50%",
-							pointerEvents: "none",
-						}}
-					/>
-				</div>
-			</>
-		);
-	};
+	// Transformation handles removed - will be rebuilt later
 
 	const selectionBounds = calculateSelectionBounds(selectedWidgets);
 
@@ -280,11 +107,7 @@ export const SelectionIndicator: React.FC<SelectionIndicatorProps> = ({
 						}}
 					/>
 
-					{/* Transform handles */}
-					<div className="pointer-events-auto" style={{ zIndex: 1004 }}>
-						{renderTransformHandles(selectionBounds)}
-						{renderRotationHandle(selectionBounds)}
-					</div>
+					{/* Transform handles removed - will be rebuilt later */}
 
 					{/* Selection count indicator */}
 					<div
@@ -308,10 +131,7 @@ export const SelectionIndicator: React.FC<SelectionIndicatorProps> = ({
 					exit={{ opacity: 0 }}
 					transition={{ duration: 0.15, ease: "easeOut" }}
 				>
-					<div className="pointer-events-auto" style={{ zIndex: 1004 }}>
-						{renderTransformHandles(selectionBounds)}
-						{renderRotationHandle(selectionBounds)}
-					</div>
+					{/* Transform handles removed - will be rebuilt later */}
 				</motion.div>
 			)}
 

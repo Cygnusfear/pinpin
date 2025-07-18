@@ -1,12 +1,12 @@
-import { 
-  WidgetFactory, 
-  DocumentWidget, 
-  WidgetCreateData, 
+import {
+  WidgetFactory,
+  WidgetCreateData,
   WidgetValidationResult,
   WidgetCapabilities,
   WidgetExportData,
-  WidgetSerializationOptions
-} from '../types/widgets';
+  WidgetSerializationOptions,
+} from '../../types/widgets';
+import { DocumentWidget, DocumentWidgetCreateData } from './types';
 
 export class DocumentWidgetFactory implements WidgetFactory<DocumentWidget> {
   type = 'document';

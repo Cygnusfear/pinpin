@@ -39,22 +39,6 @@ export class InteractionController {
 
 	private justEndedDrag = false;
 
-	// Transform state
-	private transformState: {
-		isActive: boolean;
-		type: "resize" | "rotate" | null;
-		handle: string | null;
-		startPosition: Point | null;
-		initialBounds: BoundingBox | null;
-		initialRotation: number;
-	} = {
-		isActive: false,
-		type: null,
-		handle: null,
-		startPosition: null,
-		initialBounds: null,
-		initialRotation: 0,
-	};
 
 	private callbacks: InteractionCallbacks;
 	private canvasElement: HTMLElement | null = null;
@@ -262,9 +246,6 @@ export class InteractionController {
 			case "hand":
 				this.updatePanning(screenPoint);
 				break;
-			case "transform":
-				this.updateTransform(canvasPoint);
-				break;
 		}
 	}
 
@@ -295,10 +276,6 @@ export class InteractionController {
 				break;
 			case "hand":
 				this.endPanning();
-				this.setMode("select");
-				break;
-			case "transform":
-				this.endTransform();
 				this.setMode("select");
 				break;
 			default:
@@ -687,209 +664,4 @@ export class InteractionController {
 		return this.selectionManager.getHoveredId();
 	}
 
-	// Transform methods
-	startTransform(
-		type: "resize" | "rotate",
-		handle: string,
-		startPosition: Point,
-	): void {
-		const selectedWidgets = this.getSelectedWidgets();
-		if (selectedWidgets.length === 0) return;
-
-		const bounds = this.selectionManager.getSelectionBounds(this.widgets);
-		if (!bounds) return;
-
-		// The startPosition is already in screen coordinates from the SelectionIndicator
-		// We need to convert it to canvas coordinates for proper scaling
-		if (!this.canvasElement) return;
-
-		const rect = this.canvasElement.getBoundingClientRect();
-		const canvasStartPosition = {
-			x:
-				(startPosition.x - rect.left - this.canvasTransform.x) /
-				this.canvasTransform.scale,
-			y:
-				(startPosition.y - rect.top - this.canvasTransform.y) /
-				this.canvasTransform.scale,
-		};
-
-		this.transformState = {
-			isActive: true,
-			type,
-			handle,
-			startPosition: canvasStartPosition,
-			initialBounds: bounds,
-			initialRotation: selectedWidgets[0]?.rotation || 0,
-		};
-
-		this.setMode("transform");
-		this.interactionState.isActive = true;
-		console.log(
-			`🔧 Started ${type} transform with handle: ${handle} at canvas position:`,
-			canvasStartPosition,
-		);
-	}
-
-	updateTransform(currentPosition: Point): void {
-		if (
-			!this.transformState.isActive ||
-			!this.transformState.startPosition ||
-			!this.transformState.initialBounds
-		)
-			return;
-
-		const selectedWidgets = this.getSelectedWidgets();
-		if (selectedWidgets.length === 0) return;
-
-		if (this.transformState.type === "resize") {
-			this.updateResize(currentPosition, selectedWidgets);
-		} else if (this.transformState.type === "rotate") {
-			this.updateRotation(currentPosition, selectedWidgets);
-		}
-	}
-
-	private updateResize(
-		currentPosition: Point,
-		selectedWidgets: Widget[],
-	): void {
-		if (
-			!this.transformState.startPosition ||
-			!this.transformState.initialBounds
-		)
-			return;
-
-		const handle = this.transformState.handle;
-		const startPos = this.transformState.startPosition;
-		const initialBounds = this.transformState.initialBounds;
-
-		const deltaX = currentPosition.x - startPos.x;
-		const deltaY = currentPosition.y - startPos.y;
-
-		let newBounds = { ...initialBounds };
-
-		// Calculate new bounds based on handle position
-		switch (handle) {
-			case "nw":
-				newBounds.x = initialBounds.x + deltaX;
-				newBounds.y = initialBounds.y + deltaY;
-				newBounds.width = initialBounds.width - deltaX;
-				newBounds.height = initialBounds.height - deltaY;
-				break;
-			case "n":
-				newBounds.y = initialBounds.y + deltaY;
-				newBounds.height = initialBounds.height - deltaY;
-				break;
-			case "ne":
-				newBounds.y = initialBounds.y + deltaY;
-				newBounds.width = initialBounds.width + deltaX;
-				newBounds.height = initialBounds.height - deltaY;
-				break;
-			case "e":
-				newBounds.width = initialBounds.width + deltaX;
-				break;
-			case "se":
-				newBounds.width = initialBounds.width + deltaX;
-				newBounds.height = initialBounds.height + deltaY;
-				break;
-			case "s":
-				newBounds.height = initialBounds.height + deltaY;
-				break;
-			case "sw":
-				newBounds.x = initialBounds.x + deltaX;
-				newBounds.width = initialBounds.width - deltaX;
-				newBounds.height = initialBounds.height + deltaY;
-				break;
-			case "w":
-				newBounds.x = initialBounds.x + deltaX;
-				newBounds.width = initialBounds.width - deltaX;
-				break;
-		}
-
-		// Ensure minimum size
-		const minSize = 20;
-		if (newBounds.width < minSize) {
-			newBounds.width = minSize;
-			if (handle.includes("w"))
-				newBounds.x = initialBounds.x + initialBounds.width - minSize;
-		}
-		if (newBounds.height < minSize) {
-			newBounds.height = minSize;
-			if (handle.includes("n"))
-				newBounds.y = initialBounds.y + initialBounds.height - minSize;
-		}
-
-		// Apply scaling to selected widgets
-		const scaleX = newBounds.width / initialBounds.width;
-		const scaleY = newBounds.height / initialBounds.height;
-
-		const updates = selectedWidgets.map((widget) => {
-			const relativeX = (widget.x - initialBounds.x) / initialBounds.width;
-			const relativeY = (widget.y - initialBounds.y) / initialBounds.height;
-			const relativeWidth = widget.width / initialBounds.width;
-			const relativeHeight = widget.height / initialBounds.height;
-
-			return {
-				id: widget.id,
-				updates: {
-					x: newBounds.x + relativeX * newBounds.width,
-					y: newBounds.y + relativeY * newBounds.height,
-					width: relativeWidth * newBounds.width,
-					height: relativeHeight * newBounds.height,
-				},
-			};
-		});
-
-		this.callbacks.onWidgetsUpdate(updates);
-	}
-
-	private updateRotation(
-		currentPosition: Point,
-		selectedWidgets: Widget[],
-	): void {
-		if (
-			!this.transformState.startPosition ||
-			!this.transformState.initialBounds
-		)
-			return;
-
-		const bounds = this.transformState.initialBounds;
-		const centerX = bounds.x + bounds.width / 2;
-		const centerY = bounds.y + bounds.height / 2;
-
-		// Calculate angles
-		const startAngle = Math.atan2(
-			this.transformState.startPosition.y - centerY,
-			this.transformState.startPosition.x - centerX,
-		);
-		const currentAngle = Math.atan2(
-			currentPosition.y - centerY,
-			currentPosition.x - centerX,
-		);
-
-		const deltaAngle = (currentAngle - startAngle) * (180 / Math.PI);
-		const newRotation = this.transformState.initialRotation + deltaAngle;
-
-		// Apply rotation to selected widgets
-		const updates = selectedWidgets.map((widget) => ({
-			id: widget.id,
-			updates: {
-				rotation: newRotation,
-			},
-		}));
-
-		this.callbacks.onWidgetsUpdate(updates);
-	}
-
-	endTransform(): void {
-		this.transformState = {
-			isActive: false,
-			type: null,
-			handle: null,
-			startPosition: null,
-			initialBounds: null,
-			initialRotation: 0,
-		};
-		this.interactionState.isActive = false;
-		console.log("🔧 Transform ended");
-	}
 }

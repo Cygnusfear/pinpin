@@ -1,12 +1,12 @@
-import { 
-  WidgetFactory, 
-  NoteWidget, 
-  WidgetCreateData, 
+import {
+  WidgetFactory,
+  WidgetCreateData,
   WidgetValidationResult,
   WidgetCapabilities,
   WidgetExportData,
-  WidgetSerializationOptions
-} from '../types/widgets';
+  WidgetSerializationOptions,
+} from '../../types/widgets';
+import { NoteWidget, NoteWidgetCreateData } from './types';
 
 export class NoteWidgetFactory implements WidgetFactory<NoteWidget> {
   type = 'note';

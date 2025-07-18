@@ -2,14 +2,14 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { InteractionController, InteractionCallbacks } from '../managers/InteractionController';
 import { SelectionIndicator } from './SelectionIndicator';
-import { GenericWidgetRenderer } from './GenericWidgetRenderer';
+import { WidgetContainer } from './WidgetContainer';
 import { getWidgetRegistry } from '../core/WidgetRegistry';
-import { coreWidgetPlugin } from '../plugins/CoreWidgetPlugin';
-import { 
-  Widget, 
-  WidgetRenderState, 
+import { getGenericWidgetFactory } from '../core/GenericWidgetFactory';
+import {
+  Widget,
+  WidgetRenderState,
   WidgetEvents,
-  WidgetCreateData 
+  WidgetCreateData
 } from '../types/widgets';
 import { CanvasTransform, InteractionMode } from '../types/canvas';
 
@@ -24,9 +24,6 @@ interface PinboardCanvasProps {
 }
 
 const CORKBOARD_TEXTURE = 'https://thumbs.dreamstime.com/b/wooden-cork-board-seamless-tileable-texture-29991843.jpg';
-
-// Global flag to prevent multiple registry initializations
-let registryInitialized = false;
 
 export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   widgets,
@@ -48,23 +45,6 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   const canvasRef = useRef<HTMLDivElement>(null);
   const interactionControllerRef = useRef<InteractionController | null>(null);
 
-  // Initialize widget registry and install core plugin
-  useEffect(() => {
-    const initializeRegistry = async () => {
-      if (registryInitialized) return;
-      
-      try {
-        const registry = getWidgetRegistry();
-        await registry.installPlugin(coreWidgetPlugin);
-        registryInitialized = true;
-        console.log('Widget registry initialized with core plugin');
-      } catch (error) {
-        console.error('Failed to initialize widget registry:', error);
-      }
-    };
-
-    initializeRegistry();
-  }, []);
 
   // Sync canvas transform with store
   useEffect(() => {
@@ -136,10 +116,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     dataTransfer: DataTransfer,
     screenPosition: { x: number; y: number }
   ) => {
-    const registry = getWidgetRegistry();
-    const files = Array.from(dataTransfer.files);
-    const text = dataTransfer.getData('text/plain');
-    const html = dataTransfer.getData('text/html');
+    const genericFactory = getGenericWidgetFactory();
     
     // Calculate canvas position
     const canvasRect = canvasRef.current?.getBoundingClientRect();
@@ -150,72 +127,25 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
       y: (screenPosition.y - canvasRect.top - transform.y) / transform.scale,
     };
 
-    let widgetsCreated = 0;
+    try {
+      // Use the generic factory to handle drop events
+      const widgets = await genericFactory.handleDropEvent(
+        { dataTransfer } as DragEvent,
+        canvasPosition
+      );
 
-    // Handle files first (highest priority)
-    for (const file of files) {
-      try {
-        const supportedTypes = registry.canHandleData(file);
-        if (supportedTypes.length > 0) {
-          const widget = await registry.createWidget(supportedTypes[0], file, {
-            x: canvasPosition.x + (widgetsCreated * 20),
-            y: canvasPosition.y + (widgetsCreated * 20),
-          });
-          if (widget) {
-            onWidgetAdd(widget);
-            widgetsCreated++;
-          }
-        } else {
-          console.log(`Unsupported file type: ${file.type || 'unknown'} (${file.name})`);
-        }
-      } catch (error) {
-        console.error('Failed to create widget from file:', error);
+      // Add all created widgets
+      widgets.forEach(widget => {
+        onWidgetAdd(widget);
+      });
+
+      if (widgets.length === 0) {
+        console.log('No widgets could be created from the dropped content');
+      } else {
+        console.log(`Created ${widgets.length} widget(s) from dropped content`);
       }
-    }
-
-    // Handle text/URLs if no files were processed
-    if (text && files.length === 0) {
-      try {
-        const supportedTypes = registry.canHandleData(text);
-        if (supportedTypes.length > 0) {
-          // Prefer URL over note for URL-like text
-          const preferredType = supportedTypes.includes('url') ? 'url' : supportedTypes[0];
-          const widget = await registry.createWidget(preferredType, text, canvasPosition);
-          if (widget) {
-            onWidgetAdd(widget);
-            widgetsCreated++;
-          }
-        }
-      } catch (error) {
-        console.error('Failed to create widget from text:', error);
-      }
-    }
-
-    // Handle HTML content (for rich text or embedded content)
-    if (html && files.length === 0 && !text) {
-      try {
-        // Extract plain text from HTML for note creation
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
-        const plainText = tempDiv.textContent || tempDiv.innerText || '';
-        
-        if (plainText.trim()) {
-          const supportedTypes = registry.canHandleData(plainText);
-          if (supportedTypes.length > 0) {
-            const widget = await registry.createWidget('note', plainText, canvasPosition);
-            if (widget) {
-              onWidgetAdd(widget);
-              widgetsCreated++;
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to create widget from HTML:', error);
-      }
-    }
-
-    if (widgetsCreated === 0) {
-      console.log('No widgets could be created from the dropped/pasted content');
+    } catch (error) {
+      console.error('Failed to create widgets from dropped content:', error);
     }
   }, [transform, onWidgetAdd]);
 
@@ -232,15 +162,13 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
 
   // Handle paste
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
-    // Only prevent default if we're going to handle the paste
     const clipboardData = e.clipboardData;
     if (!clipboardData) return;
 
+    const genericFactory = getGenericWidgetFactory();
+
     // Check if we have content to handle
-    const text = clipboardData.getData('text/plain');
-    const files = Array.from(clipboardData.files);
-    
-    if (!text && files.length === 0) return;
+    if (!genericFactory.canHandleData(clipboardData)) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -252,9 +180,30 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
       y: canvasRect.top + canvasRect.height / 2,
     } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 
-    console.log('Paste event:', { text, files: files.length });
-    await handleContentDrop(clipboardData, centerPosition);
-  }, [handleContentDrop]);
+    // Calculate canvas position
+    const canvasPosition = {
+      x: (centerPosition.x - (canvasRect?.left || 0) - transform.x) / transform.scale,
+      y: (centerPosition.y - (canvasRect?.top || 0) - transform.y) / transform.scale,
+    };
+
+    try {
+      // Use the generic factory to handle paste events
+      const widgets = await genericFactory.handlePasteEvent(e, canvasPosition);
+
+      // Add all created widgets
+      widgets.forEach(widget => {
+        onWidgetAdd(widget);
+      });
+
+      if (widgets.length === 0) {
+        console.log('No widgets could be created from the pasted content');
+      } else {
+        console.log(`Created ${widgets.length} widget(s) from pasted content`);
+      }
+    } catch (error) {
+      console.error('Failed to create widgets from pasted content:', error);
+    }
+  }, [transform, onWidgetAdd]);
 
   // Add paste event listener
   useEffect(() => {
@@ -410,7 +359,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
         {/* Widgets */}
         <AnimatePresence>
           {widgets.map((widget) => (
-            <GenericWidgetRenderer
+            <WidgetContainer
               key={widget.id}
               widget={widget}
               state={createWidgetRenderState(widget)}
@@ -425,18 +374,6 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
           hoveredWidget={hoveredWidget}
           selectionBox={interactionControllerRef.current?.getSelectionBox() || null}
           snapTargets={interactionControllerRef.current?.getSnapIndicators() || []}
-          onTransformStart={(type, handle, position) => {
-            if (interactionControllerRef.current) {
-              const canvasRect = canvasRef.current?.getBoundingClientRect();
-              if (canvasRect) {
-                const canvasPosition = {
-                  x: (position.x - canvasRect.left - transform.x) / transform.scale,
-                  y: (position.y - canvasRect.top - transform.y) / transform.scale,
-                };
-                interactionControllerRef.current.startTransform(type, handle, canvasPosition);
-              }
-            }
-          }}
         />
       </div>
 
