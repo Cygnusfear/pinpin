@@ -31,7 +31,7 @@ export const DocumentWidgetRenderer: React.FC<WidgetRendererProps<DocumentWidget
       
       {/* Thumbnail or preview */}
       <div className="flex-1 min-h-0 mb-2">
-        {widget.thumbnail ? (
+        {widget.thumbnail !== undefined ? (
           <img 
             src={widget.thumbnail} 
             alt="Document preview"
