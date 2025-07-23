@@ -115,6 +115,19 @@ const composedWidgetToLegacyWidget = (
         previewUrl: content.previewUrl,
       } as Widget;
 
+    case "calculator":
+      return {
+        ...baseWidget,
+        type: "calculator",
+        currentValue: content.currentValue,
+        previousValue: content.previousValue,
+        operation: content.operation,
+        result: content.result,
+        history: content.history,
+        isResultDisplayed: content.isResultDisplayed,
+        contentId: composedWidget.contentId, // Pass contentId for content updates
+      } as Widget;
+
     default:
       // Fallback for unknown or missing content
       return {
@@ -448,6 +461,11 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   const createWidgetEvents = useCallback(
     (widget: ComposedWidget): WidgetEvents => ({
       onUpdate: (updates) => {
+        console.log('🔄 Widget onUpdate called:', {
+          widgetId: widget.id,
+          widgetType: widget.type,
+          updates
+        });
         // Convert legacy Widget updates to ComposedWidget updates
         const composedUpdates = updates as Partial<ComposedWidget>;
         onWidgetUpdate(widget.id, composedUpdates);
@@ -468,32 +486,50 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
         console.log("Configure widget:", widget.id);
       },
       onSelect: (event?: React.MouseEvent) => {
-        // Forward widget clicks to the interaction controller
+        console.log('🎯 PinboardCanvas onSelect called:', {
+          widgetId: widget.id,
+          widgetType: widget.type,
+          hasEvent: !!event,
+          target: event?.target,
+          targetTagName: event?.target ? (event.target as HTMLElement).tagName : 'no-event'
+        });
+
+        // Check if the click is on interactive content (e.g., calculator buttons)
         if (event && interactionControllerRef.current) {
-          // Prevent the event from bubbling to the canvas
-          event.stopPropagation();
+          const target = event.target as HTMLElement;
+          
+          // Check if the click target is a button or other interactive content
+          const isButton = target.tagName === 'BUTTON';
+          const closestButton = target.closest('button');
+          const hasInteractiveAttr = target.hasAttribute('data-interactive');
+          const closestInteractive = target.closest('[data-interactive]');
+          
+          const isInteractiveContent = isButton || closestButton || hasInteractiveAttr || closestInteractive;
+          
+          console.log('🎯 PinboardCanvas interactive content detection:', {
+            isButton,
+            closestButton: !!closestButton,
+            hasInteractiveAttr,
+            closestInteractive: !!closestInteractive,
+            isInteractiveContent
+          });
+          
+          // If clicking on interactive content, don't trigger widget selection
+          if (isInteractiveContent) {
+            console.log('🎯 PinboardCanvas detected interactive content - stopping propagation');
+            event.stopPropagation();
+            return;
+          }
 
-          // Create a synthetic mouse event for the interaction controller
-          const syntheticEvent = {
-            clientX: event.clientX,
-            clientY: event.clientY,
-            shiftKey: event.shiftKey,
-            ctrlKey: event.ctrlKey,
-            altKey: event.altKey,
-            metaKey: event.metaKey,
-            preventDefault: () => {},
-            stopPropagation: () => {},
-          } as MouseEvent;
-
-          // Simulate mousedown and mouseup to complete the click cycle
-          interactionControllerRef.current.handleMouseDown(syntheticEvent);
-
-          // Use setTimeout to simulate the mouseup after a brief delay
-          setTimeout(() => {
-            if (interactionControllerRef.current) {
-              interactionControllerRef.current.handleMouseUp(syntheticEvent);
-            }
-          }, 10);
+          console.log('🎯 PinboardCanvas forwarding to InteractionController');
+          // For non-interactive clicks, forward to interaction controller
+          // Use the native event directly instead of synthetic events
+          const nativeEvent = event.nativeEvent;
+          if (nativeEvent) {
+            interactionControllerRef.current.handleMouseDown(nativeEvent);
+            // Handle mouseup immediately for a complete click cycle
+            interactionControllerRef.current.handleMouseUp(nativeEvent);
+          }
         }
       },
       onDeselect: () => {

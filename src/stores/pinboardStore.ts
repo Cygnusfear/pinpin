@@ -13,7 +13,6 @@ export type {
 } from "./keepSyncPinboardStore";
 // Export the synced pinboard store (for actual pinboard data)
 export {
-  getSyncStatus,
   useKeepSyncPinboardStore as usePinboardStore,
 } from "./keepSyncPinboardStore";
 export type {

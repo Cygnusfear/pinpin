@@ -467,12 +467,3 @@ export const useWidgetQueries = () => {
     widgets,
   };
 };
-
-// Export sync status check function
-export const getLocalSyncStatus = () => {
-  try {
-    return "synced";
-  } catch (_error) {
-    return "error";
-  }
-};

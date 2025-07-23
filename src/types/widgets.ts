@@ -75,6 +75,16 @@ export interface NoteWidget extends BaseWidget {
   };
 }
 
+export interface CalculatorWidget extends BaseWidget {
+  type: "calculator";
+  currentValue: string;
+  previousValue: string;
+  operation: string | null;
+  result: string;
+  history: string[];
+  isResultDisplayed: boolean;
+}
+
 export interface AppWidget extends BaseWidget {
   type: "app";
   appId: string;
@@ -120,6 +130,7 @@ export type Widget =
   | DocumentWidget
   | UrlWidget
   | NoteWidget
+  | CalculatorWidget
   | AppWidget
   | GroupWidget
   | UnknownWidget
@@ -392,6 +403,19 @@ export interface NoteContentData extends BaseContentData {
 }
 
 /**
+ * Calculator widget content data
+ */
+export interface CalculatorContentData extends BaseContentData {
+  type: "calculator";
+  currentValue: string;
+  previousValue: string;
+  operation: string | null;
+  result: string;
+  history: string[];
+  isResultDisplayed: boolean;
+}
+
+/**
  * Document widget content data
  */
 export interface DocumentContentData extends BaseContentData {
@@ -465,6 +489,7 @@ export interface UnknownContentData extends BaseContentData {
 export type ContentData =
   | ImageContentData
   | NoteContentData
+  | CalculatorContentData
   | DocumentContentData
   | UrlContentData
   | AppContentData

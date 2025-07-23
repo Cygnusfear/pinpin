@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { initializeSyncEngine } from "./config/syncEngine";
 import { getWidgetRegistry } from "./core/WidgetRegistry";
+import { calculatorWidgetPlugin } from "./plugins/calculatorWidget";
 import { documentWidgetPlugin } from "./plugins/documentWidget";
 import { imageWidgetPlugin } from "./plugins/imageWidget";
 import { noteWidgetPlugin } from "./plugins/noteWidget";
@@ -21,6 +22,7 @@ async function initializeWidgetPlugins() {
     await registry.installPlugin(imageWidgetPlugin);
     await registry.installPlugin(urlWidgetPlugin);
     await registry.installPlugin(noteWidgetPlugin);
+    await registry.installPlugin(calculatorWidgetPlugin);
     await registry.installPlugin(documentWidgetPlugin);
 
     console.log("✅ All widget plugins registered successfully");

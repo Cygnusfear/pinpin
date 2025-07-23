@@ -73,6 +73,47 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
     );
   };
 
+  // Handle widget container clicks with interactive content detection
+  const handleWidgetClick = (event: React.MouseEvent) => {
+    console.log('📦 WidgetContainer clicked:', {
+      widgetId: widget.id,
+      widgetType: widget.type,
+      target: event.target,
+      targetTagName: (event.target as HTMLElement).tagName,
+      currentTarget: event.currentTarget,
+      defaultPrevented: event.defaultPrevented,
+      propagationStopped: event.isPropagationStopped?.() || 'unknown'
+    });
+
+    // Check if the click is on interactive content
+    const target = event.target as HTMLElement;
+    const isButton = target.tagName === 'BUTTON';
+    const closestButton = target.closest('button');
+    const hasInteractiveAttr = target.hasAttribute('data-interactive');
+    const closestInteractive = target.closest('[data-interactive]');
+    
+    const isInteractiveContent = isButton || closestButton || hasInteractiveAttr || closestInteractive;
+    
+    console.log('📦 Interactive content detection:', {
+      isButton,
+      closestButton: !!closestButton,
+      hasInteractiveAttr,
+      closestInteractive: !!closestInteractive,
+      isInteractiveContent
+    });
+    
+    // If clicking on interactive content, don't trigger onSelect
+    if (isInteractiveContent) {
+      console.log('📦 Interactive content detected - stopping propagation');
+      event.stopPropagation();
+      return;
+    }
+    
+    console.log('📦 Non-interactive content - calling events.onSelect()');
+    // Otherwise, proceed with normal widget selection
+    events.onSelect();
+  };
+
   return (
     <motion.div
       style={{
@@ -95,12 +136,12 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{
         opacity: 1,
-        scale: state.isHovered ? 1.02 : 1,
+        scale: 1,
         transition: { duration: 0.2 },
         rotate: widget.rotation,
       }}
       exit={{ opacity: 0, scale: 0.8 }}
-      onClick={widget.locked ? undefined : events.onSelect}
+      onClick={widget.locked ? undefined : handleWidgetClick}
       onMouseEnter={widget.locked ? undefined : events.onHover}
       onMouseLeave={widget.locked ? undefined : events.onUnhover}
     >

@@ -207,14 +207,3 @@ export const useKeepSyncPinboardStore = create<KeepSyncPinboardStore>(
     } as any,
   ),
 );
-
-// Export sync status check function
-export const getSyncStatus = () => {
-  try {
-    // This is a simple way to check if sync is working
-    // In a real implementation, you might want to expose this from the sync middleware
-    return "synced";
-  } catch (_error) {
-    return "error";
-  }
-};

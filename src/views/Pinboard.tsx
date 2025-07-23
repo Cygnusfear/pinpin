@@ -1,5 +1,6 @@
 import type React from "react";
 import { useCallback, useEffect, useRef } from "react";
+import { FloatingToolbar } from "../components/FloatingToolbar";
 import { PinboardCanvas } from "../components/PinboardCanvas";
 import { useComposedWidgets } from "../services/widgetComposer";
 import { useContentStore } from "../stores/contentStore";
@@ -236,6 +237,13 @@ const Pinboard: React.FC = () => {
         onWidgetAdd={handleWidgetAdd}
         onWidgetRemove={handleWidgetRemove}
         onCanvasTransform={handleCanvasTransform}
+      />
+      <FloatingToolbar
+        onWidgetAdd={handleWidgetAdd}
+        canvasPosition={{
+          x: (400 - (canvasTransform?.x || 0)) / (canvasTransform?.scale || 1),
+          y: (300 - (canvasTransform?.y || 0)) / (canvasTransform?.scale || 1),
+        }}
       />
     </div>
   );
