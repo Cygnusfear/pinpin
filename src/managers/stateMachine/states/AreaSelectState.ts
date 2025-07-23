@@ -1,20 +1,22 @@
-import { BaseState } from '../BaseState';
-import { 
-  StateMachineEvent, 
-  StateTransition, 
-  InteractionStateName 
-} from '../types';
+import { BaseState } from "../BaseState";
+import type {
+  InteractionStateName,
+  StateMachineEvent,
+  StateTransition,
+} from "../types";
 
 export class AreaSelectState extends BaseState {
   get name(): InteractionStateName {
-    return 'areaSelect';
+    return "areaSelect";
   }
 
   get cursor(): string {
-    return 'crosshair';
+    return "crosshair";
   }
 
-  onMouseMove(event: Extract<StateMachineEvent, { type: 'mousemove' }>): StateTransition | null {
+  onMouseMove(
+    event: Extract<StateMachineEvent, { type: "mousemove" }>,
+  ): StateTransition | null {
     if (!this.context.startPosition) return null;
 
     const { point } = event;
@@ -25,43 +27,47 @@ export class AreaSelectState extends BaseState {
       x: Math.min(startPos.x, point.x),
       y: Math.min(startPos.y, point.y),
       width: Math.abs(point.x - startPos.x),
-      height: Math.abs(point.y - startPos.y)
+      height: Math.abs(point.y - startPos.y),
     };
 
-    this.updateContext({ 
+    this.updateContext({
       currentPosition: point,
-      selectionBox 
+      selectionBox,
     });
 
     return null;
   }
 
-  onMouseUp(event: Extract<StateMachineEvent, { type: 'mouseup' }>): StateTransition | null {
+  onMouseUp(
+    event: Extract<StateMachineEvent, { type: "mouseup" }>,
+  ): StateTransition | null {
     if (event.button !== 0) return null; // Only handle left mouse button
 
     // Complete area selection
     this.completeAreaSelection(event.modifiers.meta || event.modifiers.ctrl);
 
     return {
-      nextState: 'idle',
+      nextState: "idle",
       context: {
         startPosition: undefined,
         currentPosition: undefined,
-        selectionBox: undefined
-      }
+        selectionBox: undefined,
+      },
     };
   }
 
-  onKeyDown(event: Extract<StateMachineEvent, { type: 'keydown' }>): StateTransition | null {
-    if (event.key === 'Escape') {
+  onKeyDown(
+    event: Extract<StateMachineEvent, { type: "keydown" }>,
+  ): StateTransition | null {
+    if (event.key === "Escape") {
       // Cancel area selection
       return {
-        nextState: 'idle',
+        nextState: "idle",
         context: {
           startPosition: undefined,
           currentPosition: undefined,
-          selectionBox: undefined
-        }
+          selectionBox: undefined,
+        },
       };
     }
 
@@ -72,10 +78,10 @@ export class AreaSelectState extends BaseState {
     if (!this.context.selectionBox) return;
 
     const { selectionBox } = this.context;
-    
+
     // Find widgets that intersect with the selection box
     const selectedWidgetIds: string[] = [];
-    
+
     for (const widget of this.context.widgets) {
       if (this.isWidgetInSelectionBox(widget, selectionBox)) {
         selectedWidgetIds.push(widget.id);
@@ -84,11 +90,11 @@ export class AreaSelectState extends BaseState {
 
     // Update selection
     let newSelection: string[];
-    
+
     if (additive) {
       // Add to existing selection (toggle widgets that are already selected)
       newSelection = [...this.context.selectedIds];
-      
+
       for (const widgetId of selectedWidgetIds) {
         const index = newSelection.indexOf(widgetId);
         if (index >= 0) {
@@ -107,8 +113,8 @@ export class AreaSelectState extends BaseState {
   }
 
   private isWidgetInSelectionBox(
-    widget: import('../../../types/canvas').Widget, 
-    selectionBox: { x: number; y: number; width: number; height: number }
+    widget: import("../../../types/canvas").Widget,
+    selectionBox: { x: number; y: number; width: number; height: number },
   ): boolean {
     // Check if widget intersects with selection box
     return !(

@@ -1,21 +1,21 @@
-import { WidgetPlugin, WidgetTypeDefinition } from '../../types/widgets';
-import { NoteWidgetFactory } from './factory';
-import { NoteWidgetRenderer } from './renderer';
+import type { WidgetPlugin, WidgetTypeDefinition } from "../../types/widgets";
+import { NoteWidgetFactory } from "./factory";
+import { NoteWidgetRenderer } from "./renderer";
 
 export class NoteWidgetPlugin implements WidgetPlugin {
-  id = 'note-widget';
-  name = 'Note Widget';
-  version = '1.0.0';
-  description = 'Create text notes with customizable colors';
-  author = 'Pinboard Team';
+  id = "note-widget";
+  name = "Note Widget";
+  version = "1.0.0";
+  description = "Create text notes with customizable colors";
+  author = "Pinboard Team";
 
   types: WidgetTypeDefinition[] = [
     {
-      type: 'note',
-      name: 'Sticky Note',
-      description: 'Create text notes with customizable colors',
-      icon: '📝',
-      category: 'text',
+      type: "note",
+      name: "Sticky Note",
+      description: "Create text notes with customizable colors",
+      icon: "📝",
+      category: "text",
       defaultSize: { width: 200, height: 150 },
       minSize: { width: 100, height: 80 },
       maxSize: { width: 500, height: 400 },
@@ -30,7 +30,7 @@ export class NoteWidgetPlugin implements WidgetPlugin {
 
   renderers = [
     {
-      type: 'note',
+      type: "note",
       component: NoteWidgetRenderer,
     },
   ];
@@ -46,6 +46,6 @@ export class NoteWidgetPlugin implements WidgetPlugin {
 
 // Export plugin instance and components
 export const noteWidgetPlugin = new NoteWidgetPlugin();
-export type { NoteWidget, NoteWidgetCreateData } from './types';
-export { NoteWidgetFactory } from './factory';
-export { NoteWidgetRenderer } from './renderer';
+export { NoteWidgetFactory } from "./factory";
+export { NoteWidgetRenderer } from "./renderer";
+export type { NoteWidget, NoteWidgetCreateData } from "./types";

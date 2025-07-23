@@ -1,7 +1,7 @@
-import { BaseWidget } from '../../types/widgets';
+import type { BaseWidget } from "../../types/widgets";
 
 export interface DocumentWidget extends BaseWidget {
-  type: 'document';
+  type: "document";
   fileName: string;
   fileType: string;
   fileSize: number;

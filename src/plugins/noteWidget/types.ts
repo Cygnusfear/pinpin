@@ -1,13 +1,13 @@
-import { BaseWidget } from '../../types/widgets';
+import type { BaseWidget } from "../../types/widgets";
 
 export interface NoteWidget extends BaseWidget {
-  type: 'note';
+  type: "note";
   content: string;
   backgroundColor: string;
   textColor: string;
   fontSize: number;
   fontFamily: string;
-  textAlign: 'left' | 'center' | 'right';
+  textAlign: "left" | "center" | "right";
   formatting?: {
     bold?: boolean;
     italic?: boolean;
@@ -21,7 +21,7 @@ export interface NoteWidgetCreateData {
   textColor?: string;
   fontSize?: number;
   fontFamily?: string;
-  textAlign?: 'left' | 'center' | 'right';
+  textAlign?: "left" | "center" | "right";
   formatting?: {
     bold?: boolean;
     italic?: boolean;

@@ -1,7 +1,7 @@
-import { BaseWidget } from '../../types/widgets';
+import type { BaseWidget } from "../../types/widgets";
 
 export interface ImageWidget extends BaseWidget {
-  type: 'image';
+  type: "image";
   src: string;
   alt?: string;
   originalDimensions: { width: number; height: number };

@@ -1,34 +1,43 @@
-import { BaseState } from './BaseState';
-import { 
-  StateMachineEvent, 
-  StateContext, 
+import type { BaseState } from "./BaseState";
+import type {
   InteractionStateName,
-  StateMachineCallbacks 
-} from './types';
+  StateContext,
+  StateMachineCallbacks,
+  StateMachineEvent,
+} from "./types";
 
 export class StateMachine {
   private currentState: BaseState;
-  private states: Map<InteractionStateName, new (context: StateContext, callbacks: StateMachineCallbacks) => BaseState>;
+  private states: Map<
+    InteractionStateName,
+    new (
+      context: StateContext,
+      callbacks: StateMachineCallbacks,
+    ) => BaseState
+  >;
   private context: StateContext;
   private callbacks: StateMachineCallbacks;
 
   constructor(
-    initialState: InteractionStateName,
+    _initialState: InteractionStateName,
     context: StateContext,
-    callbacks: StateMachineCallbacks
+    callbacks: StateMachineCallbacks,
   ) {
     this.states = new Map();
     this.context = context;
     this.callbacks = callbacks;
-    
+
     // Initialize with a placeholder - will be set properly after registering states
     this.currentState = null as any;
   }
 
   // Register a state class
   registerState(
-    name: InteractionStateName, 
-    StateClass: new (context: StateContext, callbacks: StateMachineCallbacks) => BaseState
+    name: InteractionStateName,
+    StateClass: new (
+      context: StateContext,
+      callbacks: StateMachineCallbacks,
+    ) => BaseState,
   ): void {
     this.states.set(name, StateClass);
   }
@@ -39,7 +48,7 @@ export class StateMachine {
     if (!StateClass) {
       throw new Error(`State '${initialState}' not registered`);
     }
-    
+
     this.currentState = new StateClass(this.context, this.callbacks);
     this.currentState.onEnter();
   }
@@ -60,31 +69,34 @@ export class StateMachine {
   }
 
   // Process an event through the current state
-  processEvent(event: StateMachineEvent): { preventDefault?: boolean; stopPropagation?: boolean } {
+  processEvent(event: StateMachineEvent): {
+    preventDefault?: boolean;
+    stopPropagation?: boolean;
+  } {
     let transition = null;
-    let result = { preventDefault: false, stopPropagation: false };
+    const result = { preventDefault: false, stopPropagation: false };
 
     // Route event to appropriate handler based on type
     switch (event.type) {
-      case 'mousedown':
+      case "mousedown":
         transition = this.currentState.onMouseDown(event);
         break;
-      case 'mousemove':
+      case "mousemove":
         transition = this.currentState.onMouseMove(event);
         break;
-      case 'mouseup':
+      case "mouseup":
         transition = this.currentState.onMouseUp(event);
         break;
-      case 'keydown':
+      case "keydown":
         transition = this.currentState.onKeyDown(event);
         break;
-      case 'keyup':
+      case "keyup":
         transition = this.currentState.onKeyUp(event);
         break;
-      case 'wheel':
+      case "wheel":
         transition = this.currentState.onWheel(event);
         break;
-      case 'contextmenu':
+      case "contextmenu":
         transition = this.currentState.onContextMenu(event);
         break;
     }
@@ -117,10 +129,10 @@ export class StateMachine {
     }
 
     const previousStateName = this.currentState.name;
-    
+
     // Exit current state
     this.currentState.onExit(stateName);
-    
+
     // Create and enter new state
     this.currentState = new StateClass(this.context, this.callbacks);
     this.currentState.onEnter(previousStateName);

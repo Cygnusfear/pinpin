@@ -16,7 +16,9 @@
     "serve": "vite preview",
     "deployment": "tonk deploy",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "lint": "bunx tsc --noEmit --skipLibCheck &&biome check .",
+    "lint:fix": "biome check . --fix"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -45,6 +47,8 @@
     "@automerge/automerge-repo": "^1.2.1",
     "@automerge/automerge-repo-network-websocket": "^1.2.1",
     "@automerge/automerge-repo-storage-indexeddb": "^1.2.1",
+    "@biomejs/biome": "^2.1.2",
+    "@storacha/client": "^1.6.0",
     "@tonk/cli": "^0.2.6",
     "@tonk/keepsync": "^0.5.1",
     "@use-gesture/react": "^10.3.1",

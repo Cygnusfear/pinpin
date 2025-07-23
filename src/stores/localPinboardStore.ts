@@ -1,46 +1,71 @@
+import { type DocumentId, sync } from "@tonk/keepsync";
 import { create } from "zustand";
-import { sync, DocumentId } from "@tonk/keepsync";
-import { WidgetData, WidgetDataCreateData, WidgetDataUpdateData, SeparatedWidgetCreateInput } from "../types/separatedWidgets";
 import { SYNC_CONFIG } from "../config/syncEngine";
+import type { LocalWidgetCreateInput, WidgetData } from "../types/widgets";
 import { useContentStore } from "./contentStore";
 
 // ============================================================================
-// SEPARATED PINBOARD STORE DATA STRUCTURE
+// Local PINBOARD STORE DATA STRUCTURE
 // ============================================================================
 
-export interface SeparatedPinboardData {
+export interface LocalPinboardData {
   widgets: WidgetData[]; // Only lightweight widget data
   lastModified: number;
 }
 
 // ============================================================================
-// SEPARATED PINBOARD STORE STATE AND ACTIONS
+// Local PINBOARD STORE STATE AND ACTIONS
 // ============================================================================
 
-export interface SeparatedPinboardState extends SeparatedPinboardData {}
+export interface LocalPinboardState extends LocalPinboardData {}
 
-export interface SeparatedPinboardActions {
+export interface LocalPinboardActions {
   // Widget operations (only widget data)
-  addWidget: (widgetInput: SeparatedWidgetCreateInput) => Promise<void>;
+  addWidget: (widgetInput: LocalWidgetCreateInput) => Promise<void>;
   updateWidget: (id: string, updates: Partial<WidgetData>) => void;
-  updateWidgets: (updates: Array<{ id: string; updates: Partial<WidgetData> }>) => void;
+  updateWidgets: (
+    updates: Array<{ id: string; updates: Partial<WidgetData> }>,
+  ) => void;
   removeWidget: (id: string) => void;
-  
+
   // Widget data only operations (for performance-critical updates)
-  updateWidgetTransform: (id: string, transform: { x?: number; y?: number; width?: number; height?: number; rotation?: number }) => void;
-  updateWidgetState: (id: string, state: { selected?: boolean; locked?: boolean; zIndex?: number }) => void;
-  updateMultipleWidgetTransforms: (updates: Array<{ id: string; transform: { x?: number; y?: number; width?: number; height?: number; rotation?: number } }>) => void;
-  
+  updateWidgetTransform: (
+    id: string,
+    transform: {
+      x?: number;
+      y?: number;
+      width?: number;
+      height?: number;
+      rotation?: number;
+    },
+  ) => void;
+  updateWidgetState: (
+    id: string,
+    state: { selected?: boolean; locked?: boolean; zIndex?: number },
+  ) => void;
+  updateMultipleWidgetTransforms: (
+    updates: Array<{
+      id: string;
+      transform: {
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+        rotation?: number;
+      };
+    }>,
+  ) => void;
+
   // Batch operations
-  addMultipleWidgets: (widgetInputs: SeparatedWidgetCreateInput[]) => Promise<void>;
+  addMultipleWidgets: (widgetInputs: LocalWidgetCreateInput[]) => Promise<void>;
   removeMultipleWidgets: (ids: string[]) => void;
-  
+
   // Selection operations (local state, not synced)
   selectWidget: (id: string, selected: boolean) => void;
   selectWidgets: (ids: string[], selected: boolean) => void;
   clearSelection: () => void;
   getSelectedWidgets: () => WidgetData[];
-  
+
   // Utility operations
   reset: () => void;
   getWidget: (id: string) => WidgetData | undefined;
@@ -48,7 +73,7 @@ export interface SeparatedPinboardActions {
   reorderWidget: (id: string, newZIndex: number) => void;
 }
 
-export type SeparatedPinboardStore = SeparatedPinboardState & SeparatedPinboardActions;
+export type LocalPinboardStore = LocalPinboardState & LocalPinboardActions;
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -61,13 +86,13 @@ const generateWidgetId = () =>
 // Clean widget data by removing undefined values
 const cleanWidgetData = (widget: any): any => {
   const cleaned = { ...widget };
-  
+
   Object.keys(cleaned).forEach((key) => {
     if (cleaned[key] === undefined) {
       delete cleaned[key];
     }
   });
-  
+
   return cleaned;
 };
 
@@ -75,30 +100,30 @@ const cleanWidgetData = (widget: any): any => {
 // STORE IMPLEMENTATION
 // ============================================================================
 
-// Initial separated pinboard data
-const initialSeparatedData: SeparatedPinboardData = {
+// Initial Local pinboard data
+const initialLocalData: LocalPinboardData = {
   widgets: [],
   lastModified: Date.now(),
 };
 
-// Create the separated pinboard store
-export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
+// Create the Local pinboard store
+export const useLocalPinboardStore = create<LocalPinboardStore>(
   sync(
     (set, get) => ({
       // Initial state
-      ...initialSeparatedData,
+      ...initialLocalData,
 
       // Widget operations
-      addWidget: async (widgetInput: SeparatedWidgetCreateInput): Promise<void> => {
+      addWidget: async (widgetInput: LocalWidgetCreateInput): Promise<void> => {
         const now = Date.now();
         const contentStore = useContentStore.getState();
-        
-        console.log("🔧 Adding separated widget:", widgetInput.type, widgetInput);
-        
+
+        console.log("🔧 Adding Local widget:", widgetInput.type, widgetInput);
+
         try {
           // First, add content to content store
           const contentId = await contentStore.addContent(widgetInput.content);
-          
+
           // Then create widget data with content reference
           const newWidgetData = cleanWidgetData({
             id: generateWidgetId(),
@@ -117,7 +142,12 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
             updatedAt: now,
           } as WidgetData);
 
-          console.log("✅ Created widget data with content reference:", newWidgetData.id, "->", contentId);
+          console.log(
+            "✅ Created widget data with content reference:",
+            newWidgetData.id,
+            "->",
+            contentId,
+          );
 
           set((state) => ({
             widgets: [...state.widgets, newWidgetData],
@@ -131,14 +161,16 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
 
       updateWidget: (id: string, updates: Partial<WidgetData>): void => {
         const now = Date.now();
-        
+
         // Filter out content-related updates (these should go to content store)
         const { contentId, ...widgetUpdates } = updates as any;
-        
+
         if (contentId && contentId !== get().getWidget(id)?.contentId) {
-          console.warn("⚠️ Content ID updates should be handled through content store");
+          console.warn(
+            "⚠️ Content ID updates should be handled through content store",
+          );
         }
-        
+
         set((state) => ({
           widgets: state.widgets.map((widget) =>
             widget.id === id
@@ -149,7 +181,9 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
         }));
       },
 
-      updateWidgets: (updates: Array<{ id: string; updates: Partial<WidgetData> }>): void => {
+      updateWidgets: (
+        updates: Array<{ id: string; updates: Partial<WidgetData> }>,
+      ): void => {
         const now = Date.now();
         set((state) => {
           const updatesMap = new Map(updates.map((u) => [u.id, u.updates]));
@@ -158,7 +192,11 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
             widgets: state.widgets.map((widget) => {
               const widgetUpdates = updatesMap.get(widget.id);
               return widgetUpdates
-                ? cleanWidgetData({ ...widget, ...widgetUpdates, updatedAt: now })
+                ? cleanWidgetData({
+                    ...widget,
+                    ...widgetUpdates,
+                    updatedAt: now,
+                  })
                 : widget;
             }),
             lastModified: now,
@@ -173,7 +211,7 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
           const contentStore = useContentStore.getState();
           contentStore.removeContent(widget.contentId);
         }
-        
+
         set((state) => ({
           widgets: state.widgets.filter((widget) => widget.id !== id),
           lastModified: Date.now(),
@@ -181,7 +219,16 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
       },
 
       // Performance-optimized transform updates
-      updateWidgetTransform: (id: string, transform: { x?: number; y?: number; width?: number; height?: number; rotation?: number }): void => {
+      updateWidgetTransform: (
+        id: string,
+        transform: {
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+          rotation?: number;
+        },
+      ): void => {
         const now = Date.now();
         set((state) => ({
           widgets: state.widgets.map((widget) =>
@@ -193,19 +240,31 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
         }));
       },
 
-      updateWidgetState: (id: string, state: { selected?: boolean; locked?: boolean; zIndex?: number }): void => {
+      updateWidgetState: (
+        id: string,
+        state: { selected?: boolean; locked?: boolean; zIndex?: number },
+      ): void => {
         const now = Date.now();
         set((currentState) => ({
           widgets: currentState.widgets.map((widget) =>
-            widget.id === id
-              ? { ...widget, ...state, updatedAt: now }
-              : widget,
+            widget.id === id ? { ...widget, ...state, updatedAt: now } : widget,
           ),
           lastModified: now,
         }));
       },
 
-      updateMultipleWidgetTransforms: (updates: Array<{ id: string; transform: { x?: number; y?: number; width?: number; height?: number; rotation?: number } }>): void => {
+      updateMultipleWidgetTransforms: (
+        updates: Array<{
+          id: string;
+          transform: {
+            x?: number;
+            y?: number;
+            width?: number;
+            height?: number;
+            rotation?: number;
+          };
+        }>,
+      ): void => {
         const now = Date.now();
         set((state) => {
           const updatesMap = new Map(updates.map((u) => [u.id, u.transform]));
@@ -223,7 +282,9 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
       },
 
       // Batch operations
-      addMultipleWidgets: async (widgetInputs: SeparatedWidgetCreateInput[]): Promise<void> => {
+      addMultipleWidgets: async (
+        widgetInputs: LocalWidgetCreateInput[],
+      ): Promise<void> => {
         for (const widgetInput of widgetInputs) {
           await get().addWidget(widgetInput);
         }
@@ -232,15 +293,15 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
       removeMultipleWidgets: (ids: string[]): void => {
         const widgets = get().widgets;
         const contentStore = useContentStore.getState();
-        
+
         // Remove content for all widgets
-        ids.forEach(id => {
-          const widget = widgets.find(w => w.id === id);
+        ids.forEach((id) => {
+          const widget = widgets.find((w) => w.id === id);
           if (widget) {
             contentStore.removeContent(widget.contentId);
           }
         });
-        
+
         set((state) => ({
           widgets: state.widgets.filter((widget) => !ids.includes(widget.id)),
           lastModified: Date.now(),
@@ -267,28 +328,31 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
 
       clearSelection: (): void => {
         set((state) => ({
-          widgets: state.widgets.map((widget) => ({ ...widget, selected: false })),
+          widgets: state.widgets.map((widget) => ({
+            ...widget,
+            selected: false,
+          })),
         }));
       },
 
       getSelectedWidgets: (): WidgetData[] => {
-        return get().widgets.filter(widget => widget.selected);
+        return get().widgets.filter((widget) => widget.selected);
       },
 
       // Utility operations
       reset: (): void => {
         set({
-          ...initialSeparatedData,
+          ...initialLocalData,
           lastModified: Date.now(),
         });
       },
 
       getWidget: (id: string): WidgetData | undefined => {
-        return get().widgets.find(widget => widget.id === id);
+        return get().widgets.find((widget) => widget.id === id);
       },
 
       getWidgetsByType: (type: string): WidgetData[] => {
-        return get().widgets.filter(widget => widget.type === type);
+        return get().widgets.filter((widget) => widget.type === type);
       },
 
       reorderWidget: (id: string, newZIndex: number): void => {
@@ -299,15 +363,19 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
       docId: SYNC_CONFIG.DOCUMENT_ID as DocumentId, // Use same document ID as before for widgets
       initTimeout: SYNC_CONFIG.INIT_TIMEOUT,
       onInitError: (error) => {
-        console.error("❌ Separated pinboard sync initialization error:", error);
+        console.error("❌ Local pinboard sync initialization error:", error);
       },
       onBeforeSync: (data: any) => {
-        console.log("📤 About to sync widget data:", data.widgets?.length || 0, "widgets");
-        
+        console.log(
+          "📤 About to sync widget data:",
+          data.widgets?.length || 0,
+          "widgets",
+        );
+
         // Calculate total sync size for monitoring
         const syncSize = JSON.stringify(data).length;
         console.log("📊 Widget data sync size:", syncSize, "bytes");
-        
+
         return data;
       },
     } as any,
@@ -322,13 +390,17 @@ export const useSeparatedPinboardStore = create<SeparatedPinboardStore>(
  * Hook for widget operations
  */
 export const useWidgetOperations = () => {
-  const addWidget = useSeparatedPinboardStore(state => state.addWidget);
-  const updateWidget = useSeparatedPinboardStore(state => state.updateWidget);
-  const updateWidgets = useSeparatedPinboardStore(state => state.updateWidgets);
-  const removeWidget = useSeparatedPinboardStore(state => state.removeWidget);
-  const addMultipleWidgets = useSeparatedPinboardStore(state => state.addMultipleWidgets);
-  const removeMultipleWidgets = useSeparatedPinboardStore(state => state.removeMultipleWidgets);
-  
+  const addWidget = useLocalPinboardStore((state) => state.addWidget);
+  const updateWidget = useLocalPinboardStore((state) => state.updateWidget);
+  const updateWidgets = useLocalPinboardStore((state) => state.updateWidgets);
+  const removeWidget = useLocalPinboardStore((state) => state.removeWidget);
+  const addMultipleWidgets = useLocalPinboardStore(
+    (state) => state.addMultipleWidgets,
+  );
+  const removeMultipleWidgets = useLocalPinboardStore(
+    (state) => state.removeMultipleWidgets,
+  );
+
   return {
     addWidget,
     updateWidget,
@@ -343,9 +415,13 @@ export const useWidgetOperations = () => {
  * Hook for performance-critical transform updates
  */
 export const useWidgetTransforms = () => {
-  const updateWidgetTransform = useSeparatedPinboardStore(state => state.updateWidgetTransform);
-  const updateMultipleWidgetTransforms = useSeparatedPinboardStore(state => state.updateMultipleWidgetTransforms);
-  
+  const updateWidgetTransform = useLocalPinboardStore(
+    (state) => state.updateWidgetTransform,
+  );
+  const updateMultipleWidgetTransforms = useLocalPinboardStore(
+    (state) => state.updateMultipleWidgetTransforms,
+  );
+
   return {
     updateWidgetTransform,
     updateMultipleWidgetTransforms,
@@ -356,12 +432,16 @@ export const useWidgetTransforms = () => {
  * Hook for widget selection
  */
 export const useWidgetSelection = () => {
-  const selectWidget = useSeparatedPinboardStore(state => state.selectWidget);
-  const selectWidgets = useSeparatedPinboardStore(state => state.selectWidgets);
-  const clearSelection = useSeparatedPinboardStore(state => state.clearSelection);
-  const getSelectedWidgets = useSeparatedPinboardStore(state => state.getSelectedWidgets);
-  const selectedWidgets = useSeparatedPinboardStore(state => state.getSelectedWidgets());
-  
+  const selectWidget = useLocalPinboardStore((state) => state.selectWidget);
+  const selectWidgets = useLocalPinboardStore((state) => state.selectWidgets);
+  const clearSelection = useLocalPinboardStore((state) => state.clearSelection);
+  const getSelectedWidgets = useLocalPinboardStore(
+    (state) => state.getSelectedWidgets,
+  );
+  const selectedWidgets = useLocalPinboardStore((state) =>
+    state.getSelectedWidgets(),
+  );
+
   return {
     selectWidget,
     selectWidgets,
@@ -375,10 +455,12 @@ export const useWidgetSelection = () => {
  * Hook for widget queries
  */
 export const useWidgetQueries = () => {
-  const getWidget = useSeparatedPinboardStore(state => state.getWidget);
-  const getWidgetsByType = useSeparatedPinboardStore(state => state.getWidgetsByType);
-  const widgets = useSeparatedPinboardStore(state => state.widgets);
-  
+  const getWidget = useLocalPinboardStore((state) => state.getWidget);
+  const getWidgetsByType = useLocalPinboardStore(
+    (state) => state.getWidgetsByType,
+  );
+  const widgets = useLocalPinboardStore((state) => state.widgets);
+
   return {
     getWidget,
     getWidgetsByType,
@@ -387,10 +469,10 @@ export const useWidgetQueries = () => {
 };
 
 // Export sync status check function
-export const getSeparatedSyncStatus = () => {
+export const getLocalSyncStatus = () => {
   try {
     return "synced";
-  } catch (error) {
+  } catch (_error) {
     return "error";
   }
 };

@@ -1,13 +1,13 @@
-import { BaseWidget } from '../../types/widgets';
+import type { BaseWidget } from "../../types/widgets";
 
 export interface UrlWidget extends BaseWidget {
-  type: 'url';
+  type: "url";
   url: string;
   title?: string;
   description?: string;
   favicon?: string;
   preview?: string;
-  embedType?: 'link' | 'iframe' | 'video' | 'image';
+  embedType?: "link" | "iframe" | "video" | "image";
   embedData?: {
     html?: string;
     aspectRatio?: number;
@@ -21,7 +21,7 @@ export interface UrlWidgetCreateData {
   description?: string;
   favicon?: string;
   preview?: string;
-  embedType?: 'link' | 'iframe' | 'video' | 'image';
+  embedType?: "link" | "iframe" | "video" | "image";
   embedData?: {
     html?: string;
     aspectRatio?: number;

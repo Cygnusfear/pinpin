@@ -1,7 +1,12 @@
-import { Point, KeyModifiers, Widget, CanvasTransform } from '../../types/canvas';
+import type {
+  CanvasTransform,
+  KeyModifiers,
+  Point,
+  Widget,
+} from "../../types/canvas";
 
 // State machine event types
-export type StateMachineEvent = 
+export type StateMachineEvent =
   | MouseDownEvent
   | MouseMoveEvent
   | MouseUpEvent
@@ -11,7 +16,7 @@ export type StateMachineEvent =
   | ContextMenuEvent;
 
 export interface MouseDownEvent {
-  type: 'mousedown';
+  type: "mousedown";
   point: Point;
   screenPoint: Point;
   button: number; // 0 = left, 1 = middle, 2 = right
@@ -20,7 +25,7 @@ export interface MouseDownEvent {
 }
 
 export interface MouseMoveEvent {
-  type: 'mousemove';
+  type: "mousemove";
   point: Point;
   screenPoint: Point;
   modifiers: KeyModifiers;
@@ -28,7 +33,7 @@ export interface MouseMoveEvent {
 }
 
 export interface MouseUpEvent {
-  type: 'mouseup';
+  type: "mouseup";
   point: Point;
   screenPoint: Point;
   button: number;
@@ -36,19 +41,19 @@ export interface MouseUpEvent {
 }
 
 export interface KeyDownEvent {
-  type: 'keydown';
+  type: "keydown";
   key: string;
   modifiers: KeyModifiers;
 }
 
 export interface KeyUpEvent {
-  type: 'keyup';
+  type: "keyup";
   key: string;
   modifiers: KeyModifiers;
 }
 
 export interface WheelEvent {
-  type: 'wheel';
+  type: "wheel";
   point: Point;
   screenPoint: Point;
   deltaX: number;
@@ -57,21 +62,21 @@ export interface WheelEvent {
 }
 
 export interface ContextMenuEvent {
-  type: 'contextmenu';
+  type: "contextmenu";
   point: Point;
   screenPoint: Point;
   modifiers: KeyModifiers;
 }
 
 // State types
-export type InteractionStateName = 
-  | 'idle'
-  | 'areaSelect'
-  | 'dragging'
-  | 'panning'
-  | 'resizing'
-  | 'rotating'
-  | 'textEditing';
+export type InteractionStateName =
+  | "idle"
+  | "areaSelect"
+  | "dragging"
+  | "panning"
+  | "resizing"
+  | "rotating"
+  | "textEditing";
 
 // State context - shared data between states
 export interface StateContext {
@@ -79,17 +84,17 @@ export interface StateContext {
   canvasTransform: CanvasTransform;
   selectedIds: string[];
   hoveredId: string | null;
-  
+
   // Interaction-specific data
   startPosition?: Point;
   currentPosition?: Point;
   initialWidgetPositions?: Map<string, Point>;
   previousState?: InteractionStateName;
-  
+
   // Transformation data
   transformHandle?: TransformHandle;
   transformOrigin?: Point;
-  
+
   // Area selection data
   selectionBox?: {
     x: number;
@@ -100,8 +105,8 @@ export interface StateContext {
 }
 
 export interface TransformHandle {
-  type: 'resize' | 'rotate';
-  position: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rotation';
+  type: "resize" | "rotate";
+  position: "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "rotation";
   cursor: string;
   widgetId: string;
 }
@@ -117,7 +122,9 @@ export interface StateTransition {
 // Callbacks for state machine to communicate with the outside world
 export interface StateMachineCallbacks {
   onWidgetUpdate: (id: string, updates: Partial<Widget>) => void;
-  onWidgetsUpdate: (updates: Array<{ id: string; updates: Partial<Widget> }>) => void;
+  onWidgetsUpdate: (
+    updates: Array<{ id: string; updates: Partial<Widget> }>,
+  ) => void;
   onWidgetRemove: (id: string) => void;
   onCanvasTransform: (transform: CanvasTransform) => void;
   onSelectionChange: (selectedIds: string[]) => void;

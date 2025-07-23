@@ -1,4 +1,4 @@
-import { Point, BoundingBox, Widget, KeyModifiers } from '../types/canvas';
+import type { BoundingBox, KeyModifiers, Point, Widget } from "../types/canvas";
 
 export class SelectionManager {
   private selectedIds = new Set<string>();
@@ -9,7 +9,7 @@ export class SelectionManager {
 
   constructor(
     onSelectionChange?: (selectedIds: string[]) => void,
-    onHoverChange?: (hoveredId: string | null) => void
+    onHoverChange?: (hoveredId: string | null) => void,
   ) {
     this.onSelectionChange = onSelectionChange;
     this.onHoverChange = onHoverChange;
@@ -51,7 +51,7 @@ export class SelectionManager {
     if (!additive) {
       this.selectedIds.clear();
     }
-    ids.forEach(id => this.selectedIds.add(id));
+    ids.forEach((id) => this.selectedIds.add(id));
     this.notifySelectionChange();
   }
 
@@ -76,7 +76,7 @@ export class SelectionManager {
 
   selectAll(widgets: Widget[]): void {
     this.selectedIds.clear();
-    widgets.forEach(widget => this.selectedIds.add(widget.id));
+    widgets.forEach((widget) => this.selectedIds.add(widget.id));
     this.notifySelectionChange();
   }
 
@@ -91,7 +91,7 @@ export class SelectionManager {
       this.selectedIds.clear();
     }
 
-    widgets.forEach(widget => {
+    widgets.forEach((widget) => {
       if (this.isWidgetInArea(widget, area)) {
         this.selectedIds.add(widget.id);
       }
@@ -105,7 +105,7 @@ export class SelectionManager {
       x: startPoint.x,
       y: startPoint.y,
       width: 0,
-      height: 0
+      height: 0,
     };
   }
 
@@ -119,7 +119,7 @@ export class SelectionManager {
       x: Math.min(startX, currentPoint.x),
       y: Math.min(startY, currentPoint.y),
       width: Math.abs(currentPoint.x - startX),
-      height: Math.abs(currentPoint.y - startY)
+      height: Math.abs(currentPoint.y - startY),
     };
   }
 
@@ -144,11 +144,11 @@ export class SelectionManager {
 
   // Advanced selection methods
   selectSimilar(targetId: string, widgets: Widget[]): void {
-    const targetWidget = widgets.find(w => w.id === targetId);
+    const targetWidget = widgets.find((w) => w.id === targetId);
     if (!targetWidget) return;
 
     this.selectedIds.clear();
-    widgets.forEach(widget => {
+    widgets.forEach((widget) => {
       if (widget.type === targetWidget.type) {
         this.selectedIds.add(widget.id);
       }
@@ -159,7 +159,7 @@ export class SelectionManager {
 
   selectByType(type: string, widgets: Widget[]): void {
     this.selectedIds.clear();
-    widgets.forEach(widget => {
+    widgets.forEach((widget) => {
       if (widget.type === type) {
         this.selectedIds.add(widget.id);
       }
@@ -173,7 +173,7 @@ export class SelectionManager {
     point: Point,
     widgets: Widget[],
     modifiers: KeyModifiers,
-    hitWidget?: Widget
+    hitWidget?: Widget,
   ): void {
     if (!hitWidget) {
       // Clicked on canvas
@@ -221,13 +221,13 @@ export class SelectionManager {
   private getWidgetAtPoint(point: Point, widgets: Widget[]): Widget | null {
     // Find the topmost widget at the given point
     const sortedWidgets = [...widgets].sort((a, b) => b.zIndex - a.zIndex);
-    
+
     for (const widget of sortedWidgets) {
       if (this.isPointInWidget(point, widget)) {
         return widget;
       }
     }
-    
+
     return null;
   }
 
@@ -248,7 +248,7 @@ export class SelectionManager {
   getSelectionBounds(widgets: Widget[]): BoundingBox | null {
     if (this.selectedIds.size === 0) return null;
 
-    const selectedWidgets = widgets.filter(w => this.selectedIds.has(w.id));
+    const selectedWidgets = widgets.filter((w) => this.selectedIds.has(w.id));
     if (selectedWidgets.length === 0) return null;
 
     let minX = Infinity;
@@ -256,7 +256,7 @@ export class SelectionManager {
     let maxX = -Infinity;
     let maxY = -Infinity;
 
-    selectedWidgets.forEach(widget => {
+    selectedWidgets.forEach((widget) => {
       minX = Math.min(minX, widget.x);
       minY = Math.min(minY, widget.y);
       maxX = Math.max(maxX, widget.x + widget.width);
@@ -267,7 +267,7 @@ export class SelectionManager {
       x: minX,
       y: minY,
       width: maxX - minX,
-      height: maxY - minY
+      height: maxY - minY,
     };
   }
 }

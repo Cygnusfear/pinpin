@@ -1,11 +1,7 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { 
-  Widget, 
-  WidgetRenderState, 
-  WidgetEvents
-} from '../types/widgets';
-import { getWidgetRegistry } from '../core/WidgetRegistry';
+import { motion } from "framer-motion";
+import type React from "react";
+import { getWidgetRegistry } from "../core/WidgetRegistry";
+import type { Widget, WidgetEvents, WidgetRenderState } from "../types/widgets";
 
 interface WidgetContainerProps {
   widget: Widget;
@@ -24,28 +20,30 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   // Render widget content using plugin renderer or fallback
   const renderWidgetContent = () => {
     // Handle special widget types for separated architecture
-    if (widget.type === 'loading') {
+    if (widget.type === "loading") {
       return (
-        <div className="h-full flex flex-col items-center justify-center text-center p-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2" />
-          <div className="text-sm font-medium mb-1">Loading Content</div>
-          <div className="text-xs text-gray-500">
-            {(widget as any).message || 'Please wait...'}
+        <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+          <div className="mb-2 h-8 w-8 animate-spin rounded-full border-blue-500 border-b-2" />
+          <div className="mb-1 font-medium text-sm">Loading Content</div>
+          <div className="text-gray-500 text-xs">
+            {(widget as any).message || "Please wait..."}
           </div>
         </div>
       );
     }
 
-    if (widget.type === 'error') {
+    if (widget.type === "error") {
       return (
-        <div className="h-full flex flex-col items-center justify-center text-center p-4">
-          <div className="text-2xl mb-2">⚠️</div>
-          <div className="text-sm font-medium mb-1 text-red-600">Content Error</div>
-          <div className="text-xs text-gray-500">
-            {(widget as any).errorMessage || 'Failed to load content'}
+        <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+          <div className="mb-2 text-2xl">⚠️</div>
+          <div className="mb-1 font-medium text-red-600 text-sm">
+            Content Error
+          </div>
+          <div className="text-gray-500 text-xs">
+            {(widget as any).errorMessage || "Failed to load content"}
           </div>
           {(widget as any).originalType && (
-            <div className="text-xs text-gray-400 mt-1">
+            <div className="mt-1 text-gray-400 text-xs">
               Type: {(widget as any).originalType}
             </div>
           )}
@@ -67,12 +65,10 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
     // Fallback renderer for unknown widget types
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center p-4">
-        <div className="text-2xl mb-2">📦</div>
-        <div className="text-sm font-medium mb-1">{widget.type}</div>
-        <div className="text-xs text-gray-500">
-          No renderer available
-        </div>
+      <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+        <div className="mb-2 text-2xl">📦</div>
+        <div className="mb-1 font-medium text-sm">{widget.type}</div>
+        <div className="text-gray-500 text-xs">No renderer available</div>
       </div>
     );
   };
@@ -80,21 +76,25 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   return (
     <motion.div
       style={{
-        position: 'absolute',
+        position: "absolute",
         left: widget.x,
         top: widget.y,
         width: widget.width,
         height: widget.height + 20, // Extra space for pin
-        transformOrigin: 'center',
+        transformOrigin: "center",
         zIndex: state.isSelected ? 1000 : widget.zIndex,
         opacity: state.isSelected ? 0.9 : widget.locked ? 0.7 : 1,
-        cursor: widget.locked ? 'not-allowed' : (state.isSelected ? 'move' : 'pointer'),
-        pointerEvents: widget.locked ? 'none' : 'auto',
+        cursor: widget.locked
+          ? "not-allowed"
+          : state.isSelected
+            ? "move"
+            : "pointer",
+        pointerEvents: widget.locked ? "none" : "auto",
       }}
       className="select-none"
       initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ 
-        opacity: 1, 
+      animate={{
+        opacity: 1,
         scale: state.isHovered ? 1.02 : 1,
         transition: { duration: 0.2 },
         rotate: widget.rotation,
@@ -107,62 +107,67 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       {/* Pin/Thumbtack */}
       <div
         style={{
-          position: 'absolute',
-          top: '5px',
-          left: '50%',
-          transform: 'translateX(-50%)',
+          position: "absolute",
+          top: "5px",
+          left: "50%",
+          transform: "translateX(-50%)",
           zIndex: 10,
-          width: '12px',
-          height: '12px',
-          backgroundColor: widget.locked ? '#9ca3af' : (state.isSelected ? '#3b82f6' : '#dc2626'),
-          borderRadius: '50%',
-          border: `2px solid ${widget.locked ? '#6b7280' : (state.isSelected ? '#1d4ed8' : '#b91c1c')}`,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.3)',
+          width: "12px",
+          height: "12px",
+          backgroundColor: widget.locked
+            ? "#9ca3af"
+            : state.isSelected
+              ? "#3b82f6"
+              : "#dc2626",
+          borderRadius: "50%",
+          border: `2px solid ${widget.locked ? "#6b7280" : state.isSelected ? "#1d4ed8" : "#b91c1c"}`,
+          boxShadow:
+            "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.3)",
         }}
       />
-      
+
       {/* Widget Content Container */}
       <div
         style={{
-          position: 'relative',
-          top: '10px',
-          width: '100%',
+          position: "relative",
+          top: "10px",
+          width: "100%",
           height: widget.height,
-          backgroundColor: 'white',
-          padding: '8px',
-          borderRadius: '2px',
+          backgroundColor: "white",
+          padding: "8px",
+          borderRadius: "2px",
           boxShadow: `
             0 4px 8px rgba(0,0,0,0.15),
             0 2px 4px rgba(0,0,0,0.1),
             0 8px 16px rgba(0,0,0,0.1)
           `,
-          border: state.isSelected ? '2px solid #3b82f6' : 'none',
-          overflow: 'hidden',
+          border: state.isSelected ? "2px solid #3b82f6" : "none",
+          overflow: "hidden",
         }}
       >
         {renderWidgetContent()}
       </div>
-      
+
       {/* Pin Shadow */}
       <div
         style={{
-          position: 'absolute',
-          top: '7px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '8px',
-          height: '8px',
-          backgroundColor: 'rgba(0,0,0,0.2)',
-          borderRadius: '50%',
-          filter: 'blur(4px)',
+          position: "absolute",
+          top: "7px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "8px",
+          height: "8px",
+          backgroundColor: "rgba(0,0,0,0.2)",
+          borderRadius: "50%",
+          filter: "blur(4px)",
           zIndex: -1,
         }}
       />
 
       {/* Locked indicator */}
       {widget.locked && (
-        <div className="absolute inset-0 bg-gray-500/20 flex items-center justify-center">
-          <div className="text-gray-600 text-center p-2">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-500/20">
+          <div className="p-2 text-center text-gray-600">
             <div className="text-lg">🔒</div>
             <div className="text-xs">Locked</div>
           </div>
@@ -171,17 +176,19 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
       {/* Loading indicator */}
       {state.isLoading && (
-        <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+          <div className="h-6 w-6 animate-spin rounded-full border-blue-500 border-b-2" />
         </div>
       )}
 
       {/* Error indicator */}
       {state.hasError && (
-        <div className="absolute inset-0 bg-red-50 flex items-center justify-center">
-          <div className="text-red-500 text-center p-2">
+        <div className="absolute inset-0 flex items-center justify-center bg-red-50">
+          <div className="p-2 text-center text-red-500">
             <div className="text-lg">⚠️</div>
-            <div className="text-xs">{state.errorMessage || 'Error loading widget'}</div>
+            <div className="text-xs">
+              {state.errorMessage || "Error loading widget"}
+            </div>
           </div>
         </div>
       )}

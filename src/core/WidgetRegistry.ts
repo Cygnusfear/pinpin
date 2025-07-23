@@ -1,11 +1,11 @@
-import { 
+import type {
   WidgetRegistry as IWidgetRegistry,
-  WidgetTypeDefinition,
-  WidgetFactory,
-  WidgetRenderer,
   Widget,
-  WidgetPlugin
-} from '../types/widgets';
+  WidgetFactory,
+  WidgetPlugin,
+  WidgetRenderer,
+  WidgetTypeDefinition,
+} from "../types/widgets";
 
 export class WidgetRegistry implements IWidgetRegistry {
   private types = new Map<string, WidgetTypeDefinition>();
@@ -16,7 +16,9 @@ export class WidgetRegistry implements IWidgetRegistry {
   // Type management
   registerType(definition: WidgetTypeDefinition): void {
     if (this.types.has(definition.type)) {
-      console.warn(`Widget type '${definition.type}' is already registered. Overwriting.`);
+      console.warn(
+        `Widget type '${definition.type}' is already registered. Overwriting.`,
+      );
     }
     this.types.set(definition.type, definition);
   }
@@ -36,13 +38,17 @@ export class WidgetRegistry implements IWidgetRegistry {
   }
 
   getTypesByCategory(category: string): WidgetTypeDefinition[] {
-    return Array.from(this.types.values()).filter(type => type.category === category);
+    return Array.from(this.types.values()).filter(
+      (type) => type.category === category,
+    );
   }
 
   // Factory management
   registerFactory<T extends Widget>(factory: WidgetFactory<T>): void {
     if (this.factories.has(factory.type)) {
-      console.warn(`Widget factory for type '${factory.type}' is already registered. Overwriting.`);
+      console.warn(
+        `Widget factory for type '${factory.type}' is already registered. Overwriting.`,
+      );
     }
     this.factories.set(factory.type, factory as WidgetFactory);
   }
@@ -58,7 +64,9 @@ export class WidgetRegistry implements IWidgetRegistry {
   // Renderer management
   registerRenderer<T extends Widget>(renderer: WidgetRenderer<T>): void {
     if (this.renderers.has(renderer.type)) {
-      console.warn(`Widget renderer for type '${renderer.type}' is already registered. Overwriting.`);
+      console.warn(
+        `Widget renderer for type '${renderer.type}' is already registered. Overwriting.`,
+      );
     }
     this.renderers.set(renderer.type, renderer as WidgetRenderer);
   }
@@ -81,24 +89,26 @@ export class WidgetRegistry implements IWidgetRegistry {
     try {
       // Register types
       if (plugin.types) {
-        plugin.types.forEach(type => this.registerType(type));
+        plugin.types.forEach((type) => this.registerType(type));
       }
 
       // Register factories
       if (plugin.factories) {
-        plugin.factories.forEach(factory => this.registerFactory(factory));
+        plugin.factories.forEach((factory) => this.registerFactory(factory));
       }
 
       // Register renderers
       if (plugin.renderers) {
-        plugin.renderers.forEach(renderer => this.registerRenderer(renderer));
+        plugin.renderers.forEach((renderer) => this.registerRenderer(renderer));
       }
 
       // Call plugin install hook
       await plugin.install(this);
 
       this.plugins.set(plugin.id, plugin);
-      console.log(`Plugin '${plugin.name}' v${plugin.version} installed successfully`);
+      console.log(
+        `Plugin '${plugin.name}' v${plugin.version} installed successfully`,
+      );
     } catch (error) {
       console.error(`Failed to install plugin '${plugin.name}':`, error);
       throw error;
@@ -117,7 +127,7 @@ export class WidgetRegistry implements IWidgetRegistry {
 
       // Unregister types
       if (plugin.types) {
-        plugin.types.forEach(type => this.unregisterType(type.type));
+        plugin.types.forEach((type) => this.unregisterType(type.type));
       }
 
       this.plugins.delete(pluginId);
@@ -139,20 +149,20 @@ export class WidgetRegistry implements IWidgetRegistry {
   // Utility methods
   canHandleData(data: any): string[] {
     const supportedTypes: string[] = [];
-    
+
     for (const [type, factory] of this.factories) {
       if (factory.canHandle(data)) {
         supportedTypes.push(type);
       }
     }
-    
+
     return supportedTypes;
   }
 
   async createWidget(
-    type: string, 
-    data: any, 
-    position: { x: number; y: number }
+    type: string,
+    data: any,
+    position: { x: number; y: number },
   ): Promise<Widget | null> {
     const factory = this.getFactory(type);
     if (!factory) {
@@ -162,7 +172,7 @@ export class WidgetRegistry implements IWidgetRegistry {
 
     try {
       const widgetData = await factory.create(data, position);
-      
+
       // Add required fields
       const widget: Widget = {
         ...widgetData,
@@ -249,7 +259,7 @@ export class WidgetRegistry implements IWidgetRegistry {
   } {
     return {
       types: this.getAllTypes(),
-      plugins: this.getInstalledPlugins().map(p => ({
+      plugins: this.getInstalledPlugins().map((p) => ({
         id: p.id,
         name: p.name,
         version: p.version,

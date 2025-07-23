@@ -1,4 +1,4 @@
-export { StateMachine } from './StateMachine';
-export { BaseState } from './BaseState';
-export * from './types';
-export * from './states';
+export { BaseState } from "./BaseState";
+export { StateMachine } from "./StateMachine";
+export * from "./states";
+export * from "./types";

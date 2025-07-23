@@ -1,16 +1,16 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { CanvasTransform } from '../types/canvas';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { CanvasTransform } from "../types/canvas";
 
 // Local UI state interface
 export interface UIState {
   // Selection state
   selectedWidgets: Set<string>;
   hoveredWidget: string | null;
-  
+
   // Camera/viewport state
   canvasTransform: CanvasTransform;
-  
+
   // Other UI state
   mode: string;
   isFileOver: boolean;
@@ -24,20 +24,20 @@ export interface UIActions {
   selectWidgets: (ids: string[], selected: boolean) => void;
   clearSelection: () => void;
   setHoveredWidget: (id: string | null) => void;
-  
+
   // Camera operations
   setCanvasTransform: (transform: CanvasTransform) => void;
   resetCanvasTransform: () => void;
-  
+
   // Mode operations
   setMode: (mode: string) => void;
-  
+
   // File drag operations
   setFileOver: (isOver: boolean) => void;
-  
+
   // Selection box operations
   setSelectionBox: (box: any | null) => void;
-  
+
   // Utility operations
   reset: () => void;
 }
@@ -49,7 +49,7 @@ const initialState: UIState = {
   selectedWidgets: new Set(),
   hoveredWidget: null,
   canvasTransform: { x: 0, y: 0, scale: 1 },
-  mode: 'select',
+  mode: "select",
   isFileOver: false,
   selectionBox: null,
 };
@@ -57,7 +57,7 @@ const initialState: UIState = {
 // Create the UI store with persistence for camera transform only
 export const useUIStore = create<UIStore>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       ...initialState,
 
       // Selection operations
@@ -76,7 +76,7 @@ export const useUIStore = create<UIStore>()(
       selectWidgets: (ids: string[], selected: boolean) => {
         set((state) => {
           const newSelectedWidgets = new Set(state.selectedWidgets);
-          ids.forEach(id => {
+          ids.forEach((id) => {
             if (selected) {
               newSelectedWidgets.add(id);
             } else {
@@ -128,24 +128,24 @@ export const useUIStore = create<UIStore>()(
       },
     }),
     {
-      name: 'pinboard-ui-storage',
+      name: "pinboard-ui-storage",
       partialize: (state) => ({
         // Only persist camera transform, not selection or other transient UI state
         canvasTransform: state.canvasTransform,
       }),
-    }
-  )
+    },
+  ),
 );
 
 // Helper hooks for specific UI state
 export const useSelection = () => {
-  const selectedWidgets = useUIStore(state => state.selectedWidgets);
-  const hoveredWidget = useUIStore(state => state.hoveredWidget);
-  const selectWidget = useUIStore(state => state.selectWidget);
-  const selectWidgets = useUIStore(state => state.selectWidgets);
-  const clearSelection = useUIStore(state => state.clearSelection);
-  const setHoveredWidget = useUIStore(state => state.setHoveredWidget);
-  
+  const selectedWidgets = useUIStore((state) => state.selectedWidgets);
+  const hoveredWidget = useUIStore((state) => state.hoveredWidget);
+  const selectWidget = useUIStore((state) => state.selectWidget);
+  const selectWidgets = useUIStore((state) => state.selectWidgets);
+  const clearSelection = useUIStore((state) => state.clearSelection);
+  const setHoveredWidget = useUIStore((state) => state.setHoveredWidget);
+
   return {
     selectedWidgets,
     hoveredWidget,
@@ -157,10 +157,12 @@ export const useSelection = () => {
 };
 
 export const useCanvasTransform = () => {
-  const canvasTransform = useUIStore(state => state.canvasTransform);
-  const setCanvasTransform = useUIStore(state => state.setCanvasTransform);
-  const resetCanvasTransform = useUIStore(state => state.resetCanvasTransform);
-  
+  const canvasTransform = useUIStore((state) => state.canvasTransform);
+  const setCanvasTransform = useUIStore((state) => state.setCanvasTransform);
+  const resetCanvasTransform = useUIStore(
+    (state) => state.resetCanvasTransform,
+  );
+
   return {
     canvasTransform,
     setCanvasTransform,
@@ -169,9 +171,9 @@ export const useCanvasTransform = () => {
 };
 
 export const useInteractionMode = () => {
-  const mode = useUIStore(state => state.mode);
-  const setMode = useUIStore(state => state.setMode);
-  
+  const mode = useUIStore((state) => state.mode);
+  const setMode = useUIStore((state) => state.setMode);
+
   return {
     mode,
     setMode,

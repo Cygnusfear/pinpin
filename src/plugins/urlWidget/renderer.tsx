@@ -1,6 +1,6 @@
-import React from 'react';
-import { WidgetRendererProps } from '../../types/widgets';
-import { UrlWidget } from './types';
+import type React from "react";
+import type { WidgetRendererProps } from "../../types/widgets";
+import type { UrlWidget } from "./types";
 
 export const UrlWidgetRenderer: React.FC<WidgetRendererProps<UrlWidget>> = ({
   widget,
@@ -8,56 +8,58 @@ export const UrlWidgetRenderer: React.FC<WidgetRendererProps<UrlWidget>> = ({
   events,
 }) => {
   const domain = new URL(widget.url).hostname;
-  
+
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {/* Preview card */}
-      <div className="flex-1 min-h-0 bg-white rounded border border-gray-200 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden rounded border border-gray-200 bg-white">
         {/* Preview image */}
         {widget.preview && (
-          <div className="w-full h-24 bg-gray-100">
-            <img 
-              src={widget.preview} 
+          <div className="h-24 w-full bg-gray-100">
+            <img
+              src={widget.preview}
               alt=""
-              className="w-full h-full object-cover"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
             />
           </div>
         )}
-        
+
         {/* Card content */}
         <div className="p-3">
           {/* Title */}
-          <div className="font-medium text-sm text-gray-900 mb-1 line-clamp-2">
+          <div className="mb-1 line-clamp-2 font-medium text-gray-900 text-sm">
             {widget.title || domain}
           </div>
-          
+
           {/* Description */}
           {widget.description && (
-            <div className="text-xs text-gray-600 line-clamp-2 mb-2">
+            <div className="mb-2 line-clamp-2 text-gray-600 text-xs">
               {widget.description}
             </div>
           )}
-          
+
           {/* Domain and favicon */}
           <div className="flex items-center gap-2">
             {widget.favicon && (
-              <img 
-                src={widget.favicon} 
-                alt="" 
-                className="w-3 h-3 flex-shrink-0"
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              <img
+                src={widget.favicon}
+                alt=""
+                className="h-3 w-3 flex-shrink-0"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
               />
             )}
-            <div className="text-xs text-gray-500 truncate">
-              {domain}
-            </div>
+            <div className="truncate text-gray-500 text-xs">{domain}</div>
           </div>
         </div>
       </div>
-      
+
       {/* URL bar */}
-      <div className="text-xs text-blue-500 truncate mt-2 px-1">
+      <div className="mt-2 truncate px-1 text-blue-500 text-xs">
         {widget.url}
       </div>
     </div>

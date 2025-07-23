@@ -18,17 +18,17 @@ export interface CanvasTransform {
 }
 
 export type InteractionMode =
-  | 'select'      // Default mode - selection and manipulation
-  | 'hand'        // Pan mode (space key held)
-  | 'zoom'        // Zoom mode (z key or zoom tool)
-  | 'text'        // Text editing mode
-  | 'draw'        // Drawing/annotation mode
-  | 'resize'      // Active resizing
-  | 'rotate'      // Active rotation
-  | 'transform'   // Active transformation (resize/rotate handles)
-  | 'drag'        // Active dragging widgets
-  | 'area-select' // Area selection (marquee)
-  | 'drop-target'; // File drop mode
+  | "select" // Default mode - selection and manipulation
+  | "hand" // Pan mode (space key held)
+  | "zoom" // Zoom mode (z key or zoom tool)
+  | "text" // Text editing mode
+  | "draw" // Drawing/annotation mode
+  | "resize" // Active resizing
+  | "rotate" // Active rotation
+  | "transform" // Active transformation (resize/rotate handles)
+  | "drag" // Active dragging widgets
+  | "area-select" // Area selection (marquee)
+  | "drop-target"; // File drop mode
 
 export interface KeyModifiers {
   shift: boolean;
@@ -48,16 +48,26 @@ export interface InteractionState {
 }
 
 export interface TransformHandle {
-  type: 'resize' | 'rotate' | 'move';
-  position: 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'center' | 'rotation';
+  type: "resize" | "rotate" | "move";
+  position:
+    | "nw"
+    | "n"
+    | "ne"
+    | "e"
+    | "se"
+    | "s"
+    | "sw"
+    | "w"
+    | "center"
+    | "rotation";
   cursor: string;
   bounds: BoundingBox;
 }
 
 export interface SnapTarget {
-  type: 'widget' | 'grid' | 'guide';
+  type: "widget" | "grid" | "guide";
   position: Point;
-  orientation: 'horizontal' | 'vertical';
+  orientation: "horizontal" | "vertical";
   strength: number; // Snap strength/priority
 }
 
@@ -79,4 +89,4 @@ export interface BaseWidget {
 }
 
 // Re-export Widget from widgets.ts to maintain compatibility
-export type { Widget } from './widgets';
+export type { Widget } from "./widgets";
