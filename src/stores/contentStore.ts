@@ -1,10 +1,27 @@
 import { type DocumentId, sync } from "@tonk/keepsync";
 import { create } from "zustand";
 import type {
-  ContentData,
-  ContentDataCreateData,
-  ContentHash,
+  WidgetContent,
 } from "../types/widgets";
+
+// ============================================================================
+// CONTENT STORE TYPES - UNIFIED ARCHITECTURE
+// ============================================================================
+
+// Type alias for consistency with the unified architecture
+export type ContentData = WidgetContent;
+
+// Input type for creating content (without id, lastModified, size)
+export interface ContentDataCreateData {
+  type: string;
+  [key: string]: any; // Allow any additional properties based on widget type
+}
+
+// Hash result interface
+export interface ContentHash {
+  hash: string;
+  size: number;
+}
 
 // ============================================================================
 // CONTENT STORE DATA STRUCTURE
@@ -213,9 +230,12 @@ export const useContentStore = create<ContentStore>(
         const { hash, size } = generateContentHash(contentData);
         const now = Date.now();
 
+        // Extract type and wrap remaining data in data field
+        const { type, ...data } = contentData;
         const newContent: ContentData = {
-          ...contentData,
           id: hash,
+          type,
+          data, // ✅ Wrap content in data field
           lastModified: now,
           size,
         } as ContentData;

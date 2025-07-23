@@ -43,7 +43,3 @@ export type {
   CalculatorContent,
   CanvasTransform,
 } from "../types/widgets";
-
-// Legacy compatibility exports (to be removed once components are updated)
-// These will help during the transition but should be deleted once all components use the new patterns
-export const usePinboardStore = useWidgetStore; // Temporary alias

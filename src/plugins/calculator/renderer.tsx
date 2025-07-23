@@ -115,6 +115,14 @@ export const CalculatorRenderer: React.FC<WidgetRendererProps<CalculatorContent>
     );
   }
 
+  if (!widget.content?.data) {
+    return (
+      <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
+        <div className="text-gray-500">Missing content data</div>
+      </div>
+    );
+  }
+
   const data = widget.content.data;
 
   return (

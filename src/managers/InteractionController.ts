@@ -6,8 +6,8 @@ import type {
   KeyModifiers,
   Point,
   SnapTarget,
-  Widget,
 } from "../types/canvas";
+import type { HydratedWidget } from "../types/widgets";
 import { SeparatedDragManager } from "./DragManager";
 import { KeyboardManager } from "./KeyboardManager";
 import { SelectionManager } from "./SelectionManager";
@@ -27,9 +27,9 @@ import {
 } from "./stateMachine";
 
 export interface InteractionCallbacks {
-  onWidgetUpdate: (id: string, updates: Partial<Widget>) => void;
+  onWidgetUpdate: (id: string, updates: Partial<HydratedWidget>) => void;
   onWidgetsUpdate: (
-    updates: Array<{ id: string; updates: Partial<Widget> }>,
+    updates: Array<{ id: string; updates: Partial<HydratedWidget> }>,
   ) => void;
   onWidgetRemove: (id: string) => void;
   onCanvasTransform: (transform: CanvasTransform) => void;
@@ -44,7 +44,7 @@ export class InteractionController {
   private dragManager: SeparatedDragManager;
   private stateMachine: StateMachine;
 
-  private widgets: Widget[] = [];
+  private widgets: HydratedWidget[] = [];
   private canvasTransform: CanvasTransform = { x: 0, y: 0, scale: 1 };
   private interactionState: InteractionState = {
     mode: "select",
@@ -168,7 +168,7 @@ export class InteractionController {
   }
 
   // State management
-  setWidgets(widgets: Widget[]): void {
+  setWidgets(widgets: HydratedWidget[]): void {
     this.widgets = [...widgets];
     // Update state machine context
     this.stateMachine.updateContext({ widgets: this.widgets });
@@ -191,7 +191,7 @@ export class InteractionController {
     };
   }
 
-  getSelectedWidgets(): Widget[] {
+  getSelectedWidgets(): HydratedWidget[] {
     const selectedIds = this.selectionManager.getSelectedIds();
     return this.widgets.filter((w) => selectedIds.includes(w.id));
   }
@@ -576,7 +576,7 @@ export class InteractionController {
     };
   }
 
-  private getWidgetAtPoint(point: Point): Widget | undefined {
+  private getWidgetAtPoint(point: Point): HydratedWidget | undefined {
     // Find the topmost widget at the given point
     const sortedWidgets = [...this.widgets].sort((a, b) => b.zIndex - a.zIndex);
 
@@ -589,7 +589,7 @@ export class InteractionController {
     return undefined;
   }
 
-  private isPointInWidget(point: Point, widget: Widget): boolean {
+  private isPointInWidget(point: Point, widget: HydratedWidget): boolean {
     return (
       point.x >= widget.x &&
       point.x <= widget.x + widget.width &&
@@ -821,7 +821,7 @@ export class InteractionController {
           },
         };
       })
-      .filter(Boolean) as Array<{ id: string; updates: Partial<Widget> }>;
+      .filter(Boolean) as Array<{ id: string; updates: Partial<HydratedWidget> }>;
 
     this.callbacks.onWidgetsUpdate(updates);
   }

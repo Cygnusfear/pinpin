@@ -1,10 +1,10 @@
 import type React from "react";
 import { useState } from "react";
 import { getWidgetRegistry } from "../core/WidgetRegistry";
-import type { WidgetCreateData } from "../types/widgets";
+import type { CreateWidgetInput } from "../types/widgets";
 
 interface FloatingToolbarProps {
-  onWidgetAdd: (widget: WidgetCreateData) => void;
+  onWidgetAdd: (widget: CreateWidgetInput) => void;
   canvasPosition?: { x: number; y: number }; // Position to place new widgets
 }
 

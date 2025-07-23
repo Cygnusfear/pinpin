@@ -98,7 +98,18 @@ export const DocumentRenderer: React.FC<WidgetRendererProps<DocumentContent>> = 
     );
   }
 
-  const data = widget.content.data;
+  const data = widget.content?.data;
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
+        <div className="text-gray-500 text-center p-4">
+          <div className="text-2xl mb-2">📄</div>
+          <div className="text-sm">No document data available</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-white rounded-lg shadow overflow-hidden border border-gray-200 hover:border-blue-300 transition-colors">
