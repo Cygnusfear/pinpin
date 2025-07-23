@@ -218,22 +218,27 @@ export const useContentStore = create<ContentStore>(
           id: hash,
           lastModified: now,
           size,
-        } as any;
+        } as ContentData;
 
         console.log("📦 Adding new content:", hash, `(${size} bytes)`);
 
-        set((state) => ({
-          content: {
+        set((state) => {
+          const updatedContent: Record<string, ContentData> = {
             ...state.content,
             [hash]: newContent,
-          },
-          lastModified: now,
-          cacheStats: {
-            ...state.cacheStats,
-            totalSize: state.cacheStats.totalSize + size,
-            itemCount: state.cacheStats.itemCount + 1,
-          },
-        }));
+          };
+          
+          return {
+            ...state,
+            content: updatedContent,
+            lastModified: now,
+            cacheStats: {
+              ...state.cacheStats,
+              totalSize: state.cacheStats.totalSize + size,
+              itemCount: state.cacheStats.itemCount + 1,
+            },
+          };
+        });
 
         // Update cache
         contentCache.addItem(hash, size);

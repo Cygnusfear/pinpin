@@ -86,6 +86,13 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
             content: "Drop a file here or click to edit",
           };
           break;
+        case "todo":
+          createData = {
+            type: "todo",
+            items: [],
+            title: "Todo List",
+          };
+          break;
         default:
           createData = { type: widgetType };
       }

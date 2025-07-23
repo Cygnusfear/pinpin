@@ -192,6 +192,104 @@ const Pinboard: React.FC = () => {
     async (widgetData: WidgetDataCreateData) => {
       try {
         // Convert legacy WidgetCreateData to LocalWidgetCreateInput
+        // Extract content-specific properties based on widget type
+        let content: any;
+        
+        switch (widgetData.type) {
+          case "todo": {
+            // Extract todo-specific content
+            const todoWidget = widgetData as any;
+            content = {
+              type: "todo",
+              items: todoWidget.items || [],
+              title: todoWidget.title || "Todo List",
+              lastModified: Date.now(),
+            };
+            break;
+          }
+          case "note": {
+            // Extract note-specific content
+            const noteWidget = widgetData as any;
+            content = {
+              type: "note",
+              content: noteWidget.content || "",
+              backgroundColor: noteWidget.backgroundColor || "#FFF740",
+              textColor: noteWidget.textColor || "#000000",
+              fontSize: noteWidget.fontSize || 14,
+              fontFamily: noteWidget.fontFamily || "Inter, system-ui, sans-serif",
+              textAlign: noteWidget.textAlign || "left",
+              formatting: noteWidget.formatting || {},
+              lastModified: Date.now(),
+            };
+            break;
+          }
+          case "image": {
+            // Extract image-specific content
+            const imageWidget = widgetData as any;
+            content = {
+              type: "image",
+              src: imageWidget.src || "",
+              alt: imageWidget.alt || "",
+              originalDimensions: imageWidget.originalDimensions || { width: 200, height: 150 },
+              filters: imageWidget.filters,
+              lastModified: Date.now(),
+            };
+            break;
+          }
+          case "url": {
+            // Extract URL-specific content
+            const urlWidget = widgetData as any;
+            content = {
+              type: "url",
+              url: urlWidget.url || "",
+              title: urlWidget.title,
+              description: urlWidget.description,
+              favicon: urlWidget.favicon,
+              preview: urlWidget.preview,
+              embedType: urlWidget.embedType,
+              embedData: urlWidget.embedData,
+              lastModified: Date.now(),
+            };
+            break;
+          }
+          case "calculator": {
+            // Extract calculator-specific content
+            const calcWidget = widgetData as any;
+            content = {
+              type: "calculator",
+              currentValue: calcWidget.currentValue || "0",
+              previousValue: calcWidget.previousValue || "",
+              operation: calcWidget.operation || null,
+              result: calcWidget.result || "0",
+              history: calcWidget.history || [],
+              isResultDisplayed: calcWidget.isResultDisplayed || false,
+              lastModified: Date.now(),
+            };
+            break;
+          }
+          case "document": {
+            // Extract document-specific content
+            const docWidget = widgetData as any;
+            content = {
+              type: "document",
+              fileName: docWidget.fileName || "Untitled",
+              fileType: docWidget.fileType || "document",
+              fileSize: docWidget.fileSize || 0,
+              mimeType: docWidget.mimeType || "text/plain",
+              content: docWidget.content,
+              thumbnail: docWidget.thumbnail,
+              downloadUrl: docWidget.downloadUrl,
+              previewUrl: docWidget.previewUrl,
+              lastModified: Date.now(),
+            };
+            break;
+          }
+          default:
+            // Fallback: use the entire widget data as content (for unknown types)
+            console.warn(`Unknown widget type ${widgetData.type}, using fallback content conversion`);
+            content = widgetData;
+        }
+
         const separatedInput: LocalWidgetCreateInput = {
           type: widgetData.type,
           x: widgetData.x,
@@ -201,10 +299,10 @@ const Pinboard: React.FC = () => {
           rotation: widgetData.rotation || 0,
           locked: widgetData.locked || false,
           metadata: widgetData.metadata || {},
-          content: widgetData,
+          content,
         };
 
-        console.log("✅ Converted to separated format:", separatedInput);
+        console.log("✅ Converted to separated format:", separatedInput.type, separatedInput);
         await addWidget(separatedInput);
       } catch (error) {
         console.error("❌ Failed to convert legacy widget:", error);

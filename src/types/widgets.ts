@@ -85,6 +85,17 @@ export interface CalculatorWidget extends BaseWidget {
   isResultDisplayed: boolean;
 }
 
+export interface TodoWidget extends BaseWidget {
+  type: "todo";
+  items: Array<{
+    id: string;
+    text: string;
+    completed: boolean;
+    createdAt: number;
+  }>;
+  title: string;
+}
+
 export interface AppWidget extends BaseWidget {
   type: "app";
   appId: string;
@@ -131,6 +142,7 @@ export type Widget =
   | UrlWidget
   | NoteWidget
   | CalculatorWidget
+  | TodoWidget
   | AppWidget
   | GroupWidget
   | UnknownWidget
@@ -416,6 +428,20 @@ export interface CalculatorContentData extends BaseContentData {
 }
 
 /**
+ * Todo widget content data
+ */
+export interface TodoContentData extends BaseContentData {
+  type: "todo";
+  items: Array<{
+    id: string;
+    text: string;
+    completed: boolean;
+    createdAt: number;
+  }>;
+  title: string;
+}
+
+/**
  * Document widget content data
  */
 export interface DocumentContentData extends BaseContentData {
@@ -490,6 +516,7 @@ export type ContentData =
   | ImageContentData
   | NoteContentData
   | CalculatorContentData
+  | TodoContentData
   | DocumentContentData
   | UrlContentData
   | AppContentData

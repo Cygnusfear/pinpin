@@ -15,7 +15,23 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   events,
 }) => {
   const registry = getWidgetRegistry();
+  
+  // Debug logging to track widget type issues
+  console.log('🔍 WidgetContainer rendering widget:', {
+    id: widget.id,
+    type: widget.type,
+    hasContent: !!(widget as any).content,
+    contentType: (widget as any).content?.type,
+    isContentLoaded: (widget as any).isContentLoaded,
+    contentError: (widget as any).contentError
+  });
+  
   const renderer = registry.getRenderer(widget.type);
+  console.log('🎭 Renderer lookup result:', {
+    widgetType: widget.type,
+    rendererFound: !!renderer,
+    rendererComponent: !!renderer?.component
+  });
 
   // Render widget content using plugin renderer or fallback
   const renderWidgetContent = () => {

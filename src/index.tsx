@@ -9,6 +9,7 @@ import { calculatorWidgetPlugin } from "./plugins/calculatorWidget";
 import { documentWidgetPlugin } from "./plugins/documentWidget";
 import { imageWidgetPlugin } from "./plugins/imageWidget";
 import { noteWidgetPlugin } from "./plugins/noteWidget";
+import { todoWidgetPlugin } from "./plugins/todoWidget";
 import { urlWidgetPlugin } from "./plugins/urlWidget";
 
 // Initialize widget plugins
@@ -23,6 +24,7 @@ async function initializeWidgetPlugins() {
     await registry.installPlugin(urlWidgetPlugin);
     await registry.installPlugin(noteWidgetPlugin);
     await registry.installPlugin(calculatorWidgetPlugin);
+    await registry.installPlugin(todoWidgetPlugin);
     await registry.installPlugin(documentWidgetPlugin);
 
     console.log("✅ All widget plugins registered successfully");
