@@ -1,32 +1,44 @@
 import type {
-  WidgetRegistry as IWidgetRegistry,
-  Widget,
-  WidgetFactory,
-  WidgetPlugin,
-  WidgetRenderer,
   WidgetTypeDefinition,
+  WidgetFactory,
+  WidgetRenderer,
+  WidgetRegistry as IWidgetRegistry,
 } from "../types/widgets";
 
+// ============================================================================
+// WIDGET REGISTRY - SIMPLIFIED IMPLEMENTATION
+// ============================================================================
+
+/**
+ * Clean, simplified widget registry implementation
+ * Manages widget types, factories, and renderers in a unified way
+ */
 export class WidgetRegistry implements IWidgetRegistry {
   private types = new Map<string, WidgetTypeDefinition>();
   private factories = new Map<string, WidgetFactory>();
   private renderers = new Map<string, WidgetRenderer>();
-  private plugins = new Map<string, WidgetPlugin>();
 
-  // Type management
+  // ============================================================================
+  // TYPE REGISTRATION
+  // ============================================================================
+
   registerType(definition: WidgetTypeDefinition): void {
     if (this.types.has(definition.type)) {
-      console.warn(
-        `Widget type '${definition.type}' is already registered. Overwriting.`,
-      );
+      console.warn(`Widget type "${definition.type}" is already registered`);
     }
+    
     this.types.set(definition.type, definition);
+    console.log(`✅ Registered widget type: ${definition.type}`);
   }
 
   unregisterType(type: string): void {
+    if (!this.types.has(type)) {
+      console.warn(`Widget type "${type}" is not registered`);
+      return;
+    }
+
     this.types.delete(type);
-    this.factories.delete(type);
-    this.renderers.delete(type);
+    console.log(`❌ Unregistered widget type: ${type}`);
   }
 
   getType(type: string): WidgetTypeDefinition | undefined {
@@ -43,243 +55,194 @@ export class WidgetRegistry implements IWidgetRegistry {
     );
   }
 
-  // Factory management
-  registerFactory<T extends Widget>(factory: WidgetFactory<T>): void {
+  // ============================================================================
+  // FACTORY REGISTRATION
+  // ============================================================================
+
+  registerFactory<T>(factory: WidgetFactory<T>): void {
     if (this.factories.has(factory.type)) {
-      console.warn(
-        `Widget factory for type '${factory.type}' is already registered. Overwriting.`,
-      );
+      console.warn(`Factory for widget type "${factory.type}" is already registered`);
     }
+
     this.factories.set(factory.type, factory as WidgetFactory);
+    console.log(`✅ Registered factory: ${factory.type}`);
   }
 
   unregisterFactory(type: string): void {
-    this.factories.delete(type);
-  }
-
-  getFactory<T extends Widget>(type: string): WidgetFactory<T> | undefined {
-    return this.factories.get(type) as WidgetFactory<T> | undefined;
-  }
-
-  // Renderer management
-  registerRenderer<T extends Widget>(renderer: WidgetRenderer<T>): void {
-    if (this.renderers.has(renderer.type)) {
-      console.warn(
-        `Widget renderer for type '${renderer.type}' is already registered. Overwriting.`,
-      );
-    }
-    this.renderers.set(renderer.type, renderer as WidgetRenderer);
-  }
-
-  unregisterRenderer(type: string): void {
-    this.renderers.delete(type);
-  }
-
-  getRenderer<T extends Widget>(type: string): WidgetRenderer<T> | undefined {
-    return this.renderers.get(type) as WidgetRenderer<T> | undefined;
-  }
-
-  // Plugin management
-  async installPlugin(plugin: WidgetPlugin): Promise<void> {
-    if (this.plugins.has(plugin.id)) {
-      console.warn(`Plugin '${plugin.id}' is already installed. Skipping.`);
+    if (!this.factories.has(type)) {
+      console.warn(`Factory for widget type "${type}" is not registered`);
       return;
     }
 
-    try {
-      // Register types
-      if (plugin.types) {
-        plugin.types.forEach((type) => this.registerType(type));
-      }
-
-      // Register factories
-      if (plugin.factories) {
-        plugin.factories.forEach((factory) => this.registerFactory(factory));
-      }
-
-      // Register renderers
-      if (plugin.renderers) {
-        plugin.renderers.forEach((renderer) => this.registerRenderer(renderer));
-      }
-
-      // Call plugin install hook
-      await plugin.install(this);
-
-      this.plugins.set(plugin.id, plugin);
-      console.log(
-        `Plugin '${plugin.name}' v${plugin.version} installed successfully`,
-      );
-    } catch (error) {
-      console.error(`Failed to install plugin '${plugin.name}':`, error);
-      throw error;
-    }
+    this.factories.delete(type);
+    console.log(`❌ Unregistered factory: ${type}`);
   }
 
-  async uninstallPlugin(pluginId: string): Promise<void> {
-    const plugin = this.plugins.get(pluginId);
-    if (!plugin) {
-      throw new Error(`Plugin '${pluginId}' is not installed`);
+  getFactory<T>(type: string): WidgetFactory<T> | undefined {
+    return this.factories.get(type) as WidgetFactory<T> | undefined;
+  }
+
+  // ============================================================================
+  // RENDERER REGISTRATION
+  // ============================================================================
+
+  registerRenderer<T>(renderer: WidgetRenderer<T>): void {
+    if (this.renderers.has(renderer.type)) {
+      console.warn(`Renderer for widget type "${renderer.type}" is already registered`);
     }
 
-    try {
-      // Call plugin uninstall hook
-      await plugin.uninstall(this);
-
-      // Unregister types
-      if (plugin.types) {
-        plugin.types.forEach((type) => this.unregisterType(type.type));
-      }
-
-      this.plugins.delete(pluginId);
-      console.log(`Plugin '${plugin.name}' uninstalled successfully`);
-    } catch (error) {
-      console.error(`Failed to uninstall plugin '${plugin.name}':`, error);
-      throw error;
-    }
+    this.renderers.set(renderer.type, renderer as WidgetRenderer);
+    console.log(`✅ Registered renderer: ${renderer.type}`);
   }
 
-  getInstalledPlugins(): WidgetPlugin[] {
-    return Array.from(this.plugins.values());
-  }
-
-  getPlugin(pluginId: string): WidgetPlugin | undefined {
-    return this.plugins.get(pluginId);
-  }
-
-  // Utility methods
-  canHandleData(data: any): string[] {
-    const supportedTypes: string[] = [];
-
-    for (const [type, factory] of this.factories) {
-      if (factory.canHandle(data)) {
-        supportedTypes.push(type);
-      }
+  unregisterRenderer(type: string): void {
+    if (!this.renderers.has(type)) {
+      console.warn(`Renderer for widget type "${type}" is not registered`);
+      return;
     }
 
-    return supportedTypes;
+    this.renderers.delete(type);
+    console.log(`❌ Unregistered renderer: ${type}`);
   }
 
-  async createWidget(
-    type: string,
-    data: any,
-    position: { x: number; y: number },
-  ): Promise<Widget | null> {
-    const factory = this.getFactory(type);
-    if (!factory) {
-      console.error(`No factory found for widget type: ${type}`);
-      return null;
-    }
-
-    try {
-      const widgetData = await factory.create(data, position);
-
-      // Add required fields
-      const widget: Widget = {
-        ...widgetData,
-        id: this.generateWidgetId(),
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        selected: false,
-        zIndex: Date.now(), // Simple z-index based on creation time
-      } as Widget;
-
-      // Validate the widget
-      const validation = factory.validate(widget);
-      if (!validation.isValid) {
-        console.error(`Widget validation failed:`, validation.errors);
-        return null;
-      }
-
-      return widget;
-    } catch (error) {
-      console.error(`Failed to create widget of type '${type}':`, error);
-      return null;
-    }
+  getRenderer<T>(type: string): WidgetRenderer<T> | undefined {
+    return this.renderers.get(type) as WidgetRenderer<T> | undefined;
   }
 
-  private generateWidgetId(): string {
-    return `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  // ============================================================================
+  // UTILITY METHODS
+  // ============================================================================
+
+  /**
+   * Get all registered widget types
+   */
+  getRegisteredTypes(): string[] {
+    return Array.from(this.types.keys());
   }
 
-  // Debug and inspection methods
-  getRegistryStats(): {
-    types: number;
-    factories: number;
-    renderers: number;
-    plugins: number;
-  } {
+  /**
+   * Check if a widget type is fully registered (has type, factory, and renderer)
+   */
+  isTypeFullyRegistered(type: string): boolean {
+    return (
+      this.types.has(type) &&
+      this.factories.has(type) &&
+      this.renderers.has(type)
+    );
+  }
+
+  /**
+   * Get registration status for a widget type
+   */
+  getRegistrationStatus(type: string) {
     return {
-      types: this.types.size,
-      factories: this.factories.size,
-      renderers: this.renderers.size,
-      plugins: this.plugins.size,
+      hasType: this.types.has(type),
+      hasFactory: this.factories.has(type),
+      hasRenderer: this.renderers.has(type),
+      isFullyRegistered: this.isTypeFullyRegistered(type),
     };
   }
 
-  validateRegistry(): {
-    isValid: boolean;
-    issues: string[];
-  } {
-    const issues: string[] = [];
-
-    // Check that all types have corresponding factories and renderers
-    for (const type of this.types.keys()) {
-      if (!this.factories.has(type)) {
-        issues.push(`Type '${type}' has no factory`);
-      }
-      if (!this.renderers.has(type)) {
-        issues.push(`Type '${type}' has no renderer`);
-      }
-    }
-
-    // Check for orphaned factories
-    for (const type of this.factories.keys()) {
-      if (!this.types.has(type)) {
-        issues.push(`Factory for type '${type}' has no type definition`);
-      }
-    }
-
-    // Check for orphaned renderers
-    for (const type of this.renderers.keys()) {
-      if (!this.types.has(type)) {
-        issues.push(`Renderer for type '${type}' has no type definition`);
-      }
-    }
-
-    return {
-      isValid: issues.length === 0,
-      issues,
-    };
-  }
-
-  // Export/import registry state
-  exportRegistry(): {
-    types: WidgetTypeDefinition[];
-    plugins: Array<{ id: string; name: string; version: string }>;
-  } {
-    return {
-      types: this.getAllTypes(),
-      plugins: this.getInstalledPlugins().map((p) => ({
-        id: p.id,
-        name: p.name,
-        version: p.version,
-      })),
-    };
-  }
-
-  // Clear all registrations (useful for testing)
+  /**
+   * Clear all registrations
+   */
   clear(): void {
     this.types.clear();
     this.factories.clear();
     this.renderers.clear();
-    this.plugins.clear();
+    console.log("🧹 Cleared all widget registrations");
+  }
+
+  /**
+   * Get registry statistics
+   */
+  getStats() {
+    const typeCount = this.types.size;
+    const factoryCount = this.factories.size;
+    const rendererCount = this.renderers.size;
+    const fullyRegistered = Array.from(this.types.keys()).filter((type) =>
+      this.isTypeFullyRegistered(type),
+    ).length;
+
+    return {
+      types: typeCount,
+      factories: factoryCount,
+      renderers: rendererCount,
+      fullyRegistered,
+      registrationRate: typeCount > 0 ? (fullyRegistered / typeCount) * 100 : 0,
+    };
   }
 }
 
-// Global registry instance
-export const widgetRegistry = new WidgetRegistry();
+// ============================================================================
+// GLOBAL REGISTRY INSTANCE
+// ============================================================================
 
-// Helper function to get the global registry
+let globalRegistry: WidgetRegistry | null = null;
+
+/**
+ * Get the global widget registry instance
+ */
 export function getWidgetRegistry(): WidgetRegistry {
-  return widgetRegistry;
+  if (!globalRegistry) {
+    globalRegistry = new WidgetRegistry();
+  }
+  return globalRegistry;
+}
+
+/**
+ * Reset the global widget registry (useful for testing)
+ */
+export function resetWidgetRegistry(): void {
+  globalRegistry = null;
+}
+
+// ============================================================================
+// CONVENIENCE FUNCTIONS
+// ============================================================================
+
+/**
+ * Register a complete widget plugin with type, factory, and renderer
+ */
+export function registerWidget<T>(
+  type: WidgetTypeDefinition,
+  factory: WidgetFactory<T>,
+  renderer: WidgetRenderer<T>,
+): void {
+  const registry = getWidgetRegistry();
+  
+  registry.registerType(type);
+  registry.registerFactory(factory);
+  registry.registerRenderer(renderer);
+  
+  console.log(`🎯 Fully registered widget: ${type.type}`);
+}
+
+/**
+ * Unregister a complete widget by type
+ */
+export function unregisterWidget(type: string): void {
+  const registry = getWidgetRegistry();
+  
+  registry.unregisterType(type);
+  registry.unregisterFactory(type);
+  registry.unregisterRenderer(type);
+  
+  console.log(`🗑️ Fully unregistered widget: ${type}`);
+}
+
+/**
+ * Check if a widget type can be created (has factory)
+ */
+export function canCreateWidget(type: string): boolean {
+  const registry = getWidgetRegistry();
+  return registry.getFactory(type) !== undefined;
+}
+
+/**
+ * Check if a widget type can be rendered (has renderer)
+ */
+export function canRenderWidget(type: string): boolean {
+  const registry = getWidgetRegistry();
+  return registry.getRenderer(type) !== undefined;
 }

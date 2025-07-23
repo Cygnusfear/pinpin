@@ -1,29 +1,49 @@
-// Main pinboard store export
+// ============================================================================
+// PINBOARD STORE - CLEAN UNIFIED EXPORTS
+// ============================================================================
 // This file provides a clean interface for components to import the stores
+// using the new unified architecture
 
-export type { CanvasTransform } from "../types/canvas";
-// Re-export widget and canvas types for convenience
-
-// Export types
-export type {
-  KeepSyncPinboardData as PinboardData,
-  KeepSyncPinboardStore as SyncedPinboardStore,
-  PinboardActions,
-  PinboardState,
-} from "./keepSyncPinboardStore";
-// Export the synced pinboard store (for actual pinboard data)
-export {
-  useKeepSyncPinboardStore as usePinboardStore,
-} from "./keepSyncPinboardStore";
-export type {
-  UIActions,
-  UIState,
-  UIStore,
-} from "./uiStore";
-// Export the UI store (for local UI state)
-export {
-  useCanvasTransform,
+// Export the new unified stores
+export { useWidgetStore, useWidgets, useWidgetActions, useContentActions } from "./widgetStore";
+export { useContentStore, useContentOperations } from "./contentStore";
+export { 
+  useUIStore, 
+  useSelection, 
+  useCanvasTransform, 
   useInteractionMode,
-  useSelection,
-  useUIStore,
+  useBackgroundType 
 } from "./uiStore";
+
+// Export hydration utilities
+export { 
+  useHydratedWidget, 
+  useHydratedWidgets, 
+  useWidgetHydrator,
+  isWidgetContentLoaded,
+  getContentLoadingStatus,
+  filterWidgetsByContentStatus 
+} from "../services/widgetHydrator";
+
+// Export plugin system
+export { registerAllPlugins, getAvailableWidgetTypes } from "../plugins";
+
+// Export core services
+export { getWidgetRegistry } from "../core/WidgetRegistry";
+export { getGenericWidgetFactory } from "../core/GenericWidgetFactory";
+
+// Export types for convenience
+export type {
+  Widget,
+  HydratedWidget,
+  CreateWidgetInput,
+  WidgetContent,
+  TodoContent,
+  NoteContent,
+  CalculatorContent,
+  CanvasTransform,
+} from "../types/widgets";
+
+// Legacy compatibility exports (to be removed once components are updated)
+// These will help during the transition but should be deleted once all components use the new patterns
+export const usePinboardStore = useWidgetStore; // Temporary alias

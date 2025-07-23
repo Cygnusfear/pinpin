@@ -4,42 +4,17 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { initializeSyncEngine } from "./config/syncEngine";
-import { getWidgetRegistry } from "./core/WidgetRegistry";
-import { calculatorWidgetPlugin } from "./plugins/calculatorWidget";
-import { documentWidgetPlugin } from "./plugins/documentWidget";
-import { imageWidgetPlugin } from "./plugins/imageWidget";
-import { noteWidgetPlugin } from "./plugins/noteWidget";
-import { todoWidgetPlugin } from "./plugins/todoWidget";
-import { urlWidgetPlugin } from "./plugins/urlWidget";
+import { registerAllPlugins } from "./plugins";
 
-// Initialize widget plugins
+// Initialize widget plugins with new clean architecture
 async function initializeWidgetPlugins() {
-  const registry = getWidgetRegistry();
-
   try {
-    console.log("🔌 Registering widget plugins...");
+    console.log("🔌 Registering widget plugins with new architecture...");
 
-    // Register all widget plugins
-    await registry.installPlugin(imageWidgetPlugin);
-    await registry.installPlugin(urlWidgetPlugin);
-    await registry.installPlugin(noteWidgetPlugin);
-    await registry.installPlugin(calculatorWidgetPlugin);
-    await registry.installPlugin(todoWidgetPlugin);
-    await registry.installPlugin(documentWidgetPlugin);
+    // Register all plugins using the new unified system
+    await registerAllPlugins();
 
     console.log("✅ All widget plugins registered successfully");
-
-    // Log registry stats
-    const stats = registry.getRegistryStats();
-    console.log("📊 Widget Registry Stats:", stats);
-
-    // Validate registry
-    const validation = registry.validateRegistry();
-    if (!validation.isValid) {
-      console.warn("⚠️ Widget registry validation issues:", validation.issues);
-    } else {
-      console.log("✅ Widget registry validation passed");
-    }
   } catch (error) {
     console.error("❌ Failed to initialize widget plugins:", error);
     throw error;
