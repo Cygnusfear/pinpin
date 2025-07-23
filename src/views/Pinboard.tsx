@@ -17,17 +17,17 @@ const Pinboard: React.FC = () => {
   // Use the hydrator hook to get hydrated widgets
   const hydratedWidgets = useHydratedWidgets();
 
-  useEffect(() => {
-    console.log(
-      `📊 [UNIFIED DEBUG] Pinboard: ${hydratedWidgets.length} hydrated widgets:`,
-      hydratedWidgets.map((w) => ({
-        id: w.id,
-        type: w.type,
-        hasContent: !!w.content,
-        isLoaded: w.isContentLoaded,
-      })),
-    );
-  }, [hydratedWidgets]);
+  // useEffect(() => {
+  //   console.log(
+  //     `📊 [UNIFIED DEBUG] Pinboard: ${hydratedWidgets.length} hydrated widgets:`,
+  //     hydratedWidgets.map((w) => ({
+  //       id: w.id,
+  //       type: w.type,
+  //       hasContent: !!w.content,
+  //       isLoaded: w.isContentLoaded,
+  //     })),
+  //   );
+  // }, [hydratedWidgets]);
 
   // Use the UI store for canvas transform
   const { canvasTransform, setCanvasTransform } = useCanvasTransform();

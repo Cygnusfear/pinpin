@@ -29,7 +29,7 @@ export class GenericWidgetFactory {
       y: position.y - size.height / 2,
       width: size.width,
       height: size.height,
-      rotation: (Math.random() - 0.5) * 8, // Slight random rotation
+      rotation: (Math.random() - 0.5) * 138, // Slight random rotation
       locked: false,
       metadata: {
         createdFrom: "factory",

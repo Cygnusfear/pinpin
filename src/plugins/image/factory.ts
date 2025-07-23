@@ -113,8 +113,6 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
     const maxWidth = 400;
     const maxHeight = 300;
     
-    const imageAspectRatio = originalDimensions.width / originalDimensions.height;
-    
     // Calculate available space for image (minus padding)
     const availableWidth = maxWidth - padding;
     const availableHeight = maxHeight - padding;

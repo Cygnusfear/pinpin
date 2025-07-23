@@ -58,8 +58,8 @@ export class CalculatorFactory implements WidgetFactory<CalculatorContent> {
       type: this.type,
       x: position.x,
       y: position.y,
-      width: 280,
-      height: 360,
+      width: calculatorTypeDefinition[0].defaultSize.width,
+      height: calculatorTypeDefinition[0].defaultSize.height,
       content,
     };
   }

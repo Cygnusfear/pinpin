@@ -130,11 +130,9 @@ export const CalculatorRenderer: React.FC<WidgetRendererProps<CalculatorContent>
       {/* Display */}
       <div className="bg-gray-800 text-white p-4 text-right">
         <div className="text-2xl font-mono">{data.currentValue}</div>
-        {data.operation && (
-          <div className="text-sm text-gray-300">
-            {data.previousValue} {data.operation}
-          </div>
-        )}
+        <div className="text-sm text-gray-300 min-h-5">
+          {data.previousValue} {data.operation} 
+        </div>
       </div>
 
       {/* Buttons */}

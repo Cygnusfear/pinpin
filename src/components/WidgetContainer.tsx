@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import type React from "react";
 import { getWidgetRegistry } from "../core/WidgetRegistry";
 import type { HydratedWidget, WidgetEvents, WidgetRenderState } from "../types/widgets";
+import { useEffect } from "react";
 
 interface WidgetContainerProps {
   widget: HydratedWidget;
@@ -19,7 +20,6 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
   // Render widget content using plugin renderer or fallback
   const renderWidgetContent = () => {
-    // Handle special widget types for separated architecture
     if (widget.type === "loading") {
       return (
         <div className="flex h-full flex-col items-center justify-center p-4 text-center">
@@ -147,7 +147,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         pointerEvents: widget.locked ? "none" : "auto",
       }}
       className="select-none"
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={{ opacity: 0, scale: 0.8, rotate: widget.rotation }}
       animate={{
         opacity: 1,
         scale: 1,

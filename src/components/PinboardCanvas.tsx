@@ -10,6 +10,7 @@ import {
   useInteractionMode,
   useSelection,
   useUIStore,
+  useWidgetStore,
 } from "../stores/pinboardStore";
 import { useBackgroundType } from "../stores/uiStore";
 import type { CanvasTransform } from "../types/canvas";
@@ -74,6 +75,8 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     clearSelection,
     setHoveredWidget,
   } = useSelection();
+
+  const { getWidget} = useWidgetStore();
 
   const { mode, setMode } = useInteractionMode();
   const { backgroundType } = useBackgroundType();
@@ -391,7 +394,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
       onDuplicate: () => {
         // For now, disable duplication until we implement proper conversion
         console.warn(
-          "Widget duplication not yet implemented for separated architecture",
+          "Unimplemented",
         );
       },
       onEdit: () => {
@@ -408,8 +411,10 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
           widgetType: widget.type,
           hasEvent: !!event,
           target: event?.target,
-          targetTagName: event?.target ? (event.target as HTMLElement).tagName : 'no-event'
+          targetTagName: event?.target ? (event.target as HTMLElement).tagName : 'no-event',
+          widget: getWidget(widget.id),
         });
+
 
         // Check if the click is on interactive content (e.g., calculator buttons)
         if (event && interactionControllerRef.current) {

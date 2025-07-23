@@ -8,7 +8,7 @@ import type {
   SnapTarget,
 } from "../types/canvas";
 import type { HydratedWidget } from "../types/widgets";
-import { SeparatedDragManager } from "./DragManager";
+import { DragManager } from "./DragManager";
 import { KeyboardManager } from "./KeyboardManager";
 import { SelectionManager } from "./SelectionManager";
 import {
@@ -41,7 +41,7 @@ export interface InteractionCallbacks {
 export class InteractionController {
   private selectionManager: SelectionManager;
   private keyboardManager: KeyboardManager;
-  private dragManager: SeparatedDragManager;
+  private dragManager: DragManager;
   private stateMachine: StateMachine;
 
   private widgets: HydratedWidget[] = [];
@@ -67,8 +67,8 @@ export class InteractionController {
     this.keyboardManager = new KeyboardManager();
     this.setupKeyboardCommands();
 
-    // Initialize SeparatedDragManager with performance-optimized callbacks
-    this.dragManager = new SeparatedDragManager(
+    // Initialize DragManager with performance-optimized callbacks
+    this.dragManager = new DragManager(
       this.handleDragStart.bind(this),
       this.handleDragUpdate.bind(this),
       this.handleDragEnd.bind(this),
@@ -80,7 +80,7 @@ export class InteractionController {
     this.initializeStateMachine();
   }
 
-  // Get optimized multiple widget transform update function for SeparatedDragManager
+  // Get optimized multiple widget transform update function for DragManager
   private getOptimizedMultipleWidgetTransformUpdate() {
     return (
       updates: Array<{
