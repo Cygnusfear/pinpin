@@ -11,6 +11,7 @@ import {
   useSelection,
   useUIStore,
 } from "../stores/pinboardStore";
+import { useBackgroundType } from "../stores/uiStore";
 import type { CanvasTransform } from "../types/canvas";
 import type {
   ComposedWidget,
@@ -19,6 +20,7 @@ import type {
   WidgetEvents,
   WidgetRenderState,
 } from "../types/widgets";
+import { BackgroundToggle } from "./BackgroundToggle";
 import { SelectionIndicator } from "./SelectionIndicator";
 import { WidgetContainer } from "./WidgetContainer";
 
@@ -34,8 +36,24 @@ interface PinboardCanvasProps {
   onCanvasTransform?: (transform: CanvasTransform) => void;
 }
 
-const CORKBOARD_TEXTURE =
-  "https://thumbs.dreamstime.com/b/wooden-cork-board-seamless-tileable-texture-29991843.jpg";
+// Background pattern generation functions
+const createDotGridPattern = (scale: number): string => {
+  const dotSize = Math.max(0.5, 1 * scale);
+  const spacing = Math.max(8, 20 * scale);
+  const opacity = Math.min(0.6, Math.max(0.2, 0.4 * scale));
+  
+  const svgContent = `
+    <svg width="${spacing}" height="${spacing}" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="${spacing/2}" cy="${spacing/2}" r="${dotSize}" fill="rgba(156, 163, 175, ${opacity})" />
+    </svg>
+  `;
+  
+  return `data:image/svg+xml;base64,${btoa(svgContent)}`;
+};
+
+const createCorkboardPattern = (scale: number): string => {
+  return `https://thumbs.dreamstime.com/b/wooden-cork-board-seamless-tileable-texture-29991843.jpg`;
+};
 
 // Utility function to convert ComposedWidget to legacy Widget format for InteractionController
 const composedWidgetToLegacyWidget = (
@@ -128,6 +146,15 @@ const composedWidgetToLegacyWidget = (
         contentId: composedWidget.contentId, // Pass contentId for content updates
       } as Widget;
 
+    case "todo":
+      return {
+        ...baseWidget,
+        type: "todo",
+        items: content.items,
+        title: content.title,
+        contentId: composedWidget.contentId, // Pass contentId for content updates
+      } as Widget;
+
     default:
       // Fallback for unknown or missing content
       return {
@@ -159,6 +186,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   } = useSelection();
 
   const { mode, setMode } = useInteractionMode();
+  const { backgroundType } = useBackgroundType();
 
   const { isFileOver, selectionBox, setFileOver, setSelectionBox } =
     useUIStore();
@@ -594,13 +622,42 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     }
   };
 
+  // Generate background pattern based on current type and scale
+  const getBackgroundStyle = useCallback(() => {
+    const scale = transform.scale;
+    
+    if (backgroundType === 'dots') {
+      const pattern = createDotGridPattern(scale);
+      const patternSize = Math.max(8, 20 * scale); // Same calculation as in createDotGridPattern
+      
+      return {
+        backgroundImage: `url("${pattern}")`,
+        backgroundRepeat: 'repeat',
+        backgroundSize: `${patternSize}px ${patternSize}px`,
+        backgroundPosition: `${transform.x % patternSize}px ${transform.y % patternSize}px`,
+        backgroundColor: '#f8fafc',
+      };
+    }
+    
+    const pattern = createCorkboardPattern(scale);
+    const patternSize = 256 * scale; // Standard texture size scaled
+    
+    return {
+      backgroundImage: `url("${pattern}")`,
+      backgroundRepeat: 'repeat',
+      backgroundSize: `${patternSize}px ${patternSize}px`,
+      backgroundPosition: `${transform.x % patternSize}px ${transform.y % patternSize}px`,
+      backgroundColor: '#d2b48c',
+    };
+  }, [backgroundType, transform.scale, transform.x, transform.y]);
+
   return (
     <div
       ref={canvasRef}
       className="relative h-screen w-full select-none overflow-hidden"
       style={{
-        backgroundColor: "#f5f5f5",
         cursor: getCursorStyle(),
+        ...getBackgroundStyle(),
       }}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
@@ -614,12 +671,9 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
         style={{
           transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
           transformOrigin: "0 0",
-          width: "200vw",
-          height: "200vh",
+          width: "400vw",
+          height: "400vh",
           position: "relative",
-          backgroundImage: `url(${CORKBOARD_TEXTURE})`,
-          backgroundRepeat: "repeat",
-          backgroundSize: "400px 400px",
         }}
       >
         {/* Widgets */}
@@ -669,6 +723,9 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
           </div>
         </motion.div>
       )}
+
+      {/* Background toggle */}
+      <BackgroundToggle />
 
       {/* Keyboard shortcuts help */}
       <div className="absolute right-4 bottom-4 max-w-xs rounded-lg bg-white/90 px-4 py-2 text-xs shadow-md">

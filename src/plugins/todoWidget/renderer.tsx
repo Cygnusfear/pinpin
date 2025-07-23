@@ -39,7 +39,9 @@ export const TodoWidgetRenderer: React.FC<WidgetRendererProps<any>> = ({
 
     if (contentId) {
       updateContent(contentId, {
+        type: 'todo',
         items: [...items, newItem],
+        title, // Preserve the title
       });
     } else {
       console.warn("📝 No contentId found for todo widget");
@@ -47,7 +49,7 @@ export const TodoWidgetRenderer: React.FC<WidgetRendererProps<any>> = ({
 
     setNewTodoText("");
     setIsAdding(false);
-  }, [newTodoText, items, contentId, updateContent, generateTodoId]);
+  }, [newTodoText, items, contentId, updateContent, generateTodoId, title]);
 
   const handleToggleTodo = useCallback(
     (itemId: string) => {
@@ -59,13 +61,15 @@ export const TodoWidgetRenderer: React.FC<WidgetRendererProps<any>> = ({
 
       if (contentId) {
         updateContent(contentId, {
+          type: 'todo',
           items: updatedItems,
+          title, // Preserve the title
         });
       } else {
         console.warn("📝 No contentId found for todo widget");
       }
     },
-    [items, contentId, updateContent],
+    [items, contentId, updateContent, title],
   );
 
   const handleDeleteTodo = useCallback(
@@ -76,13 +80,15 @@ export const TodoWidgetRenderer: React.FC<WidgetRendererProps<any>> = ({
 
       if (contentId) {
         updateContent(contentId, {
+          type: 'todo',
           items: updatedItems,
+          title, // Preserve the title
         });
       } else {
         console.warn("📝 No contentId found for todo widget");
       }
     },
-    [items, contentId, updateContent],
+    [items, contentId, updateContent, title],
   );
 
   const handleKeyPress = useCallback(

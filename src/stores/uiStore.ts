@@ -2,6 +2,9 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CanvasTransform } from "../types/canvas";
 
+// Background type options
+export type BackgroundType = 'corkboard' | 'dots';
+
 // Local UI state interface
 export interface UIState {
   // Selection state
@@ -10,6 +13,9 @@ export interface UIState {
 
   // Camera/viewport state
   canvasTransform: CanvasTransform;
+
+  // Background state
+  backgroundType: BackgroundType;
 
   // Other UI state
   mode: string;
@@ -28,6 +34,10 @@ export interface UIActions {
   // Camera operations
   setCanvasTransform: (transform: CanvasTransform) => void;
   resetCanvasTransform: () => void;
+
+  // Background operations
+  setBackgroundType: (type: BackgroundType) => void;
+  toggleBackgroundType: () => void;
 
   // Mode operations
   setMode: (mode: string) => void;
@@ -49,6 +59,7 @@ const initialState: UIState = {
   selectedWidgets: new Set(),
   hoveredWidget: null,
   canvasTransform: { x: 0, y: 0, scale: 1 },
+  backgroundType: "corkboard",
   mode: "select",
   isFileOver: false,
   selectionBox: null,
@@ -104,6 +115,17 @@ export const useUIStore = create<UIStore>()(
         set({ canvasTransform: { x: 0, y: 0, scale: 1 } });
       },
 
+      // Background operations
+      setBackgroundType: (type: BackgroundType) => {
+        set({ backgroundType: type });
+      },
+
+      toggleBackgroundType: () => {
+        set((state) => ({
+          backgroundType: state.backgroundType === 'corkboard' ? 'dots' : 'corkboard',
+        }));
+      },
+
       // Mode operations
       setMode: (mode: string) => {
         set({ mode });
@@ -130,8 +152,9 @@ export const useUIStore = create<UIStore>()(
     {
       name: "pinboard-ui-storage",
       partialize: (state) => ({
-        // Only persist camera transform, not selection or other transient UI state
+        // Only persist camera transform and background type, not selection or other transient UI state
         canvasTransform: state.canvasTransform,
+        backgroundType: state.backgroundType,
       }),
     },
   ),
@@ -177,5 +200,17 @@ export const useInteractionMode = () => {
   return {
     mode,
     setMode,
+  };
+};
+
+export const useBackgroundType = () => {
+  const backgroundType = useUIStore((state) => state.backgroundType);
+  const setBackgroundType = useUIStore((state) => state.setBackgroundType);
+  const toggleBackgroundType = useUIStore((state) => state.toggleBackgroundType);
+
+  return {
+    backgroundType,
+    setBackgroundType,
+    toggleBackgroundType,
   };
 };
