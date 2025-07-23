@@ -1,4 +1,4 @@
-import { imageTypeDefinition } from ".";
+import { imageTypeDefinition } from "./index";
 import type {
   WidgetFactory,
   CreateWidgetInput,
@@ -19,6 +19,17 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
     // Handle explicit image requests
     if (data?.type === "image") {
       return true;
+    }
+
+    // Handle File objects that are images
+    if (data instanceof File) {
+      // Check MIME type first
+      if (data.type.startsWith('image/')) {
+        return true;
+      }
+      // Check file extension as fallback
+      const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i;
+      return imageExtensions.test(data.name);
     }
 
     // Handle URL strings that appear to be images
@@ -46,7 +57,25 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
     let originalDimensions = { width: 200, height: 150 };
 
     // Extract image data based on input type
-    if (typeof data === "string") {
+    if (data instanceof File) {
+      // Handle File objects (from drag & drop)
+      src = URL.createObjectURL(data);
+      alt = data.name;
+      
+      // Try to get dimensions from the image
+      try {
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = src;
+        });
+        originalDimensions = { width: img.naturalWidth, height: img.naturalHeight };
+      } catch (error) {
+        console.warn("Could not determine image dimensions:", error);
+        originalDimensions = { width: 400, height: 300 };
+      }
+    } else if (typeof data === "string") {
       src = data;
       alt = "Image";
     } else if (data && typeof data === "object") {
@@ -75,15 +104,48 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
       src,
       alt,
       originalDimensions,
-      filters: data?.filters || undefined,
+      ...(data?.filters && { filters: data.filters }),
     };
+
+    // Calculate widget dimensions that account for 8px padding (16px total)
+    // and maintain the image's aspect ratio
+    const padding = 16; // 8px on each side
+    const maxWidth = 400;
+    const maxHeight = 300;
+    
+    const imageAspectRatio = originalDimensions.width / originalDimensions.height;
+    
+    // Calculate available space for image (minus padding)
+    const availableWidth = maxWidth - padding;
+    const availableHeight = maxHeight - padding;
+    
+    // Scale to fit within available space while maintaining aspect ratio
+    let targetWidth, targetHeight;
+    
+    if (originalDimensions.width <= availableWidth && originalDimensions.height <= availableHeight) {
+      // Image fits naturally
+      targetWidth = originalDimensions.width;
+      targetHeight = originalDimensions.height;
+    } else {
+      // Need to scale down
+      const widthScale = availableWidth / originalDimensions.width;
+      const heightScale = availableHeight / originalDimensions.height;
+      const scale = Math.min(widthScale, heightScale);
+      
+      targetWidth = Math.round(originalDimensions.width * scale);
+      targetHeight = Math.round(originalDimensions.height * scale);
+    }
+    
+    // Add padding back to get final widget dimensions
+    const finalWidth = targetWidth + padding;
+    const finalHeight = targetHeight + padding;
 
     return {
       type: this.type,
       x: position.x,
       y: position.y,
-      width: Math.min(originalDimensions.width, 400),
-      height: Math.min(originalDimensions.height, 300),
+      width: finalWidth,
+      height: finalHeight,
       content,
     };
   }

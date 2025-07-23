@@ -28,14 +28,7 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
     setImageError("Failed to load image");
   }, []);
 
-  const handleImageClick = useCallback((event: React.MouseEvent) => {
-    // Mark as interactive to prevent widget selection
-    event.stopPropagation();
-    
-    // Could add image viewing/editing functionality here
-    console.log("Image clicked:", widget.content.data.src);
-  }, [widget.content.data.src]);
-
+  // Early returns for loading and error states
   if (!widget.isContentLoaded) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-100 rounded-lg">
@@ -55,7 +48,29 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
     );
   }
 
+  // Additional null safety check
+  if (!widget.content || !widget.content.data) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-100 rounded-lg">
+        <div className="text-red-500 text-center p-4">
+          <div className="text-2xl mb-2">⚠️</div>
+          <div className="text-sm">Error: Image content is missing</div>
+        </div>
+      </div>
+    );
+  }
+
   const data = widget.content.data;
+
+  const handleImageClick = useCallback((event: React.MouseEvent) => {
+    // Mark as interactive to prevent widget selection
+    event.stopPropagation();
+    
+    // Could add image viewing/editing functionality here
+    if (widget.content?.data?.src) {
+      console.log("Image clicked:", widget.content.data.src);
+    }
+  }, [widget.content?.data?.src]);
 
   // Build filter styles if filters are applied
   let filterStyle = "";
@@ -77,7 +92,7 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
   }
 
   return (
-    <div className="relative h-full w-full bg-gray-100 rounded-lg overflow-hidden">
+    <div className="relative h-full w-full bg-white rounded overflow-hidden">
       {/* Loading indicator */}
       {imageLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
@@ -90,7 +105,7 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
 
       {/* Error state */}
       {imageError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded">
           <div className="text-center p-4">
             <div className="text-4xl mb-2">🖼️</div>
             <div className="text-red-500 text-sm mb-2">{imageError}</div>
@@ -103,6 +118,7 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
 
       {/* Main image */}
       <img
+        draggable={false}
         src={data.src}
         alt={data.alt || "Image"}
         className="w-full h-full object-contain cursor-pointer"
@@ -117,7 +133,7 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
       />
 
       {/* Image info overlay (shown on hover if not selected) */}
-      {!state.isSelected && !imageLoading && !imageError && (
+      {!state.isSelected && !imageLoading && !imageError && data.originalDimensions && (
         <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-2 text-xs opacity-0 hover:opacity-100 transition-opacity">
           <div className="truncate">{data.alt || "Image"}</div>
           <div className="text-gray-300 text-xs">

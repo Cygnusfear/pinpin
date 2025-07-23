@@ -21,10 +21,10 @@ export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
     event.stopPropagation();
     
     // Open link in new tab
-    if (widget.content.data.url) {
+    if (widget.content?.data.url) {
       window.open(widget.content.data.url, '_blank', 'noopener,noreferrer');
     }
-  }, [widget.content.data.url]);
+  }, [widget.content?.data.url]);
 
   const handleEdit = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
@@ -50,6 +50,7 @@ export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
     }
   };
 
+  // Early returns for loading and error states
   if (!widget.isContentLoaded) {
     return (
       <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
@@ -64,6 +65,18 @@ export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
         <div className="text-red-500 text-center p-4">
           <div className="text-2xl mb-2">⚠️</div>
           <div className="text-sm">Error: {widget.contentError}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Additional null safety check
+  if (!widget.content || !widget.content.data) {
+    return (
+      <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
+        <div className="text-red-500 text-center p-4">
+          <div className="text-2xl mb-2">⚠️</div>
+          <div className="text-sm">Error: URL content is missing</div>
         </div>
       </div>
     );

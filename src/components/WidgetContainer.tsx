@@ -51,7 +51,21 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       );
     }
 
+    // Only render the actual widget renderer if content is properly loaded
     if (renderer?.component) {
+      // Check if content is actually available before rendering
+      if (!widget.isContentLoaded || !widget.content) {
+        return (
+          <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+            <div className="mb-2 h-8 w-8 animate-spin rounded-full border-blue-500 border-b-2" />
+            <div className="mb-1 font-medium text-sm">Loading Content</div>
+            <div className="text-gray-500 text-xs">
+              {widget.contentError || "Hydrating widget data..."}
+            </div>
+          </div>
+        );
+      }
+
       const RendererComponent = renderer.component;
       return (
         <RendererComponent

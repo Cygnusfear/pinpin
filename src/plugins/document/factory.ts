@@ -1,4 +1,4 @@
-import { documentTypeDefinition } from ".";
+import { documentTypeDefinition } from "./index";
 import type {
   WidgetFactory,
   CreateWidgetInput,
@@ -21,8 +21,17 @@ export class DocumentFactory implements WidgetFactory<DocumentContent> {
       return true;
     }
 
-    // Handle File objects
+    // Handle File objects (but NOT images)
     if (data instanceof File) {
+      // Exclude image files - they should be handled by ImageFactory
+      if (data.type.startsWith('image/')) {
+        return false;
+      }
+      // Exclude common image extensions
+      const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i;
+      if (imageExtensions.test(data.name)) {
+        return false;
+      }
       return true;
     }
 
