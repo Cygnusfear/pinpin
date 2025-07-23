@@ -7,6 +7,7 @@ import type {
   DocumentContent,
   HydratedWidget,
 } from "../../types/widgets";
+import { useContentStore } from "../../stores/contentStore";
 
 // ============================================================================
 // DOCUMENT WIDGET FACTORY - CLEAN IMPLEMENTATION
@@ -58,13 +59,17 @@ export class DocumentFactory implements WidgetFactory<DocumentContent> {
     let downloadUrl = "";
     let previewUrl = "";
     let thumbnail = "";
+    let isFileUpload = false;
 
     // Extract document data based on input type
     if (data instanceof File) {
+      // Handle File objects (from drag & drop) - use Storacha upload
+      isFileUpload = true;
       fileName = data.name;
       fileType = this.getFileTypeFromName(data.name);
       fileSize = data.size;
       mimeType = data.type || this.getMimeTypeFromName(data.name);
+      downloadUrl = URL.createObjectURL(data); // Temporary local URL for immediate preview
       
       // For text files, read content
       if (data.type.startsWith('text/') || data.name.endsWith('.txt') || data.name.endsWith('.md')) {
@@ -100,6 +105,7 @@ export class DocumentFactory implements WidgetFactory<DocumentContent> {
       thumbnail,
       downloadUrl,
       previewUrl,
+      ...(isFileUpload && { isFileUpload: true, originalFile: data }),
     };
 
     return {

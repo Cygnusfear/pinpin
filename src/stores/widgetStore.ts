@@ -98,11 +98,29 @@ export const useWidgetStore = create<WidgetStore>(
         console.log("🔧 Adding widget:", input.type, input);
 
         try {
-          // First, add content to content store
-          const contentId = await contentStore.addContent({
-            type: input.type,
-            ...input.content,
-          });
+          let contentId: string;
+
+          // Check if this is a file upload (has originalFile property)
+          const isFileUpload = input.content &&
+            (input.content as any).isFileUpload &&
+            (input.content as any).originalFile;
+
+          if (isFileUpload) {
+            // Use file upload method for files
+            const originalFile = (input.content as any).originalFile;
+            console.log("📤 Detected file upload, using Storacha upload for:", originalFile.name);
+            
+            contentId = await contentStore.addFileContent(originalFile, {
+              type: input.type,
+              ...input.content,
+            });
+          } else {
+            // Use regular content storage for non-files
+            contentId = await contentStore.addContent({
+              type: input.type,
+              ...input.content,
+            });
+          }
 
           // Then create widget data with content reference
           const newWidget = cleanWidgetData({
@@ -127,6 +145,7 @@ export const useWidgetStore = create<WidgetStore>(
             newWidget.id,
             "->",
             contentId,
+            isFileUpload ? "(with Storacha upload)" : "(regular content)",
           );
 
           set((state) => ({

@@ -613,25 +613,6 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
 
       {/* Background toggle */}
       <BackgroundToggle />
-
-      {/* Keyboard shortcuts help */}
-      <div className="absolute right-4 bottom-4 max-w-xs rounded-lg bg-white/90 px-4 py-2 text-xs shadow-md">
-        <p className="mb-1 font-medium">Keyboard Shortcuts:</p>
-        <div className="grid grid-cols-2 gap-1 text-gray-600">
-          <span>⌘A</span>
-          <span>Select All</span>
-          <span>⌘D</span>
-          <span>Duplicate</span>
-          <span>Del</span>
-          <span>Delete</span>
-          <span>Space</span>
-          <span>Hand Tool</span>
-          <span>1</span>
-          <span>Zoom to Fit</span>
-          <span>2</span>
-          <span>Zoom to Selection</span>
-        </div>
-      </div>
     </div>
   );
 };

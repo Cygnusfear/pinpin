@@ -3,6 +3,8 @@ import type {
   WidgetRendererProps,
   DocumentContent,
 } from "../../types/widgets";
+import { useFileUpload } from "../../stores/contentStore";
+import { PinataService } from "../../services/pinataService";
 import { useContentActions } from "../../stores/widgetStore";
 
 // ============================================================================
@@ -14,6 +16,10 @@ export const DocumentRenderer: React.FC<WidgetRendererProps<DocumentContent>> = 
   state,
   events,
 }) => {
+  const { getUploadState, retryFileUpload } = useFileUpload();
+  
+  // Get upload state for this widget's content
+  const uploadState = getUploadState(widget.contentId);
   const { updateContent } = useContentActions();
 
   const handleDownload = useCallback((event: React.MouseEvent) => {
@@ -112,7 +118,7 @@ export const DocumentRenderer: React.FC<WidgetRendererProps<DocumentContent>> = 
   }
 
   return (
-    <div className="h-full bg-white rounded-lg shadow overflow-hidden border border-gray-200 hover:border-blue-300 transition-colors">
+    <div className="relative h-full bg-white rounded-lg shadow overflow-hidden border border-gray-200 hover:border-blue-300 transition-colors">
       <div className="flex flex-col h-full">
         {/* Header with file icon and name */}
         <div className="flex items-center gap-3 p-3 border-b border-gray-100">
@@ -190,6 +196,47 @@ export const DocumentRenderer: React.FC<WidgetRendererProps<DocumentContent>> = 
             )}
           </div>
         </div>
+
+        {/* Upload status indicator */}
+        {uploadState && (
+          <div className="absolute top-2 left-2 bg-black bg-opacity-90 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+            {uploadState.status === 'uploading' && (
+              <>
+                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                <span>{uploadState.progress}%</span>
+              </>
+            )}
+            {uploadState.status === 'completed' && uploadState.ipfsUrl && (
+              <>
+                <span>🌐</span>
+                <span>IPFS</span>
+              </>
+            )}
+            {uploadState.status === 'failed' && (
+              <>
+                <span>❌</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    retryFileUpload(widget.contentId);
+                  }}
+                  className="underline hover:text-yellow-300"
+                  title="Retry upload"
+                >
+                  Retry
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Show IPFS indicator for completed uploads */}
+        {!uploadState && data.downloadUrl && PinataService.isIpfsUrl(data.downloadUrl) && (
+          <div className="absolute top-2 left-2 bg-green-600 bg-opacity-90 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+            <span>🌐</span>
+            <span>IPFS</span>
+          </div>
+        )}
 
         {/* File type indicator */}
         <div className="absolute top-2 right-2 bg-gray-800 text-white px-2 py-1 rounded text-xs">

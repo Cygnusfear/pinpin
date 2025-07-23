@@ -54,6 +54,7 @@
     "@use-gesture/react": "^10.3.1",
     "framer-motion": "^12.23.5",
     "lucide-react": "^0.475.0",
+    "pinata": "^2.4.9",
     "react": "^19.0.0",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",

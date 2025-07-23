@@ -7,6 +7,7 @@ import type {
   ImageContent,
   HydratedWidget,
 } from "../../types/widgets";
+import { useContentStore } from "../../stores/contentStore";
 
 // ============================================================================
 // IMAGE WIDGET FACTORY - CLEAN IMPLEMENTATION
@@ -55,11 +56,13 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
     let src = "";
     let alt = "";
     let originalDimensions = { width: 200, height: 150 };
+    let isFileUpload = false;
 
     // Extract image data based on input type
     if (data instanceof File) {
-      // Handle File objects (from drag & drop)
-      src = URL.createObjectURL(data);
+      // Handle File objects (from drag & drop) - use Storacha upload
+      isFileUpload = true;
+      src = URL.createObjectURL(data); // Temporary local URL for immediate preview
       alt = data.name;
       
       // Try to get dimensions from the image
@@ -105,6 +108,7 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
       alt,
       originalDimensions,
       ...(data?.filters && { filters: data.filters }),
+      ...(isFileUpload && { isFileUpload: true, originalFile: data }),
     };
 
     // Calculate widget dimensions that account for 8px padding (16px total)
