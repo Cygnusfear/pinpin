@@ -1,6 +1,7 @@
+import React from "react";
 import { useState } from "react";
-import AddTodo from "./components/AddTodo";
 import TodoList from "./components/TodoList";
+import AddTodo from "./components/AddTodo";
 
 function App() {
   const [connectionStatus, setConnectionStatus] = useState<

@@ -1,4 +1,5 @@
-import { type Todo, useTodoStore } from "../stores/todoStore";
+import React from "react";
+import { Todo, useTodoStore } from "../stores/todoStore";
 
 const TodoList = () => {
   const { todos, deleteTodo, toggleTodo } = useTodoStore();

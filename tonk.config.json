@@ -1,9 +1,9 @@
 {
-  "name": "pinboard",
+  "name": "pinpin",
   "plan": {
     "platform": "react",
-    "projectName": "pinboard",
-    "description": "Scrollable Figma-like pinboard with corkboard background for drag and drop photos"
+    "projectName": "pinpin",
+    "description": "pinpin"
   },
   "template": "react"
 }
