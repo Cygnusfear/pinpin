@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
 import type React from "react";
-import type { BoundingBox, SnapTarget, Widget } from "../types/canvas";
+import type { BoundingBox, SnapTarget } from "../types/canvas";
+import type { HydratedWidget } from "../types/widgets";
 
 interface SelectionIndicatorProps {
-  selectedWidgets: Widget[];
-  hoveredWidget: Widget | null;
+  selectedWidgets: HydratedWidget[];
+  hoveredWidget: HydratedWidget | null;
   selectionBox: BoundingBox | null;
   snapTargets: SnapTarget[];
 }
@@ -15,7 +16,7 @@ export const SelectionIndicator: React.FC<SelectionIndicatorProps> = ({
   selectionBox,
   snapTargets,
 }) => {
-  const calculateSelectionBounds = (widgets: Widget[]): BoundingBox | null => {
+  const calculateSelectionBounds = (widgets: HydratedWidget[]): BoundingBox | null => {
     if (widgets.length === 0) return null;
 
     let minX = Infinity;

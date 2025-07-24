@@ -1,6 +1,18 @@
-import type { Widget, WidgetCreateData } from "../types/widgets";
+import type {
+  CreateWidgetInput,
+  Position,
+  WidgetFactory,
+} from "../types/widgets";
 import { getWidgetRegistry } from "./WidgetRegistry";
 
+// ============================================================================
+// GENERIC WIDGET FACTORY - UNIFIED PATTERN
+// ============================================================================
+
+/**
+ * Clean, unified generic widget factory implementation
+ * Handles widget creation from various data sources using registered factories
+ */
 export class GenericWidgetFactory {
   /**
    * Provides default widget data that all plugin factories should inherit from
@@ -8,16 +20,16 @@ export class GenericWidgetFactory {
    */
   getDefaultWidgetData(
     type: string,
-    position: { x: number; y: number },
+    position: Position,
     size: { width: number; height: number },
-  ): Partial<WidgetCreateData<any>> {
+  ): Partial<CreateWidgetInput> {
     return {
       type,
       x: position.x - size.width / 2,
       y: position.y - size.height / 2,
       width: size.width,
       height: size.height,
-      rotation: (Math.random() - 0.5) * 8, // Slight random rotation
+      rotation: (Math.random() - 0.5) * 138, // Slight random rotation
       locked: false,
       metadata: {
         createdFrom: "factory",
@@ -27,16 +39,16 @@ export class GenericWidgetFactory {
   }
 
   /**
-   * Attempts to create a widget from the provided data by checking all registered plugins
-   * Uses first-match strategy - iterates through plugins in registration order
+   * Attempts to create a widget from the provided data by checking all registered factories
+   * Uses first-match strategy - iterates through factories in registration order
    */
   async createWidgetFromData(
     data: any,
-    position: { x: number; y: number },
-  ): Promise<Widget | null> {
+    position: Position,
+  ): Promise<CreateWidgetInput | null> {
     const registry = getWidgetRegistry();
 
-    // Get all registered factories
+    // Get all registered widget types
     const allTypes = registry.getAllTypes();
 
     // Try each factory in order until one can handle the data
@@ -51,18 +63,14 @@ export class GenericWidgetFactory {
           );
 
           // Create the widget using the factory
-          const widget = await registry.createWidget(
-            typeDefinition.type,
-            data,
-            position,
-          );
+          const widgetInput = await factory.create(data, position);
 
-          if (widget) {
+          if (widgetInput) {
             console.log(
-              `✅ Successfully created ${typeDefinition.type} widget:`,
-              widget,
+              `✅ Successfully created ${typeDefinition.type} widget input:`,
+              widgetInput,
             );
-            return widget;
+            return widgetInput;
           }
         } catch (error) {
           console.error(
@@ -78,12 +86,21 @@ export class GenericWidgetFactory {
   }
 
   /**
-   * Checks if any registered plugin can handle the provided data
+   * Checks if any registered factory can handle the provided data
    */
   canHandleData(data: any): boolean {
     const registry = getWidgetRegistry();
-    const supportedTypes = registry.canHandleData(data);
-    return supportedTypes.length > 0;
+    const allTypes = registry.getAllTypes();
+
+    // Check if any factory can handle this data
+    for (const typeDefinition of allTypes) {
+      const factory = registry.getFactory(typeDefinition.type);
+      if (factory?.canHandle(data)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -91,7 +108,36 @@ export class GenericWidgetFactory {
    */
   getSupportedTypes(data: any): string[] {
     const registry = getWidgetRegistry();
-    return registry.canHandleData(data);
+    const allTypes = registry.getAllTypes();
+    const supportedTypes: string[] = [];
+
+    // Check which factories can handle this data
+    for (const typeDefinition of allTypes) {
+      const factory = registry.getFactory(typeDefinition.type);
+      if (factory?.canHandle(data)) {
+        supportedTypes.push(typeDefinition.type);
+      }
+    }
+
+    return supportedTypes;
+  }
+
+  /**
+   * Gets the best factory for the provided data (first match)
+   */
+  getBestFactory(data: any): WidgetFactory | null {
+    const registry = getWidgetRegistry();
+    const allTypes = registry.getAllTypes();
+
+    // Return the first factory that can handle this data
+    for (const typeDefinition of allTypes) {
+      const factory = registry.getFactory(typeDefinition.type);
+      if (factory?.canHandle(data)) {
+        return factory;
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -99,20 +145,20 @@ export class GenericWidgetFactory {
    */
   async handlePasteEvent(
     event: ClipboardEvent,
-    position: { x: number; y: number },
-  ): Promise<Widget[]> {
-    const widgets: Widget[] = [];
+    position: Position,
+  ): Promise<CreateWidgetInput[]> {
+    const widgetInputs: CreateWidgetInput[] = [];
 
     if (!event.clipboardData) {
-      return widgets;
+      return widgetInputs;
     }
 
     // Handle files from clipboard
     const files = Array.from(event.clipboardData.files);
     for (const file of files) {
-      const widget = await this.createWidgetFromData(file, position);
-      if (widget) {
-        widgets.push(widget);
+      const widgetInput = await this.createWidgetFromData(file, position);
+      if (widgetInput) {
+        widgetInputs.push(widgetInput);
         // Offset position for multiple items
         position.x += 20;
         position.y += 20;
@@ -120,28 +166,28 @@ export class GenericWidgetFactory {
     }
 
     // Handle text data if no files were processed
-    if (widgets.length === 0) {
+    if (widgetInputs.length === 0) {
       const textData = event.clipboardData.getData("text/plain");
       if (textData?.trim()) {
-        const widget = await this.createWidgetFromData(textData, position);
-        if (widget) {
-          widgets.push(widget);
+        const widgetInput = await this.createWidgetFromData(textData, position);
+        if (widgetInput) {
+          widgetInputs.push(widgetInput);
         }
       }
     }
 
     // Handle HTML data as fallback
-    if (widgets.length === 0) {
+    if (widgetInputs.length === 0) {
       const htmlData = event.clipboardData.getData("text/html");
       if (htmlData?.trim()) {
-        const widget = await this.createWidgetFromData(htmlData, position);
-        if (widget) {
-          widgets.push(widget);
+        const widgetInput = await this.createWidgetFromData(htmlData, position);
+        if (widgetInput) {
+          widgetInputs.push(widgetInput);
         }
       }
     }
 
-    return widgets;
+    return widgetInputs;
   }
 
   /**
@@ -149,20 +195,20 @@ export class GenericWidgetFactory {
    */
   async handleDropEvent(
     event: DragEvent,
-    position: { x: number; y: number },
-  ): Promise<Widget[]> {
-    const widgets: Widget[] = [];
+    position: Position,
+  ): Promise<CreateWidgetInput[]> {
+    const widgetInputs: CreateWidgetInput[] = [];
 
     if (!event.dataTransfer) {
-      return widgets;
+      return widgetInputs;
     }
 
     // Handle files from drag and drop
     const files = Array.from(event.dataTransfer.files);
     for (const file of files) {
-      const widget = await this.createWidgetFromData(file, position);
-      if (widget) {
-        widgets.push(widget);
+      const widgetInput = await this.createWidgetFromData(file, position);
+      if (widgetInput) {
+        widgetInputs.push(widgetInput);
         // Offset position for multiple items
         position.x += 20;
         position.y += 20;
@@ -170,30 +216,101 @@ export class GenericWidgetFactory {
     }
 
     // Handle text data if no files were processed
-    if (widgets.length === 0) {
+    if (widgetInputs.length === 0) {
       const textData = event.dataTransfer.getData("text/plain");
       if (textData?.trim()) {
-        const widget = await this.createWidgetFromData(textData, position);
-        if (widget) {
-          widgets.push(widget);
+        const widgetInput = await this.createWidgetFromData(textData, position);
+        if (widgetInput) {
+          widgetInputs.push(widgetInput);
         }
       }
     }
 
     // Handle URL data
-    if (widgets.length === 0) {
+    if (widgetInputs.length === 0) {
       const urlData = event.dataTransfer.getData("text/uri-list");
       if (urlData?.trim()) {
-        const widget = await this.createWidgetFromData(urlData, position);
-        if (widget) {
-          widgets.push(widget);
+        const widgetInput = await this.createWidgetFromData(urlData, position);
+        if (widgetInput) {
+          widgetInputs.push(widgetInput);
         }
       }
     }
 
-    return widgets;
+    return widgetInputs;
+  }
+
+  /**
+   * Create a widget of a specific type with default content
+   */
+  async createDefaultWidget(
+    type: string,
+    position: Position,
+  ): Promise<CreateWidgetInput | null> {
+    const registry = getWidgetRegistry();
+    const factory = registry.getFactory(type);
+
+    if (!factory) {
+      console.warn(`⚠️ No factory registered for widget type: ${type}`);
+      return null;
+    }
+
+    try {
+      // Create widget with empty/default data
+      const widgetInput = await factory.create({}, position);
+      console.log(`✅ Created default ${type} widget:`, widgetInput);
+      return widgetInput;
+    } catch (error) {
+      console.error(`❌ Failed to create default ${type} widget:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get default size for a widget type
+   */
+  getDefaultSize(type: string): { width: number; height: number } {
+    const registry = getWidgetRegistry();
+    const factory = registry.getFactory(type);
+    
+    if (factory) {
+      return factory.getDefaultSize();
+    }
+
+    // Fallback default size
+    return { width: 200, height: 150 };
+  }
+
+  /**
+   * Get capabilities for a widget type
+   */
+  getCapabilities(type: string) {
+    const registry = getWidgetRegistry();
+    const factory = registry.getFactory(type);
+    
+    if (factory) {
+      return factory.getCapabilities();
+    }
+
+    // Fallback capabilities
+    return {
+      canResize: true,
+      canRotate: true,
+      canEdit: false,
+      canConfigure: false,
+      canGroup: true,
+      canDuplicate: true,
+      canExport: false,
+      hasContextMenu: false,
+      hasToolbar: false,
+      hasInspector: false,
+    };
   }
 }
+
+// ============================================================================
+// SINGLETON INSTANCE
+// ============================================================================
 
 // Export singleton instance
 export const genericWidgetFactory = new GenericWidgetFactory();

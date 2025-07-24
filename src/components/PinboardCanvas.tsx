@@ -10,135 +10,53 @@ import {
   useInteractionMode,
   useSelection,
   useUIStore,
+  useWidgetStore,
 } from "../stores/pinboardStore";
+import { useBackgroundType } from "../stores/uiStore";
 import type { CanvasTransform } from "../types/canvas";
 import type {
-  ComposedWidget,
+  HydratedWidget,
   Widget,
-  WidgetCreateData,
+  CreateWidgetInput,
   WidgetEvents,
   WidgetRenderState,
 } from "../types/widgets";
+import { BackgroundToggle } from "./BackgroundToggle";
 import { SelectionIndicator } from "./SelectionIndicator";
 import { WidgetContainer } from "./WidgetContainer";
 
 interface PinboardCanvasProps {
-  widgets: ComposedWidget[];
+  widgets: HydratedWidget[];
   canvasTransform?: CanvasTransform;
-  onWidgetUpdate: (id: string, updates: Partial<ComposedWidget>) => void;
+  onWidgetUpdate: (id: string, updates: Partial<HydratedWidget>) => void;
   onWidgetsUpdate: (
-    updates: Array<{ id: string; updates: Partial<ComposedWidget> }>,
+    updates: Array<{ id: string; updates: Partial<HydratedWidget> }>,
   ) => void;
-  onWidgetAdd: (widget: WidgetCreateData) => void;
+  onWidgetAdd: (widget: CreateWidgetInput) => void;
   onWidgetRemove: (id: string) => void;
   onCanvasTransform?: (transform: CanvasTransform) => void;
 }
 
-const CORKBOARD_TEXTURE =
-  "https://thumbs.dreamstime.com/b/wooden-cork-board-seamless-tileable-texture-29991843.jpg";
-
-// Utility function to convert ComposedWidget to legacy Widget format for InteractionController
-const composedWidgetToLegacyWidget = (
-  composedWidget: ComposedWidget,
-): Widget => {
-  const { content, isContentLoaded, contentError, ...baseWidget } =
-    composedWidget;
-
-  // If content is not loaded yet, return a loading placeholder widget
-  if (!isContentLoaded && !contentError) {
-    return {
-      ...baseWidget,
-      type: "loading",
-      message: "Loading content...",
-    } as Widget;
-  }
-
-  // If there's an error loading content, return an error widget
-  if (contentError) {
-    return {
-      ...baseWidget,
-      type: "error",
-      errorMessage: contentError,
-      originalType: composedWidget.type,
-    } as Widget;
-  }
-
-  // Merge content properties back into the widget for legacy compatibility
-  switch (content?.type) {
-    case "image":
-      return {
-        ...baseWidget,
-        type: "image",
-        src: content.src,
-        alt: content.alt,
-        originalDimensions: content.originalDimensions,
-        filters: content.filters,
-      } as Widget;
-
-    case "note":
-      return {
-        ...baseWidget,
-        type: "note",
-        content: content.content,
-        backgroundColor: content.backgroundColor,
-        textColor: content.textColor,
-        fontSize: content.fontSize,
-        fontFamily: content.fontFamily,
-        textAlign: content.textAlign,
-        formatting: content.formatting,
-      } as Widget;
-
-    case "url":
-      return {
-        ...baseWidget,
-        type: "url",
-        url: content.url,
-        title: content.title,
-        description: content.description,
-        favicon: content.favicon,
-        preview: content.preview,
-        embedType: content.embedType,
-        embedData: content.embedData,
-      } as Widget;
-
-    case "document":
-      return {
-        ...baseWidget,
-        type: "document",
-        fileName: content.fileName,
-        fileType: content.fileType,
-        fileSize: content.fileSize,
-        mimeType: content.mimeType,
-        content: content.content,
-        thumbnail: content.thumbnail,
-        downloadUrl: content.downloadUrl,
-        previewUrl: content.previewUrl,
-      } as Widget;
-
-    case "calculator":
-      return {
-        ...baseWidget,
-        type: "calculator",
-        currentValue: content.currentValue,
-        previousValue: content.previousValue,
-        operation: content.operation,
-        result: content.result,
-        history: content.history,
-        isResultDisplayed: content.isResultDisplayed,
-        contentId: composedWidget.contentId, // Pass contentId for content updates
-      } as Widget;
-
-    default:
-      // Fallback for unknown or missing content
-      return {
-        ...baseWidget,
-        type: "unknown",
-        originalData: content,
-        fallbackRepresentation: "icon",
-        errorMessage: contentError,
-      } as Widget;
-  }
+// Background pattern generation functions
+const createDotGridPattern = (scale: number): string => {
+  const dotSize = Math.max(0.5, 1 * scale);
+  const spacing = Math.max(8, 20 * scale);
+  const opacity = Math.min(0.6, Math.max(0.2, 0.4 * scale));
+  
+  const svgContent = `
+    <svg width="${spacing}" height="${spacing}" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="${spacing/2}" cy="${spacing/2}" r="${dotSize}" fill="rgba(156, 163, 175, ${opacity})" />
+    </svg>
+  `;
+  
+  return `data:image/svg+xml;base64,${btoa(svgContent)}`;
 };
+
+const createCorkboardPattern = (scale: number): string => {
+  return `https://thumbs.dreamstime.com/b/wooden-cork-board-seamless-tileable-texture-29991843.jpg`;
+};
+
+// NO LEGACY CONVERSION - ELIMINATED ALL LEGACY CODE
 
 export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   widgets,
@@ -158,7 +76,10 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     setHoveredWidget,
   } = useSelection();
 
+  const { getWidget} = useWidgetStore();
+
   const { mode, setMode } = useInteractionMode();
+  const { backgroundType } = useBackgroundType();
 
   const { isFileOver, selectionBox, setFileOver, setSelectionBox } =
     useUIStore();
@@ -195,17 +116,17 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   useEffect(() => {
     const callbacks: InteractionCallbacks = {
       onWidgetUpdate: (id: string, updates: Partial<Widget>) => {
-        // Convert legacy Widget updates to ComposedWidget updates
-        const composedUpdates = updates as Partial<ComposedWidget>;
+        // Convert legacy Widget updates to HydratedWidget updates
+        const composedUpdates = updates as Partial<HydratedWidget>;
         onWidgetUpdate(id, composedUpdates);
       },
       onWidgetsUpdate: (
         updates: Array<{ id: string; updates: Partial<Widget> }>,
       ) => {
-        // Convert legacy Widget updates to ComposedWidget updates
+        // Convert legacy Widget updates to HydratedWidget updates
         const composedUpdates = updates.map(({ id, updates }) => ({
           id,
-          updates: updates as Partial<ComposedWidget>,
+          updates: updates as Partial<HydratedWidget>,
         }));
         onWidgetsUpdate(composedUpdates);
       },
@@ -242,9 +163,8 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
 
   // Update widgets in interaction controller
   useEffect(() => {
-    // Convert ComposedWidgets to legacy Widget format for InteractionController
-    const legacyWidgets = widgets.map(composedWidgetToLegacyWidget);
-    interactionControllerRef.current?.setWidgets(legacyWidgets);
+    // Pass HydratedWidgets directly - NO LEGACY CONVERSION
+    interactionControllerRef.current?.setWidgets(widgets);
   }, [widgets]);
 
   // Update canvas transform in interaction controller
@@ -459,22 +379,22 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
 
   // Create widget events for each widget
   const createWidgetEvents = useCallback(
-    (widget: ComposedWidget): WidgetEvents => ({
+    (widget: HydratedWidget): WidgetEvents => ({
       onUpdate: (updates) => {
         console.log('🔄 Widget onUpdate called:', {
           widgetId: widget.id,
           widgetType: widget.type,
           updates
         });
-        // Convert legacy Widget updates to ComposedWidget updates
-        const composedUpdates = updates as Partial<ComposedWidget>;
+        // Convert legacy Widget updates to HydratedWidget updates
+        const composedUpdates = updates as Partial<HydratedWidget>;
         onWidgetUpdate(widget.id, composedUpdates);
       },
       onDelete: () => onWidgetRemove(widget.id),
       onDuplicate: () => {
         // For now, disable duplication until we implement proper conversion
         console.warn(
-          "Widget duplication not yet implemented for separated architecture",
+          "Unimplemented",
         );
       },
       onEdit: () => {
@@ -491,8 +411,10 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
           widgetType: widget.type,
           hasEvent: !!event,
           target: event?.target,
-          targetTagName: event?.target ? (event.target as HTMLElement).tagName : 'no-event'
+          targetTagName: event?.target ? (event.target as HTMLElement).tagName : 'no-event',
+          widget: getWidget(widget.id),
         });
+
 
         // Check if the click is on interactive content (e.g., calculator buttons)
         if (event && interactionControllerRef.current) {
@@ -547,7 +469,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
 
   // Create render state for each widget
   const createWidgetRenderState = useCallback(
-    (widget: ComposedWidget): WidgetRenderState => ({
+    (widget: HydratedWidget): WidgetRenderState => ({
       isSelected: selectedIds.includes(widget.id),
       isHovered: hoveredId === widget.id,
       isEditing: false,
@@ -570,13 +492,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     ? widgets.find((w) => w.id === hoveredId) || null
     : null;
 
-  // Convert to legacy widgets for components that still expect Widget type
-  const selectedLegacyWidgets = selectedWidgets.map(
-    composedWidgetToLegacyWidget,
-  );
-  const hoveredLegacyWidget = hoveredWidget
-    ? composedWidgetToLegacyWidget(hoveredWidget)
-    : null;
+  // NO LEGACY CONVERSION - Pass HydratedWidgets directly
 
   // Get cursor style based on mode
   const getCursorStyle = () => {
@@ -594,13 +510,42 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     }
   };
 
+  // Generate background pattern based on current type and scale
+  const getBackgroundStyle = useCallback(() => {
+    const scale = transform.scale;
+    
+    if (backgroundType === 'dots') {
+      const pattern = createDotGridPattern(scale);
+      const patternSize = Math.max(8, 20 * scale); // Same calculation as in createDotGridPattern
+      
+      return {
+        backgroundImage: `url("${pattern}")`,
+        backgroundRepeat: 'repeat',
+        backgroundSize: `${patternSize}px ${patternSize}px`,
+        backgroundPosition: `${transform.x % patternSize}px ${transform.y % patternSize}px`,
+        backgroundColor: '#f8fafc',
+      };
+    }
+    
+    const pattern = createCorkboardPattern(scale);
+    const patternSize = 256 * scale; // Standard texture size scaled
+    
+    return {
+      backgroundImage: `url("${pattern}")`,
+      backgroundRepeat: 'repeat',
+      backgroundSize: `${patternSize}px ${patternSize}px`,
+      backgroundPosition: `${transform.x % patternSize}px ${transform.y % patternSize}px`,
+      backgroundColor: '#d2b48c',
+    };
+  }, [backgroundType, transform.scale, transform.x, transform.y]);
+
   return (
     <div
       ref={canvasRef}
       className="relative h-screen w-full select-none overflow-hidden"
       style={{
-        backgroundColor: "#f5f5f5",
         cursor: getCursorStyle(),
+        ...getBackgroundStyle(),
       }}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
@@ -614,22 +559,18 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
         style={{
           transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
           transformOrigin: "0 0",
-          width: "200vw",
-          height: "200vh",
+          width: "400vw",
+          height: "400vh",
           position: "relative",
-          backgroundImage: `url(${CORKBOARD_TEXTURE})`,
-          backgroundRepeat: "repeat",
-          backgroundSize: "400px 400px",
         }}
       >
         {/* Widgets */}
         <AnimatePresence>
           {widgets.map((widget) => {
-            const legacyWidget = composedWidgetToLegacyWidget(widget);
             return (
               <WidgetContainer
                 key={widget.id}
-                widget={legacyWidget}
+                widget={widget}
                 state={createWidgetRenderState(widget)}
                 events={createWidgetEvents(widget)}
               />
@@ -639,8 +580,8 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
 
         {/* Selection indicators */}
         <SelectionIndicator
-          selectedWidgets={selectedLegacyWidgets}
-          hoveredWidget={hoveredLegacyWidget}
+          selectedWidgets={selectedWidgets}
+          hoveredWidget={hoveredWidget}
           selectionBox={selectionBox}
           snapTargets={
             interactionControllerRef.current?.getSnapIndicators() || []
@@ -670,24 +611,8 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
         </motion.div>
       )}
 
-      {/* Keyboard shortcuts help */}
-      <div className="absolute right-4 bottom-4 max-w-xs rounded-lg bg-white/90 px-4 py-2 text-xs shadow-md">
-        <p className="mb-1 font-medium">Keyboard Shortcuts:</p>
-        <div className="grid grid-cols-2 gap-1 text-gray-600">
-          <span>⌘A</span>
-          <span>Select All</span>
-          <span>⌘D</span>
-          <span>Duplicate</span>
-          <span>Del</span>
-          <span>Delete</span>
-          <span>Space</span>
-          <span>Hand Tool</span>
-          <span>1</span>
-          <span>Zoom to Fit</span>
-          <span>2</span>
-          <span>Zoom to Selection</span>
-        </div>
-      </div>
+      {/* Background toggle */}
+      <BackgroundToggle />
     </div>
   );
 };

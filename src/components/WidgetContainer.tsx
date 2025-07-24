@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
 import type React from "react";
 import { getWidgetRegistry } from "../core/WidgetRegistry";
-import type { Widget, WidgetEvents, WidgetRenderState } from "../types/widgets";
+import type { HydratedWidget, WidgetEvents, WidgetRenderState } from "../types/widgets";
+import { useEffect } from "react";
 
 interface WidgetContainerProps {
-  widget: Widget;
+  widget: HydratedWidget;
   state: WidgetRenderState;
   events: WidgetEvents;
 }
@@ -19,7 +20,6 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
   // Render widget content using plugin renderer or fallback
   const renderWidgetContent = () => {
-    // Handle special widget types for separated architecture
     if (widget.type === "loading") {
       return (
         <div className="flex h-full flex-col items-center justify-center p-4 text-center">
@@ -51,7 +51,21 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       );
     }
 
+    // Only render the actual widget renderer if content is properly loaded
     if (renderer?.component) {
+      // Check if content is actually available before rendering
+      if (!widget.isContentLoaded || !widget.content) {
+        return (
+          <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+            <div className="mb-2 h-8 w-8 animate-spin rounded-full border-blue-500 border-b-2" />
+            <div className="mb-1 font-medium text-sm">Loading Content</div>
+            <div className="text-gray-500 text-xs">
+              {widget.contentError || "Hydrating widget data..."}
+            </div>
+          </div>
+        );
+      }
+
       const RendererComponent = renderer.component;
       return (
         <RendererComponent
@@ -133,7 +147,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         pointerEvents: widget.locked ? "none" : "auto",
       }}
       className="select-none"
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={{ opacity: 0, scale: 0.8, rotate: widget.rotation }}
       animate={{
         opacity: 1,
         scale: 1,

@@ -1,7 +1,7 @@
 import type { KeyModifiers, Point, SnapTarget } from "../types/canvas";
-import type { WidgetData } from "../types/widgets";
+import type { HydratedWidget } from "../types/widgets";
 
-export interface SeparatedDragState {
+export interface DragState {
   isDragging: boolean;
   draggedWidgetIds: string[];
   startPosition: Point;
@@ -12,11 +12,11 @@ export interface SeparatedDragState {
 }
 
 /**
- * Optimized drag manager for separated widget architecture
+ * Optimized drag manager for widget architecture
  * Only updates widget-data store for maximum performance
  */
-export class SeparatedDragManager {
-  protected dragState: SeparatedDragState = {
+export class DragManager {
+  protected dragState: DragState = {
     isDragging: false,
     draggedWidgetIds: [],
     startPosition: { x: 0, y: 0 },
@@ -99,7 +99,7 @@ export class SeparatedDragManager {
   startDrag(
     widgetIds: string[],
     startPosition: Point,
-    widgets: WidgetData[],
+    widgets: HydratedWidget[],
   ): void {
     if (this.dragState.isDragging) return;
 
@@ -279,7 +279,7 @@ export class SeparatedDragManager {
 
   // Generate snap targets from other widgets (only using widget data)
   private generateSnapTargets(
-    widgets: WidgetData[],
+    widgets: HydratedWidget[],
     excludeIds: string[],
   ): SnapTarget[] {
     const targets: SnapTarget[] = [];
@@ -543,8 +543,8 @@ export function createMonitoredDragManager(
       };
     }>,
   ) => void,
-): SeparatedDragManager {
-  const manager = new SeparatedDragManager(
+): DragManager {
+  const manager = new DragManager(
     onDragStart,
     onDragUpdate,
     onDragEnd,
