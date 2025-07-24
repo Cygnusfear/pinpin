@@ -5,6 +5,7 @@ import { imagePlugin } from "./image";
 import { notePlugin } from "./note";
 import { todoPlugin } from "./todo";
 import { urlPlugin } from "./url";
+import { youTubePlugin } from "./youtube";
 
 // ============================================================================
 // PLUGIN REGISTRY - CLEAN IMPLEMENTATION
@@ -15,6 +16,7 @@ export const plugins = [
   notePlugin,
   todoPlugin,
   imagePlugin,
+  youTubePlugin, // YouTube plugin before URL plugin for priority
   urlPlugin,
   documentPlugin,
   // Add more plugins here
@@ -94,3 +96,4 @@ export { ImageFactory, ImageRenderer, imagePlugin } from "./image";
 export { NoteFactory, NoteRenderer, notePlugin } from "./note";
 export { TodoFactory, TodoRenderer, todoPlugin } from "./todo";
 export { UrlFactory, UrlRenderer, urlPlugin } from "./url";
+export { YouTubeFactory, YouTubeRenderer, youTubePlugin } from "./youtube";

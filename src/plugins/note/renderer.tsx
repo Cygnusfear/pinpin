@@ -1,9 +1,8 @@
-import React, { useCallback, useState, useRef, useEffect } from "react";
-import type {
-  WidgetRendererProps,
-  NoteContent,
-} from "../../types/widgets";
+import type React from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { useContentActions } from "../../stores/widgetStore";
+import type { WidgetRendererProps } from "../../types/widgets";
+import type { NoteContent } from "./types";
 
 export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
   widget,
@@ -17,7 +16,7 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
 
   const handleStartEdit = useCallback(() => {
     if (!widget.isContentLoaded || !widget.content.data) return;
-    
+
     setEditValue(widget.content.data.content);
     setIsEditing(true);
   }, [widget]);
@@ -36,20 +35,23 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
 
   const handleCancelEdit = useCallback(() => {
     if (!widget.isContentLoaded || !widget.content.data) return;
-    
+
     setEditValue(widget.content.data.content);
     setIsEditing(false);
   }, [widget]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      handleSaveEdit();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      handleCancelEdit();
-    }
-  }, [handleSaveEdit, handleCancelEdit]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleSaveEdit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        handleCancelEdit();
+      }
+    },
+    [handleSaveEdit, handleCancelEdit],
+  );
 
   // Auto-focus textarea when editing starts
   useEffect(() => {
@@ -61,7 +63,7 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
 
   if (!widget.isContentLoaded) {
     return (
-      <div className="flex items-center justify-center h-full bg-yellow-100 rounded-lg shadow">
+      <div className="flex h-full items-center justify-center rounded-lg bg-yellow-100 shadow">
         <div className="text-gray-500">Loading...</div>
       </div>
     );
@@ -69,7 +71,7 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
 
   if (widget.contentError) {
     return (
-      <div className="flex items-center justify-center h-full bg-red-100 rounded-lg shadow">
+      <div className="flex h-full items-center justify-center rounded-lg bg-red-100 shadow">
         <div className="text-red-500">Error: {widget.contentError}</div>
       </div>
     );
@@ -89,8 +91,8 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
   };
 
   return (
-    <div 
-      className="h-full rounded-lg shadow-md overflow-hidden border border-yellow-200"
+    <div
+      className="h-full overflow-hidden rounded-lg border border-yellow-200 shadow-md"
       style={{ backgroundColor: data.backgroundColor }}
     >
       {isEditing ? (
@@ -101,7 +103,7 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleSaveEdit}
             onKeyDown={handleKeyDown}
-            className="w-full h-full resize-none bg-transparent border-none outline-none"
+            className="h-full w-full resize-none border-none bg-transparent outline-none"
             style={{
               color: data.textColor,
               fontSize: `${data.fontSize}px`,
@@ -112,13 +114,13 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
             }}
             placeholder="Type your note here..."
           />
-          <div className="text-xs text-gray-500 mt-1">
+          <div className="mt-1 text-gray-500 text-xs">
             Ctrl+Enter to save, Escape to cancel
           </div>
         </div>
       ) : (
-        <div 
-          className="h-full p-3 cursor-text overflow-auto"
+        <div
+          className="h-full cursor-text overflow-auto p-3"
           style={noteStyle}
           onClick={handleStartEdit}
           onDoubleClick={handleStartEdit}
@@ -128,9 +130,7 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
               {data.content}
             </div>
           ) : (
-            <div className="text-gray-400 italic">
-              Click to add a note...
-            </div>
+            <div className="text-gray-400 italic">Click to add a note...</div>
           )}
         </div>
       )}

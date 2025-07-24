@@ -3,11 +3,11 @@ import type {
   CreateWidgetInput,
   HydratedWidget,
   Position,
-  UrlContent,
   WidgetCapabilities,
   WidgetFactory,
 } from "../../types/widgets";
 import { urlTypeDefinition } from ".";
+import type { UrlContent } from "./types";
 
 // ============================================================================
 // URL WIDGET FACTORY - CLEAN IMPLEMENTATION
@@ -24,6 +24,11 @@ export class UrlFactory implements WidgetFactory<UrlContent> {
 
     // Handle URL strings
     if (typeof data === "string") {
+      // Exclude YouTube URLs - they should be handled by the YouTube plugin
+      if (this.isYouTubeUrl(data)) {
+        return false;
+      }
+
       try {
         new URL(data);
         return true;
@@ -37,10 +42,27 @@ export class UrlFactory implements WidgetFactory<UrlContent> {
 
     // Handle URL data objects
     if (data && typeof data === "object" && data.url) {
+      // Exclude YouTube URLs - they should be handled by the YouTube plugin
+      if (this.isYouTubeUrl(data.url)) {
+        return false;
+      }
       return true;
     }
 
     return false;
+  }
+
+  /**
+   * Check if a URL is a YouTube URL
+   */
+  private isYouTubeUrl(url: string): boolean {
+    const youtubePatterns = [
+      /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)/,
+      /^(https?:\/\/)?(m\.youtube\.com)/,
+      /^(https?:\/\/)?(gaming\.youtube\.com)/,
+    ];
+
+    return youtubePatterns.some((pattern) => pattern.test(url));
   }
 
   async create(data: any, position: Position): Promise<CreateWidgetInput> {

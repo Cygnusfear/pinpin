@@ -1,12 +1,12 @@
 import type {
   CreateWidgetInput,
   HydratedWidget,
-  NoteContent,
   Position,
   WidgetCapabilities,
   WidgetFactory,
 } from "../../types/widgets";
 import { noteTypeDefinition } from ".";
+import type { NoteContent } from "./types";
 
 export class NoteFactory implements WidgetFactory<NoteContent> {
   type = "note";
@@ -21,7 +21,7 @@ export class NoteFactory implements WidgetFactory<NoteContent> {
     if (typeof data === "string" && data.trim().length > 0) {
       // Don't handle URLs or math expressions (let other widgets handle those)
       const isUrl = /^https?:\/\//.test(data.trim());
-      const isMath = /^[\d+\-\*\/\(\)\.\s]+$/.test(data.trim());
+      const isMath = /^[\d+\-*\/\(\)\.\s]+$/.test(data.trim());
       return !isUrl && !isMath;
     }
 

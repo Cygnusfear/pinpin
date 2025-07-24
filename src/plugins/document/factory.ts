@@ -1,13 +1,13 @@
-import { documentTypeDefinition } from "./index";
+import { useContentStore } from "../../stores/contentStore";
 import type {
   WidgetFactory,
   CreateWidgetInput,
   Position,
   WidgetCapabilities,
-  DocumentContent,
   HydratedWidget,
 } from "../../types/widgets";
-import { useContentStore } from "../../stores/contentStore";
+import { documentTypeDefinition } from "./index";
+import type { DocumentContent } from "./types";
 
 // ============================================================================
 // DOCUMENT WIDGET FACTORY - CLEAN IMPLEMENTATION
@@ -25,7 +25,7 @@ export class DocumentFactory implements WidgetFactory<DocumentContent> {
     // Handle File objects (but NOT images)
     if (data instanceof File) {
       // Exclude image files - they should be handled by ImageFactory
-      if (data.type.startsWith('image/')) {
+      if (data.type.startsWith("image/")) {
         return false;
       }
       // Exclude common image extensions
@@ -37,13 +37,18 @@ export class DocumentFactory implements WidgetFactory<DocumentContent> {
     }
 
     // Handle document data objects
-    if (data && typeof data === "object" && (data.fileName || data.fileType || data.mimeType)) {
+    if (
+      data &&
+      typeof data === "object" &&
+      (data.fileName || data.fileType || data.mimeType)
+    ) {
       return true;
     }
 
     // Handle file extensions in URLs or paths
     if (typeof data === "string") {
-      const documentExtensions = /\.(pdf|doc|docx|txt|md|rtf|odt|ppt|pptx|xls|xlsx|csv)$/i;
+      const documentExtensions =
+        /\.(pdf|doc|docx|txt|md|rtf|odt|ppt|pptx|xls|xlsx|csv)$/i;
       return documentExtensions.test(data);
     }
 
@@ -70,9 +75,13 @@ export class DocumentFactory implements WidgetFactory<DocumentContent> {
       fileSize = data.size;
       mimeType = data.type || this.getMimeTypeFromName(data.name);
       downloadUrl = URL.createObjectURL(data); // Temporary local URL for immediate preview
-      
+
       // For text files, read content
-      if (data.type.startsWith('text/') || data.name.endsWith('.txt') || data.name.endsWith('.md')) {
+      if (
+        data.type.startsWith("text/") ||
+        data.name.endsWith(".txt") ||
+        data.name.endsWith(".md")
+      ) {
         try {
           content = await data.text();
         } catch (error) {
@@ -84,12 +93,13 @@ export class DocumentFactory implements WidgetFactory<DocumentContent> {
       fileName = this.extractFileNameFromPath(data);
       fileType = this.getFileTypeFromName(fileName);
       mimeType = this.getMimeTypeFromName(fileName);
-      downloadUrl = data.startsWith('http') ? data : "";
+      downloadUrl = data.startsWith("http") ? data : "";
     } else if (data && typeof data === "object") {
       fileName = data.fileName || data.name || "Document";
       fileType = data.fileType || this.getFileTypeFromName(fileName);
       fileSize = data.fileSize || data.size || 0;
-      mimeType = data.mimeType || data.type || this.getMimeTypeFromName(fileName);
+      mimeType =
+        data.mimeType || data.type || this.getMimeTypeFromName(fileName);
       content = data.content || "";
       downloadUrl = data.downloadUrl || data.url || "";
       previewUrl = data.previewUrl || "";
@@ -121,62 +131,62 @@ export class DocumentFactory implements WidgetFactory<DocumentContent> {
   private extractFileNameFromPath(path: string): string {
     try {
       const url = new URL(path);
-      const segments = url.pathname.split('/');
+      const segments = url.pathname.split("/");
       return segments[segments.length - 1] || "Document";
     } catch {
-      const segments = path.split('/');
+      const segments = path.split("/");
       return segments[segments.length - 1] || "Document";
     }
   }
 
   private getFileTypeFromName(fileName: string): string {
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    
+    const extension = fileName.split(".").pop()?.toLowerCase();
+
     switch (extension) {
-      case 'pdf':
-        return 'pdf';
-      case 'doc':
-      case 'docx':
-        return 'word';
-      case 'ppt':
-      case 'pptx':
-        return 'powerpoint';
-      case 'xls':
-      case 'xlsx':
-        return 'excel';
-      case 'txt':
-      case 'md':
-        return 'text';
-      case 'rtf':
-        return 'rtf';
-      case 'odt':
-        return 'odt';
-      case 'csv':
-        return 'csv';
+      case "pdf":
+        return "pdf";
+      case "doc":
+      case "docx":
+        return "word";
+      case "ppt":
+      case "pptx":
+        return "powerpoint";
+      case "xls":
+      case "xlsx":
+        return "excel";
+      case "txt":
+      case "md":
+        return "text";
+      case "rtf":
+        return "rtf";
+      case "odt":
+        return "odt";
+      case "csv":
+        return "csv";
       default:
-        return 'document';
+        return "document";
     }
   }
 
   private getMimeTypeFromName(fileName: string): string {
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    
+    const extension = fileName.split(".").pop()?.toLowerCase();
+
     const mimeTypes: Record<string, string> = {
-      'pdf': 'application/pdf',
-      'doc': 'application/msword',
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'ppt': 'application/vnd.ms-powerpoint',
-      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'xls': 'application/vnd.ms-excel',
-      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'txt': 'text/plain',
-      'md': 'text/markdown',
-      'rtf': 'application/rtf',
-      'odt': 'application/vnd.oasis.opendocument.text',
-      'csv': 'text/csv',
+      pdf: "application/pdf",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ppt: "application/vnd.ms-powerpoint",
+      pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      xls: "application/vnd.ms-excel",
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      txt: "text/plain",
+      md: "text/markdown",
+      rtf: "application/rtf",
+      odt: "application/vnd.oasis.opendocument.text",
+      csv: "text/csv",
     };
 
-    return mimeTypes[extension || ''] || 'application/octet-stream';
+    return mimeTypes[extension || ""] || "application/octet-stream";
   }
 
   getDefaultSize(): { width: number; height: number } {

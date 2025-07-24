@@ -2,7 +2,8 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useContentActions } from "../../stores/widgetStore";
-import type { UrlContent, WidgetRendererProps } from "../../types/widgets";
+import type { WidgetRendererProps } from "../../types/widgets";
+import type { UrlContent } from "./types";
 
 // ============================================================================
 // URL WIDGET RENDERER - CLEAN IMPLEMENTATION

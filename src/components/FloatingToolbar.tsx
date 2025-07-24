@@ -89,7 +89,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                   title={button.description}
                 >
                   <span className="pointer-events-none text-lg group-hover:animate-bounce">
-                    {button.icon}
+                    {button.icon.includes("/") ? <img src={button.icon} className="w-6 h-6 object-contain" /> : button.icon}
                   </span>
                   {isCreating === button.type && (
                     <div className="ml-2 h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-b-transparent" />

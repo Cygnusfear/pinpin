@@ -1,5 +1,4 @@
 import type {
-  CalculatorContent,
   CreateWidgetInput,
   HydratedWidget,
   Position,
@@ -7,6 +6,7 @@ import type {
   WidgetFactory,
 } from "../../types/widgets";
 import { calculatorTypeDefinition } from ".";
+import type { CalculatorContent } from "./types";
 
 // ============================================================================
 // CALCULATOR WIDGET FACTORY - CLEAN IMPLEMENTATION
@@ -23,7 +23,7 @@ export class CalculatorFactory implements WidgetFactory<CalculatorContent> {
 
     // Handle math expressions or calculator-like input
     if (typeof data === "string") {
-      const mathPattern = /^[\d+\-\*\/\(\)\.\s]+$/;
+      const mathPattern = /^[\d+\-*\/\(\)\.\s]+$/;
       return mathPattern.test(data.trim()) && data.trim().length > 0;
     }
 

@@ -4,33 +4,24 @@
 // This file provides a clean interface for components to import the stores
 // using the new unified architecture
 
-// Export the new unified stores
-export { useWidgetStore, useWidgets, useWidgetActions, useContentActions } from "./widgetStore";
-export { useContentStore, useContentOperations } from "./contentStore";
-export { 
-  useUIStore, 
-  useSelection, 
-  useCanvasTransform, 
-  useInteractionMode,
-  useBackgroundType 
-} from "./uiStore";
-
-// Export hydration utilities
-export { 
-  useHydratedWidget, 
-  useHydratedWidgets, 
-  useWidgetHydrator,
-  isWidgetContentLoaded,
-  getContentLoadingStatus,
-  filterWidgetsByContentStatus 
-} from "../services/widgetHydrator";
-
-// Export plugin system
-export { registerAllPlugins, getAvailableWidgetTypes } from "../plugins";
-
+export { getWidgetFactory as getGenericWidgetFactory } from "../core/GenericWidgetFactory";
 // Export core services
 export { getWidgetRegistry } from "../core/WidgetRegistry";
-export { getWidgetFactory as getGenericWidgetFactory } from "../core/GenericWidgetFactory";
+// Export plugin system
+export { getAvailableWidgetTypes, registerAllPlugins } from "../plugins";
+export type { CalculatorContent } from "../plugins/calculator/types";
+export type { NoteContent } from "../plugins/note/types";
+// Export plugin-specific content types from their respective locations
+export type { TodoContent } from "../plugins/todo/types";
+// Export hydration utilities
+export {
+  filterWidgetsByContentStatus,
+  getContentLoadingStatus,
+  isWidgetContentLoaded,
+  useHydratedWidget,
+  useHydratedWidgets,
+  useWidgetHydrator,
+} from "../services/widgetHydrator";
 
 // Export types for convenience
 export type {
@@ -38,8 +29,20 @@ export type {
   HydratedWidget,
   CreateWidgetInput,
   WidgetContent,
-  TodoContent,
-  NoteContent,
-  CalculatorContent,
   CanvasTransform,
 } from "../types/widgets";
+export { useContentOperations, useContentStore } from "./contentStore";
+export {
+  useBackgroundType,
+  useCanvasTransform,
+  useInteractionMode,
+  useSelection,
+  useUIStore,
+} from "./uiStore";
+// Export the new unified stores
+export {
+  useContentActions,
+  useWidgetActions,
+  useWidgetStore,
+  useWidgets,
+} from "./widgetStore";

@@ -1,9 +1,8 @@
-import React, { useCallback, useState } from "react";
-import type {
-  WidgetRendererProps,
-  TodoContent,
-} from "../../types/widgets";
+import type React from "react";
+import { useCallback, useState } from "react";
 import { useContentActions } from "../../stores/widgetStore";
+import type { WidgetRendererProps } from "../../types/widgets";
+import type { TodoContent } from "./types";
 
 export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
   widget,
@@ -15,21 +14,25 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
 
-  const handleToggleItem = useCallback((itemId: string) => {
-    if (!widget.isContentLoaded || !widget.content.data) return;
+  const handleToggleItem = useCallback(
+    (itemId: string) => {
+      if (!widget.isContentLoaded || !widget.content.data) return;
 
-    const data = widget.content.data;
-    const updatedItems = data.items.map(item =>
-      item.id === itemId ? { ...item, completed: !item.completed } : item
-    );
+      const data = widget.content.data;
+      const updatedItems = data.items.map((item) =>
+        item.id === itemId ? { ...item, completed: !item.completed } : item,
+      );
 
-    updateContent(widget.contentId, {
-      data: { ...data, items: updatedItems }
-    });
-  }, [widget, updateContent]);
+      updateContent(widget.contentId, {
+        data: { ...data, items: updatedItems },
+      });
+    },
+    [widget, updateContent],
+  );
 
   const handleAddItem = useCallback(() => {
-    if (!widget.isContentLoaded || !widget.content.data || !newItemText.trim()) return;
+    if (!widget.isContentLoaded || !widget.content.data || !newItemText.trim())
+      return;
 
     const data = widget.content.data;
     const newItem = {
@@ -41,25 +44,28 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
 
     const updatedItems = [...data.items, newItem];
     updateContent(widget.contentId, {
-      data: { ...data, items: updatedItems }
+      data: { ...data, items: updatedItems },
     });
     setNewItemText("");
   }, [widget, newItemText, updateContent]);
 
-  const handleDeleteItem = useCallback((itemId: string) => {
-    if (!widget.isContentLoaded || !widget.content.data) return;
+  const handleDeleteItem = useCallback(
+    (itemId: string) => {
+      if (!widget.isContentLoaded || !widget.content.data) return;
 
-    const data = widget.content.data;
-    const updatedItems = data.items.filter(item => item.id !== itemId);
+      const data = widget.content.data;
+      const updatedItems = data.items.filter((item) => item.id !== itemId);
 
-    updateContent(widget.contentId, {
-      data: { ...data, items: updatedItems }
-    });
-  }, [widget, updateContent]);
+      updateContent(widget.contentId, {
+        data: { ...data, items: updatedItems },
+      });
+    },
+    [widget, updateContent],
+  );
 
   const handleTitleEdit = useCallback(() => {
     if (!widget.isContentLoaded || !widget.content.data) return;
-    
+
     setTitleValue(widget.content.data.title);
     setEditingTitle(true);
   }, [widget]);
@@ -69,21 +75,24 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
 
     const data = widget.content.data;
     updateContent(widget.contentId, {
-      data: { ...data, title: titleValue }
+      data: { ...data, title: titleValue },
     });
     setEditingTitle(false);
   }, [widget, titleValue, updateContent]);
 
-  const handleKeyPress = useCallback((e: React.KeyboardEvent, action: () => void) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      action();
-    }
-  }, []);
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent, action: () => void) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        action();
+      }
+    },
+    [],
+  );
 
   if (!widget.isContentLoaded) {
     return (
-      <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
+      <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
         <div className="text-gray-500">Loading...</div>
       </div>
     );
@@ -91,37 +100,37 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
 
   if (widget.contentError) {
     return (
-      <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
+      <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
         <div className="text-red-500">Error: {widget.contentError}</div>
       </div>
     );
   }
 
   const data = widget.content.data;
-  const completedCount = data.items.filter(item => item.completed).length;
+  const completedCount = data.items.filter((item) => item.completed).length;
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white shadow">
       {/* Header */}
-      <div className="p-3 bg-blue-50 border-b border-blue-100">
+      <div className="border-blue-100 border-b bg-blue-50 p-3">
         {editingTitle ? (
           <input
             value={titleValue}
             onChange={(e) => setTitleValue(e.target.value)}
             onBlur={handleTitleSave}
             onKeyPress={(e) => handleKeyPress(e, handleTitleSave)}
-            className="w-full text-lg font-semibold bg-transparent border-none outline-none"
+            className="w-full border-none bg-transparent font-semibold text-lg outline-none"
             autoFocus
           />
         ) : (
           <h3
-            className="text-lg font-semibold text-gray-800 cursor-pointer"
+            className="cursor-pointer font-semibold text-gray-800 text-lg"
             onClick={handleTitleEdit}
           >
             {data.title}
           </h3>
         )}
-        <div className="text-sm text-gray-500">
+        <div className="text-gray-500 text-sm">
           {completedCount} of {data.items.length} completed
         </div>
       </div>
@@ -131,7 +140,7 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
         {data.items.map((item) => (
           <div
             key={item.id}
-            className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded group"
+            className="group flex items-center gap-2 rounded p-2 hover:bg-gray-50"
           >
             <input
               type="checkbox"
@@ -141,16 +150,14 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
             />
             <span
               className={`flex-1 ${
-                item.completed
-                  ? "line-through text-gray-500"
-                  : "text-gray-800"
+                item.completed ? "text-gray-500 line-through" : "text-gray-800"
               }`}
             >
               {item.text}
             </span>
             <button
               onClick={() => handleDeleteItem(item.id)}
-              className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-sm"
+              className="text-red-500 text-sm opacity-0 hover:text-red-700 group-hover:opacity-100"
             >
               ✕
             </button>
@@ -159,7 +166,7 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
       </div>
 
       {/* Add New Item */}
-      <div className="p-3 border-t border-gray-100">
+      <div className="border-gray-100 border-t p-3">
         <div className="flex gap-2">
           <input
             type="text"
@@ -167,12 +174,12 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
             onChange={(e) => setNewItemText(e.target.value)}
             onKeyPress={(e) => handleKeyPress(e, handleAddItem)}
             placeholder="Add new item..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={handleAddItem}
             disabled={!newItemText.trim()}
-            className="px-3 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-md bg-blue-500 px-3 py-2 text-sm text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Add
           </button>

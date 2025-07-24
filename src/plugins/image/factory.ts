@@ -1,13 +1,13 @@
-import { imageTypeDefinition } from "./index";
+import { useContentStore } from "../../stores/contentStore";
 import type {
   WidgetFactory,
   CreateWidgetInput,
   Position,
   WidgetCapabilities,
-  ImageContent,
   HydratedWidget,
 } from "../../types/widgets";
-import { useContentStore } from "../../stores/contentStore";
+import { imageTypeDefinition } from "./index";
+import type { ImageContent } from "./types";
 
 // ============================================================================
 // IMAGE WIDGET FACTORY - CLEAN IMPLEMENTATION
@@ -25,7 +25,7 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
     // Handle File objects that are images
     if (data instanceof File) {
       // Check MIME type first
-      if (data.type.startsWith('image/')) {
+      if (data.type.startsWith("image/")) {
         return true;
       }
       // Check file extension as fallback
@@ -64,7 +64,7 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
       isFileUpload = true;
       src = URL.createObjectURL(data); // Temporary local URL for immediate preview
       alt = data.name;
-      
+
       // Try to get dimensions from the image
       try {
         const img = new Image();
@@ -73,7 +73,10 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
           img.onerror = reject;
           img.src = src;
         });
-        originalDimensions = { width: img.naturalWidth, height: img.naturalHeight };
+        originalDimensions = {
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+        };
       } catch (error) {
         console.warn("Could not determine image dimensions:", error);
         originalDimensions = { width: 400, height: 300 };
@@ -95,7 +98,7 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
         if (placeholderMatch) {
           originalDimensions = {
             width: parseInt(placeholderMatch[1]),
-            height: parseInt(placeholderMatch[2])
+            height: parseInt(placeholderMatch[2]),
           };
         }
       } catch (error) {
@@ -116,15 +119,18 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
     const padding = 16; // 8px on each side
     const maxWidth = 400;
     const maxHeight = 300;
-    
+
     // Calculate available space for image (minus padding)
     const availableWidth = maxWidth - padding;
     const availableHeight = maxHeight - padding;
-    
+
     // Scale to fit within available space while maintaining aspect ratio
     let targetWidth, targetHeight;
-    
-    if (originalDimensions.width <= availableWidth && originalDimensions.height <= availableHeight) {
+
+    if (
+      originalDimensions.width <= availableWidth &&
+      originalDimensions.height <= availableHeight
+    ) {
       // Image fits naturally
       targetWidth = originalDimensions.width;
       targetHeight = originalDimensions.height;
@@ -133,11 +139,11 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
       const widthScale = availableWidth / originalDimensions.width;
       const heightScale = availableHeight / originalDimensions.height;
       const scale = Math.min(widthScale, heightScale);
-      
+
       targetWidth = Math.round(originalDimensions.width * scale);
       targetHeight = Math.round(originalDimensions.height * scale);
     }
-    
+
     // Add padding back to get final widget dimensions
     const finalWidth = targetWidth + padding;
     const finalHeight = targetHeight + padding;
@@ -182,9 +188,11 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
       if (!data.src || typeof data.src !== "string") {
         errors.push("Image source is required and must be a string");
       }
-      if (!data.originalDimensions || 
-          typeof data.originalDimensions.width !== "number" ||
-          typeof data.originalDimensions.height !== "number") {
+      if (
+        !data.originalDimensions ||
+        typeof data.originalDimensions.width !== "number" ||
+        typeof data.originalDimensions.height !== "number"
+      ) {
         errors.push("Original dimensions are required");
       }
     }

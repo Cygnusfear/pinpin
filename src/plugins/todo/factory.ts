@@ -2,10 +2,10 @@ import type {
   CreateWidgetInput,
   HydratedWidget,
   Position,
-  TodoContent,
   WidgetCapabilities,
   WidgetFactory,
 } from "../../types/widgets";
+import type { TodoContent } from "./types";
 
 export class TodoFactory implements WidgetFactory<TodoContent> {
   type = "todo";
