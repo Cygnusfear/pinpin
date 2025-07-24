@@ -1,6 +1,6 @@
 import { PinataSDK } from "pinata";
 import ENV from "./env";
-import { logger } from "./logger";
+// import { logger } from "./logger";
 
 // ============================================================================
 // PINATA SERVICE - IPFS FILE STORAGE VIA PINATA SDK
@@ -85,6 +85,12 @@ export class PinataService {
 
       // Upload to Pinata using the SDK
       const upload = await this.pinata.upload.public.file(file);
+      // logger.pinata_service.info('File uploaded to Pinata', {
+      //   cid: upload.cid,
+      //   filename: file.name,
+      //   size: file.size,
+      //   service: 'PinataService'
+      // });
       // Notify upload completion
       this.notifyProgress(uploadId, 100, 'completed');
 
@@ -103,6 +109,11 @@ export class PinataService {
 
     } catch (error) {
       console.error("❌ Pinata upload failed:", error);
+      // logger.pinata_service.error('File upload failed', {
+      //   error: error.message,
+      //   filename: file.name,
+      //   service: 'PinataService'
+      // });
       this.notifyProgress(uploadId, 0, 'failed', error.message);
       throw error;
     } finally {
@@ -202,9 +213,18 @@ export class PinataService {
 
     try {
       const data = await this.pinata.gateways.public.get(cid);
+      // logger.pinata_service.info('File retrieved from Pinata', {
+      //   cid,
+      //   service: 'PinataService'
+      // });
       return data;
     } catch (error) {
       console.error("❌ Pinata get file failed:", error);
+      // logger.pinata_service.error('File retrieval failed', {
+      //   error: error.message,
+      //   cid,
+      //   service: 'PinataService'
+      // });
       throw error;
     }
   }
