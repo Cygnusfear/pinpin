@@ -16,7 +16,9 @@ export const SelectionIndicator: React.FC<SelectionIndicatorProps> = ({
   selectionBox,
   snapTargets,
 }) => {
-  const calculateSelectionBounds = (widgets: HydratedWidget[]): BoundingBox | null => {
+  const calculateSelectionBounds = (
+    widgets: HydratedWidget[],
+  ): BoundingBox | null => {
     if (widgets.length === 0) return null;
 
     let minX = Infinity;
@@ -45,7 +47,7 @@ export const SelectionIndicator: React.FC<SelectionIndicatorProps> = ({
 
   return (
     <div
-      className="pointer-events-none absolute inset-0"
+      className="pointer-events-none absolute inset-0 mt-2.5"
       style={{ zIndex: 1001 }}
     >
       {/* Hover indicator */}
