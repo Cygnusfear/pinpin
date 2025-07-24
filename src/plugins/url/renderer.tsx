@@ -1,59 +1,50 @@
-import React, { useCallback } from "react";
-import type {
-  WidgetRendererProps,
-  UrlContent,
-} from "../../types/widgets";
+import type React from "react";
+import { useCallback, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import { useContentActions } from "../../stores/widgetStore";
+import type { UrlContent, WidgetRendererProps } from "../../types/widgets";
 
 // ============================================================================
 // URL WIDGET RENDERER - CLEAN IMPLEMENTATION
 // ============================================================================
+
+// Helper function moved outside component to avoid dependency issues
+const extractDomainFromUrl = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname.replace(/^www\./, "");
+  } catch {
+    return "Unknown Site";
+  }
+};
 
 export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
   widget,
   state,
   events,
 }) => {
-  const { updateContent } = useContentActions();
+  const data = useMemo(() => widget.content.data, [widget.content.data]);
+  const [previewImage, setHasPreview] = useState(
+    data.image || data.preview || null,
+  );
 
-  const handleLinkClick = useCallback((event: React.MouseEvent) => {
-    // Mark as interactive to prevent widget selection
-    event.stopPropagation();
-    
-    // Open link in new tab
-    if (widget.content?.data.url) {
-      window.open(widget.content.data.url, '_blank', 'noopener,noreferrer');
-    }
-  }, [widget.content?.data.url]);
+  const handleLinkClick = useCallback(
+    (event: React.MouseEvent) => {
+      // Mark as interactive to prevent widget selection
+      event.stopPropagation();
 
-  const handleEdit = useCallback((event: React.MouseEvent) => {
-    event.stopPropagation();
-    
-    // Simple URL editing - could be enhanced with a proper modal
-    const newUrl = prompt("Enter new URL:", widget.content.data.url);
-    if (newUrl && newUrl !== widget.content.data.url) {
-      const updatedData = {
-        ...widget.content.data,
-        url: newUrl,
-        title: extractDomainFromUrl(newUrl)
-      };
-      updateContent(widget.contentId, { data: updatedData });
-    }
-  }, [widget.contentId, widget.content.data, updateContent]);
-
-  const extractDomainFromUrl = (url: string): string => {
-    try {
-      const urlObj = new URL(url);
-      return urlObj.hostname.replace(/^www\./, "");
-    } catch {
-      return "Unknown Site";
-    }
-  };
+      // Open link in new tab
+      if (widget.content?.data.url) {
+        window.open(widget.content.data.url, "_blank", "noopener,noreferrer");
+      }
+    },
+    [widget.content?.data.url],
+  );
 
   // Early returns for loading and error states
   if (!widget.isContentLoaded) {
     return (
-      <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
+      <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
         <div className="text-gray-500">Loading...</div>
       </div>
     );
@@ -61,9 +52,9 @@ export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
 
   if (widget.contentError) {
     return (
-      <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
-        <div className="text-red-500 text-center p-4">
-          <div className="text-2xl mb-2">⚠️</div>
+      <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
+        <div className="p-4 text-center text-red-500">
+          <div className="mb-2 text-2xl">⚠️</div>
           <div className="text-sm">Error: {widget.contentError}</div>
         </div>
       </div>
@@ -73,89 +64,130 @@ export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
   // Additional null safety check
   if (!widget.content || !widget.content.data) {
     return (
-      <div className="flex items-center justify-center h-full bg-white rounded-lg shadow">
-        <div className="text-red-500 text-center p-4">
-          <div className="text-2xl mb-2">⚠️</div>
+      <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
+        <div className="p-4 text-center text-red-500">
+          <div className="mb-2 text-2xl">⚠️</div>
           <div className="text-sm">Error: URL content is missing</div>
         </div>
       </div>
     );
   }
 
-  const data = widget.content.data;
-
   return (
-    <div className="h-full bg-white rounded-lg shadow overflow-hidden border border-gray-200 hover:border-blue-300 transition-colors">
-      {/* URL Content */}
-      <div className="flex flex-col h-full">
-        {/* Header with favicon and domain */}
-        <div className="flex items-center gap-2 p-3 border-b border-gray-100">
-          {data.favicon && (
-            <img 
-              src={data.favicon} 
-              alt="" 
-              className="w-4 h-4 flex-shrink-0"
+    <div className="h-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-md transition-all duration-200 hover:border-blue-300 hover:shadow-lg">
+      {/* Twitter Card-like Layout */}
+      <div className="relative flex h-full flex-col">
+        {/* Preview Image (if available) */}
+        {previewImage && (
+          <div className="relative top-0 left-0 z-0 min-h-0 w-full overflow-hidden bg-gray-50">
+            <img
+              draggable={false}
+              src={previewImage}
+              alt="Preview"
+              className="max-h-[160px] min-h-0 w-full object-cover"
+              crossOrigin="anonymous"
+              referrerPolicy="no-referrer"
               onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
+                setHasPreview(null);
               }}
             />
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-gray-700 truncate">
-              {data.title || extractDomainFromUrl(data.url)}
-            </div>
-            <div className="text-xs text-gray-500 truncate">
-              {data.url}
-            </div>
+            {/* Embed type badge */}
+            {data.embedType && data.embedType !== "link" && (
+              <div className="absolute top-2 right-2 rounded bg-black/70 px-2 py-1 font-medium text-white text-xs">
+                {data.embedType.toUpperCase()}
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Content area */}
-        <div className="flex-1 p-3">
-          {data.description && (
-            <p className="text-sm text-gray-600 mb-3 line-clamp-3">
+        <div
+          className={cn(
+            "z-1 flex h-full min-h-0 flex-col gap-3 p-4",
+            previewImage &&
+              "absolute bottom-0 h-auto gap-2 border-gray-200 border-t bg-gradient-to-t from-white to-white py-2",
+          )}
+        >
+          {/* Header with favicon and site info */}
+          <div className="flex items-center gap-2">
+            {data.favicon && (
+              <img
+                src={data.favicon}
+                alt=""
+                className="h-4 w-4 flex-shrink-0 rounded"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-gray-500 text-xs">
+                {data.siteName || extractDomainFromUrl(data.url)}
+              </div>
+            </div>
+          </div>
+
+          {/* Title */}
+          <h3 className="line-clamp-2 font-semibold text-gray-900 text-xs leading-tight">
+            {data.title || extractDomainFromUrl(data.url)}
+          </h3>
+
+          {/* Description */}
+          {!previewImage && data.description && (
+            <p
+              className={cn(
+                "mb-3 line-clamp-2 text-gray-600 text-xs leading-relaxed",
+                previewImage && "text-xs",
+              )}
+            >
               {data.description}
             </p>
           )}
-          
-          {data.preview && (
-            <div className="mb-3">
-              <img 
-                src={data.preview} 
-                alt="Preview" 
-                className="w-full h-20 object-cover rounded border"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
+
+          {/* Metadata row */}
+          {!previewImage && (
+            <div className="flex items-center gap-3 text-gray-500 text-xs">
+              {data.author && (
+                <span className="flex items-center gap-1">
+                  <span>👤</span>
+                  <span className="max-w-20 truncate">{data.author}</span>
+                </span>
+              )}
+              {data.publishedTime && (
+                <span className="flex items-center gap-1">
+                  <span>📅</span>
+                  <span>
+                    {new Date(data.publishedTime).toLocaleDateString()}
+                  </span>
+                </span>
+              )}
+              {data.twitterCreator && (
+                <span className="flex items-center gap-1">
+                  <span>🐦</span>
+                  <span className="max-w-20 truncate">
+                    {data.twitterCreator}
+                  </span>
+                </span>
+              )}
             </div>
           )}
 
-          {/* Action buttons */}
-          <div className="flex gap-2 mt-auto">
-            <button
-              onClick={handleLinkClick}
-              className="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
-              data-interactive="true"
-            >
-              🔗 Visit
-            </button>
-            <button
-              onClick={handleEdit}
-              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded transition-colors"
-              data-interactive="true"
-            >
-              ✏️
-            </button>
-          </div>
+          {/* URL display */}
+          {!previewImage && (
+            <div className="truncate text-gray-400 text-xs">{data.url}</div>
+          )}
         </div>
-
-        {/* Embed indicator */}
-        {data.embedType && data.embedType !== "link" && (
-          <div className="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded text-xs">
-            {data.embedType.toUpperCase()}
-          </div>
-        )}
+        {/* Action buttons */}
+        <div className="absolute top-0 right-0">
+          <button
+            type="button"
+            onClick={handleLinkClick}
+            className="flex flex-1 items-center justify-center gap-1 rounded-bl p-3 font-medium text-white text-xs transition-colors hover:bg-black"
+            data-interactive="true"
+          >
+            <span>🔗</span>
+          </button>
+        </div>
       </div>
     </div>
   );

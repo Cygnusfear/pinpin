@@ -160,6 +160,16 @@ export interface UrlContent {
     aspectRatio?: number;
     autoplay?: boolean;
   };
+  // OG Metadata fields
+  siteName?: string;
+  type?: string;
+  author?: string;
+  publishedTime?: string;
+  twitterCard?: string;
+  twitterSite?: string;
+  twitterCreator?: string;
+  // Enhanced metadata
+  image?: string; // Alias for preview for consistency with OG spec
 }
 
 // ============================================================================

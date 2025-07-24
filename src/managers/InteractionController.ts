@@ -1,3 +1,4 @@
+import { getWidgetFactory } from "../core/GenericWidgetFactory";
 import type {
   BoundingBox,
   CanvasTransform,
@@ -32,6 +33,7 @@ export interface InteractionCallbacks {
     updates: Array<{ id: string; updates: Partial<HydratedWidget> }>,
   ) => void;
   onWidgetRemove: (id: string) => void;
+  onWidgetAdd: (widget: any) => void;
   onCanvasTransform: (transform: CanvasTransform) => void;
   onModeChange: (mode: InteractionMode) => void;
   onSelectionChange: (selectedIds: string[]) => void;
@@ -690,9 +692,196 @@ export class InteractionController {
     console.log("Copy widgets:", selectedWidgets);
   }
 
-  private pasteSelection(): void {
-    // TODO: Implement clipboard functionality
-    console.log("Paste widgets");
+  private async pasteSelection(): Promise<void> {
+    console.log("🎯 InteractionController paste command triggered");
+
+    try {
+      // Check if we have clipboard access
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        console.warn(
+          "⚠️ Clipboard API not available, falling back to execCommand",
+        );
+        this.fallbackPaste();
+        return;
+      }
+
+      // Read clipboard data
+      const clipboardItems = await navigator.clipboard.read();
+      console.log("📋 Clipboard items:", clipboardItems);
+
+      if (clipboardItems.length === 0) {
+        console.log("📋 No clipboard data available");
+        return;
+      }
+
+      const genericFactory = getWidgetFactory();
+
+      // Calculate paste position (center of viewport or near mouse)
+      const canvasRect = this.canvasElement?.getBoundingClientRect();
+      const centerPosition = canvasRect
+        ? {
+            x: canvasRect.left + canvasRect.width / 2,
+            y: canvasRect.top + canvasRect.height / 2,
+          }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+
+      // Convert to canvas coordinates
+      const canvasPosition = {
+        x:
+          (centerPosition.x -
+            (canvasRect?.left || 0) -
+            this.canvasTransform.x) /
+          this.canvasTransform.scale,
+        y:
+          (centerPosition.y - (canvasRect?.top || 0) - this.canvasTransform.y) /
+          this.canvasTransform.scale,
+      };
+
+      // Process each clipboard item
+      for (const clipboardItem of clipboardItems) {
+        console.log("📋 Processing clipboard item types:", clipboardItem.types);
+
+        // Try to handle images first - check for any image type
+        const imageTypes = clipboardItem.types.filter((type) =>
+          type.startsWith("image/"),
+        );
+
+        if (imageTypes.length > 0) {
+          console.log("🖼️ Found image types in clipboard:", imageTypes);
+
+          for (const imageType of imageTypes) {
+            try {
+              console.log(`🖼️ Processing image type: ${imageType}`);
+              const blob = await clipboardItem.getType(imageType);
+              console.log(`🖼️ Got blob for ${imageType}, size:`, blob.size);
+
+              const file = new File([blob], "pasted-image", {
+                type: imageType,
+              });
+              console.log(`🖼️ Created file object:`, {
+                name: file.name,
+                type: file.type,
+                size: file.size,
+              });
+
+              const widget = await genericFactory.createWidgetFromData(
+                file,
+                canvasPosition,
+              );
+              if (widget) {
+                console.log("✅ Created image widget from clipboard:", widget);
+                this.callbacks.onWidgetAdd(widget);
+                canvasPosition.x += 20;
+                canvasPosition.y += 20;
+                // Only process the first successful image
+                break;
+              }
+              console.warn(`⚠️ No widget created for image type ${imageType}`);
+            } catch (error) {
+              console.warn(
+                `⚠️ Failed to process clipboard image ${imageType}:`,
+                error,
+              );
+            }
+          }
+        }
+
+        // Try to handle text data
+        if (clipboardItem.types.includes("text/plain")) {
+          try {
+            const blob = await clipboardItem.getType("text/plain");
+            const text = await blob.text();
+
+            if (text.trim()) {
+              const widget = await genericFactory.createWidgetFromData(
+                text.trim(),
+                canvasPosition,
+              );
+              if (widget) {
+                console.log(
+                  "✅ Created text widget from clipboard:",
+                  text.substring(0, 50),
+                );
+                this.callbacks.onWidgetAdd(widget);
+                canvasPosition.x += 20;
+                canvasPosition.y += 20;
+              }
+            }
+          } catch (error) {
+            console.warn("⚠️ Failed to process clipboard text:", error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("❌ Paste operation failed:", error);
+      // Try fallback
+      this.fallbackPaste();
+    }
+  }
+
+  private fallbackPaste(): void {
+    console.log("🔄 Attempting fallback paste using document.execCommand");
+
+    // Create a temporary textarea to capture paste content
+    const tempElement = document.createElement("textarea");
+    tempElement.style.position = "fixed";
+    tempElement.style.left = "-9999px";
+    tempElement.style.opacity = "0";
+    document.body.appendChild(tempElement);
+
+    tempElement.focus();
+
+    // Execute paste command
+    const success = document.execCommand("paste");
+
+    if (success && tempElement.value) {
+      console.log(
+        "✅ Fallback paste successful:",
+        tempElement.value.substring(0, 50),
+      );
+
+      // Calculate paste position
+      const canvasRect = this.canvasElement?.getBoundingClientRect();
+      const centerPosition = canvasRect
+        ? {
+            x: canvasRect.left + canvasRect.width / 2,
+            y: canvasRect.top + canvasRect.height / 2,
+          }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+
+      const canvasPosition = {
+        x:
+          (centerPosition.x -
+            (canvasRect?.left || 0) -
+            this.canvasTransform.x) /
+          this.canvasTransform.scale,
+        y:
+          (centerPosition.y - (canvasRect?.top || 0) - this.canvasTransform.y) /
+          this.canvasTransform.scale,
+      };
+
+      // Create widget from pasted text
+      const genericFactory = getWidgetFactory();
+      genericFactory
+        .createWidgetFromData(tempElement.value.trim(), canvasPosition)
+        .then((widget) => {
+          if (widget) {
+            console.log("✅ Created widget from fallback paste");
+            this.callbacks.onWidgetAdd(widget);
+          }
+        })
+        .catch((error) => {
+          console.error(
+            "❌ Failed to create widget from fallback paste:",
+            error,
+          );
+        });
+    } else {
+      console.warn("⚠️ Fallback paste failed or no content");
+    }
+
+    // Clean up
+    document.body.removeChild(tempElement);
   }
 
   private zoomToFit(): void {
@@ -821,7 +1010,10 @@ export class InteractionController {
           },
         };
       })
-      .filter(Boolean) as Array<{ id: string; updates: Partial<HydratedWidget> }>;
+      .filter(Boolean) as Array<{
+      id: string;
+      updates: Partial<HydratedWidget>;
+    }>;
 
     this.callbacks.onWidgetsUpdate(updates);
   }

@@ -15,9 +15,9 @@ import {
 import { useBackgroundType } from "../stores/uiStore";
 import type { CanvasTransform } from "../types/canvas";
 import type {
+  CreateWidgetInput,
   HydratedWidget,
   Widget,
-  CreateWidgetInput,
   WidgetEvents,
   WidgetRenderState,
 } from "../types/widgets";
@@ -42,13 +42,13 @@ export const createDotGridPattern = (scale: number): string => {
   const dotSize = Math.max(0.5, 1 * scale);
   const spacing = Math.max(8, 20 * scale);
   const opacity = Math.min(0.6, Math.max(0.2, 0.4 * scale));
-  
+
   const svgContent = `
     <svg width="${spacing}" height="${spacing}" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="${spacing/2}" cy="${spacing/2}" r="${dotSize}" fill="rgba(156, 163, 175, ${opacity})" />
+      <circle cx="${spacing / 2}" cy="${spacing / 2}" r="${dotSize}" fill="rgba(156, 163, 175, ${opacity})" />
     </svg>
   `;
-  
+
   return `data:image/svg+xml;base64,${btoa(svgContent)}`;
 };
 
@@ -76,7 +76,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     setHoveredWidget,
   } = useSelection();
 
-  const { getWidget} = useWidgetStore();
+  const { getWidget } = useWidgetStore();
 
   const { mode, setMode } = useInteractionMode();
   const { backgroundType } = useBackgroundType();
@@ -131,6 +131,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
         onWidgetsUpdate(composedUpdates);
       },
       onWidgetRemove,
+      onWidgetAdd,
       onCanvasTransform: handleCanvasTransformUpdate,
       onModeChange: setMode,
       onSelectionChange: (ids: string[]) => {
@@ -154,6 +155,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     onWidgetUpdate,
     onWidgetsUpdate,
     onWidgetRemove,
+    onWidgetAdd,
     handleCanvasTransformUpdate,
     setMode,
     clearSelection,
@@ -381,10 +383,10 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   const createWidgetEvents = useCallback(
     (widget: HydratedWidget): WidgetEvents => ({
       onUpdate: (updates) => {
-        console.log('🔄 Widget onUpdate called:', {
+        console.log("🔄 Widget onUpdate called:", {
           widgetId: widget.id,
           widgetType: widget.type,
-          updates
+          updates,
         });
         // Convert legacy Widget updates to HydratedWidget updates
         const composedUpdates = updates as Partial<HydratedWidget>;
@@ -393,9 +395,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
       onDelete: () => onWidgetRemove(widget.id),
       onDuplicate: () => {
         // For now, disable duplication until we implement proper conversion
-        console.warn(
-          "Unimplemented",
-        );
+        console.warn("Unimplemented");
       },
       onEdit: () => {
         // TODO: Implement edit mode
@@ -406,44 +406,51 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
         console.log("Configure widget:", widget.id);
       },
       onSelect: (event?: React.MouseEvent) => {
-        console.log('🎯 PinboardCanvas onSelect called:', {
+        console.log("🎯 PinboardCanvas onSelect called:", {
           widgetId: widget.id,
           widgetType: widget.type,
           hasEvent: !!event,
           target: event?.target,
-          targetTagName: event?.target ? (event.target as HTMLElement).tagName : 'no-event',
+          targetTagName: event?.target
+            ? (event.target as HTMLElement).tagName
+            : "no-event",
           widget: getWidget(widget.id),
         });
-
 
         // Check if the click is on interactive content (e.g., calculator buttons)
         if (event && interactionControllerRef.current) {
           const target = event.target as HTMLElement;
-          
+
           // Check if the click target is a button or other interactive content
-          const isButton = target.tagName === 'BUTTON';
-          const closestButton = target.closest('button');
-          const hasInteractiveAttr = target.hasAttribute('data-interactive');
-          const closestInteractive = target.closest('[data-interactive]');
-          
-          const isInteractiveContent = isButton || closestButton || hasInteractiveAttr || closestInteractive;
-          
-          console.log('🎯 PinboardCanvas interactive content detection:', {
+          const isButton = target.tagName === "BUTTON";
+          const closestButton = target.closest("button");
+          const hasInteractiveAttr = target.hasAttribute("data-interactive");
+          const closestInteractive = target.closest("[data-interactive]");
+
+          const isInteractiveContent =
+            isButton ||
+            closestButton ||
+            hasInteractiveAttr ||
+            closestInteractive;
+
+          console.log("🎯 PinboardCanvas interactive content detection:", {
             isButton,
             closestButton: !!closestButton,
             hasInteractiveAttr,
             closestInteractive: !!closestInteractive,
-            isInteractiveContent
+            isInteractiveContent,
           });
-          
+
           // If clicking on interactive content, don't trigger widget selection
           if (isInteractiveContent) {
-            console.log('🎯 PinboardCanvas detected interactive content - stopping propagation');
+            console.log(
+              "🎯 PinboardCanvas detected interactive content - stopping propagation",
+            );
             event.stopPropagation();
             return;
           }
 
-          console.log('🎯 PinboardCanvas forwarding to InteractionController');
+          console.log("🎯 PinboardCanvas forwarding to InteractionController");
           // For non-interactive clicks, forward to interaction controller
           // Use the native event directly instead of synthetic events
           const nativeEvent = event.nativeEvent;
@@ -464,7 +471,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
         // Hover is handled by interaction controller
       },
     }),
-    [onWidgetUpdate, onWidgetRemove],
+    [onWidgetUpdate, onWidgetRemove, getWidget],
   );
 
   // Create render state for each widget
@@ -513,29 +520,29 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
   // Generate background pattern based on current type and scale
   const getBackgroundStyle = useCallback(() => {
     const scale = transform.scale;
-    
-    if (backgroundType === 'dots') {
+
+    if (backgroundType === "dots") {
       const pattern = createDotGridPattern(scale);
       const patternSize = Math.max(8, 20 * scale);
-      
+
       return {
         backgroundImage: `url("${pattern}")`,
-        backgroundRepeat: 'repeat',
+        backgroundRepeat: "repeat",
         backgroundSize: `${patternSize}px ${patternSize}px`,
         backgroundPosition: `${transform.x % patternSize}px ${transform.y % patternSize}px`,
-        backgroundColor: '#f8fafc',
+        backgroundColor: "#f8fafc",
       };
     }
-    
+
     const pattern = createCorkboardPattern(scale);
     const patternSize = 512 * scale; // Standard texture size scaled
-    
+
     return {
       backgroundImage: `url("${pattern}")`,
-      backgroundRepeat: 'repeat',
+      backgroundRepeat: "repeat",
       backgroundSize: `${patternSize}px ${patternSize}px`,
       backgroundPosition: `${transform.x % patternSize}px ${transform.y % patternSize}px`,
-      backgroundColor: '#d2b48c',
+      backgroundColor: "#d2b48c",
     };
   }, [backgroundType, transform.scale, transform.x, transform.y]);
 

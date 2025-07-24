@@ -1,12 +1,13 @@
-import { urlTypeDefinition } from ".";
+import { OGMetadataService } from "../../services/ogMetadataService";
 import type {
-  WidgetFactory,
   CreateWidgetInput,
-  Position,
-  WidgetCapabilities,
-  UrlContent,
   HydratedWidget,
+  Position,
+  UrlContent,
+  WidgetCapabilities,
+  WidgetFactory,
 } from "../../types/widgets";
+import { urlTypeDefinition } from ".";
 
 // ============================================================================
 // URL WIDGET FACTORY - CLEAN IMPLEMENTATION
@@ -28,7 +29,8 @@ export class UrlFactory implements WidgetFactory<UrlContent> {
         return true;
       } catch {
         // Also check for common URL patterns without protocol
-        const urlPattern = /^(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
+        const urlPattern =
+          /^(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)$/;
         return urlPattern.test(data);
       }
     }
@@ -66,14 +68,51 @@ export class UrlFactory implements WidgetFactory<UrlContent> {
       favicon = this.getFaviconUrl(url);
     }
 
+    // Fetch OG metadata asynchronously
+    let ogMetadata = null;
+    try {
+      console.log(`🔗 Fetching OG metadata for: ${url}`);
+      ogMetadata = await OGMetadataService.fetchMetadata(url);
+      console.log(`✅ OG metadata fetched successfully:`, ogMetadata);
+    } catch (error) {
+      console.warn(`⚠️ Failed to fetch OG metadata for ${url}:`, error);
+    }
+
+    // Merge OG metadata with existing data (OG metadata takes precedence when available)
+    // Only include fields that have actual values to avoid undefined in sync store
     const content: UrlContent = {
       url,
-      title,
-      description,
-      favicon,
+      title: ogMetadata?.title || title || this.extractDomainFromUrl(url),
       embedType,
-      preview: data?.preview,
-      embedData: data?.embedData,
+      ...(ogMetadata?.description || description
+        ? { description: ogMetadata?.description || description }
+        : {}),
+      ...(ogMetadata?.favicon || favicon
+        ? { favicon: ogMetadata?.favicon || favicon }
+        : {}),
+      ...(ogMetadata?.image || data?.preview
+        ? {
+            preview: ogMetadata?.image || data?.preview,
+            image: ogMetadata?.image || data?.preview,
+          }
+        : {}),
+      ...(data?.embedData ? { embedData: data.embedData } : {}),
+      // OG metadata fields - only include if they have values
+      ...(ogMetadata?.siteName ? { siteName: ogMetadata.siteName } : {}),
+      ...(ogMetadata?.type ? { type: ogMetadata.type } : {}),
+      ...(ogMetadata?.author ? { author: ogMetadata.author } : {}),
+      ...(ogMetadata?.publishedTime
+        ? { publishedTime: ogMetadata.publishedTime }
+        : {}),
+      ...(ogMetadata?.twitterCard
+        ? { twitterCard: ogMetadata.twitterCard }
+        : {}),
+      ...(ogMetadata?.twitterSite
+        ? { twitterSite: ogMetadata.twitterSite }
+        : {}),
+      ...(ogMetadata?.twitterCreator
+        ? { twitterCreator: ogMetadata.twitterCreator }
+        : {}),
     };
 
     return {
@@ -81,7 +120,7 @@ export class UrlFactory implements WidgetFactory<UrlContent> {
       x: position.x,
       y: position.y,
       width: 320,
-      height: 180,
+      height: 200, // Slightly taller to accommodate more metadata
       content,
     };
   }
@@ -140,7 +179,10 @@ export class UrlFactory implements WidgetFactory<UrlContent> {
           errors.push("URL must be a valid URL");
         }
       }
-      if (data.embedType && !["link", "iframe", "video", "image"].includes(data.embedType)) {
+      if (
+        data.embedType &&
+        !["link", "iframe", "video", "image"].includes(data.embedType)
+      ) {
         warnings.push("Invalid embed type, defaulting to 'link'");
       }
     }
