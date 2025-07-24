@@ -38,7 +38,7 @@ interface PinboardCanvasProps {
 }
 
 // Background pattern generation functions
-const createDotGridPattern = (scale: number): string => {
+export const createDotGridPattern = (scale: number): string => {
   const dotSize = Math.max(0.5, 1 * scale);
   const spacing = Math.max(8, 20 * scale);
   const opacity = Math.min(0.6, Math.max(0.2, 0.4 * scale));
@@ -52,7 +52,7 @@ const createDotGridPattern = (scale: number): string => {
   return `data:image/svg+xml;base64,${btoa(svgContent)}`;
 };
 
-const createCorkboardPattern = (scale: number): string => {
+export const createCorkboardPattern = (scale: number): string => {
   return `https://thumbs.dreamstime.com/b/wooden-cork-board-seamless-tileable-texture-29991843.jpg`;
 };
 
@@ -516,7 +516,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     
     if (backgroundType === 'dots') {
       const pattern = createDotGridPattern(scale);
-      const patternSize = Math.max(8, 20 * scale); // Same calculation as in createDotGridPattern
+      const patternSize = Math.max(8, 20 * scale);
       
       return {
         backgroundImage: `url("${pattern}")`,
@@ -528,7 +528,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
     }
     
     const pattern = createCorkboardPattern(scale);
-    const patternSize = 256 * scale; // Standard texture size scaled
+    const patternSize = 512 * scale; // Standard texture size scaled
     
     return {
       backgroundImage: `url("${pattern}")`,

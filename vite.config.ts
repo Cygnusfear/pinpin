@@ -1,8 +1,10 @@
-import { defineConfig } from "vite";
+import path from "node:path";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import wasm from "vite-plugin-wasm";
+import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import topLevelAwait from "vite-plugin-top-level-await";
+import wasm from "vite-plugin-wasm";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -10,6 +12,7 @@ export default defineConfig({
   plugins: [
     wasm(),
     react(),
+    tailwindcss(),
     topLevelAwait(),
     VitePWA({
       registerType: "autoUpdate",
@@ -54,6 +57,11 @@ export default defineConfig({
           automerge: ["@automerge/automerge"],
         },
       },
+    },
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
     },
   },
   optimizeDeps: {

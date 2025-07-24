@@ -1,5 +1,11 @@
 import type React from "react";
 import { useState } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { getWidgetRegistry } from "../core/WidgetRegistry";
 import type { CreateWidgetInput } from "../types/widgets";
 
@@ -113,64 +119,41 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   };
 
   return (
-    <div className="fixed left-4 top-4 z-50">
-      {/* Main Toggle Button */}
-      <button
-        type="button"
-        className={`
-          flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-all duration-300 hover:bg-blue-700 hover:scale-110
-          ${isExpanded ? "rotate-45" : ""}
-        `}
-        onClick={() => setIsExpanded(!isExpanded)}
-        title="Widget Toolbar"
-      >
-        <span className="text-xl">+</span>
-      </button>
-
-      {/* Expanded Widget Buttons */}
-      {isExpanded && (
-        <div className="mt-2 space-y-2">
+    <div className="pointer-events-none fixed bottom-0 z-50 flex w-screen flex-row items-center justify-center">
+      <div className="mb-12 rounded-full bg-slate-50/10 p-0 px-4 shadow-lg backdrop-blur-lg">
+        <div className="flex flex-row gap-2">
           {widgetButtons.map((button, index) => (
-            <div
-              key={button.type}
-              className="animate-in slide-in-from-left fade-in"
-              style={{
-                animationDelay: `${index * 50}ms`,
-                animationDuration: "300ms",
-                animationFillMode: "both",
-              }}
-            >
-              <button
-                type="button"
-                className={`
-                  group flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md transition-all duration-200 hover:w-auto hover:px-3 hover:shadow-lg
-                  ${
-                    isCreating === button.type
-                      ? "animate-pulse bg-blue-100"
-                      : "hover:bg-gray-50"
-                  }
-                `}
-                onClick={() => handleWidgetCreate(button.type)}
-                disabled={isCreating !== null}
-                title={button.description}
-              >
-                <span className="text-lg">{button.icon}</span>
-                <span className="ml-2 hidden whitespace-nowrap text-sm font-medium text-gray-700 group-hover:inline">
-                  {button.name}
-                </span>
-                {isCreating === button.type && (
-                  <div className="ml-2 h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-b-transparent" />
-                )}
-              </button>
-            </div>
+            <Tooltip key={button.type}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    `group pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 hover:px-3`,
+                  )}
+                  onClick={() => handleWidgetCreate(button.type)}
+                  disabled={isCreating !== null}
+                  title={button.description}
+                >
+                  <span className="pointer-events-none text-lg group-hover:animate-bounce">
+                    {button.icon}
+                  </span>
+                  {isCreating === button.type && (
+                    <div className="ml-2 h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-b-transparent" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{button.name}</p>
+              </TooltipContent>
+            </Tooltip>
           ))}
         </div>
-      )}
+      </div>
 
       {/* Backdrop to close toolbar when clicking outside */}
       {isExpanded && (
         <div
-          className="fixed inset-0 -z-10"
+          className="-z-10 fixed inset-0"
           onClick={() => setIsExpanded(false)}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
