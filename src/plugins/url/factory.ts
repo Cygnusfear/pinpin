@@ -68,61 +68,218 @@ export class UrlFactory implements WidgetFactory<UrlContent> {
       favicon = this.getFaviconUrl(url);
     }
 
-    // Fetch OG metadata asynchronously
-    let ogMetadata = null;
-    try {
-      console.log(`🔗 Fetching OG metadata for: ${url}`);
-      ogMetadata = await OGMetadataService.fetchMetadata(url);
-      console.log(`✅ OG metadata fetched successfully:`, ogMetadata);
-    } catch (error) {
-      console.warn(`⚠️ Failed to fetch OG metadata for ${url}:`, error);
-    }
-
-    // Merge OG metadata with existing data (OG metadata takes precedence when available)
-    // Only include fields that have actual values to avoid undefined in sync store
+    // Create basic content immediately for instant feedback
     const content: UrlContent = {
       url,
-      title: ogMetadata?.title || title || this.extractDomainFromUrl(url),
+      title: title || this.extractDomainFromUrl(url),
       embedType,
-      ...(ogMetadata?.description || description
-        ? { description: ogMetadata?.description || description }
-        : {}),
-      ...(ogMetadata?.favicon || favicon
-        ? { favicon: ogMetadata?.favicon || favicon }
-        : {}),
-      ...(ogMetadata?.image || data?.preview
-        ? {
-            preview: ogMetadata?.image || data?.preview,
-            image: ogMetadata?.image || data?.preview,
-          }
-        : {}),
+      ...(description ? { description } : {}),
+      ...(favicon ? { favicon } : {}),
+      ...(data?.preview ? { preview: data.preview, image: data.preview } : {}),
       ...(data?.embedData ? { embedData: data.embedData } : {}),
-      // OG metadata fields - only include if they have values
-      ...(ogMetadata?.siteName ? { siteName: ogMetadata.siteName } : {}),
-      ...(ogMetadata?.type ? { type: ogMetadata.type } : {}),
-      ...(ogMetadata?.author ? { author: ogMetadata.author } : {}),
-      ...(ogMetadata?.publishedTime
-        ? { publishedTime: ogMetadata.publishedTime }
-        : {}),
-      ...(ogMetadata?.twitterCard
-        ? { twitterCard: ogMetadata.twitterCard }
-        : {}),
-      ...(ogMetadata?.twitterSite
-        ? { twitterSite: ogMetadata.twitterSite }
-        : {}),
-      ...(ogMetadata?.twitterCreator
-        ? { twitterCreator: ogMetadata.twitterCreator }
-        : {}),
     };
+
+    // Check for existing metadata first, then enrich if needed
+    setTimeout(() => {
+      this.checkAndEnrichMetadata(url, content);
+    }, 100);
 
     return {
       type: this.type,
       x: position.x,
       y: position.y,
       width: 320,
-      height: 200, // Slightly taller to accommodate more metadata
+      height: 200,
       content,
     };
+  }
+
+  /**
+   * Enrich metadata in the background without blocking widget creation
+   */
+  private async enrichMetadataInBackground(
+    url: string,
+    initialContent: UrlContent,
+  ): Promise<void> {
+    try {
+      console.log(`🔗 Starting background metadata enrichment for: ${url}`);
+
+      // Wait a bit longer to ensure content is stored
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Import content store dynamically to avoid circular dependencies
+      const { useContentStore } = await import("../../stores/contentStore");
+
+      // First, let's check what's in the store
+      const contentStore = useContentStore.getState();
+      const allContent = contentStore.content;
+
+      console.log(`🔍 Current content store state:`, {
+        totalEntries: Object.keys(allContent).length,
+        urlEntries: Object.entries(allContent).filter(
+          ([_, content]) => content.type === "url",
+        ).length,
+        allEntries: Object.entries(allContent).map(([id, content]) => ({
+          id,
+          type: content.type,
+          hasData: !!content.data,
+          dataKeys: content.data ? Object.keys(content.data) : [],
+          url:
+            content.data && (content.data as any).url
+              ? (content.data as any).url
+              : "no-url",
+        })),
+      });
+
+      // Find the content entry that matches our URL
+      const contentEntry = Object.entries(allContent).find(
+        ([_, content]) =>
+          content.type === "url" &&
+          content.data &&
+          (content.data as any).url === url,
+      );
+
+      if (!contentEntry) {
+        console.error(`❌ Could not find content entry for URL: ${url}`);
+        console.log(`🔍 Looking for URL:`, url);
+        console.log(
+          `🔍 Available URLs:`,
+          Object.entries(allContent)
+            .filter(([_, content]) => content.type === "url")
+            .map(([id, content]) => ({
+              id,
+              url: content.data ? (content.data as any).url : "no-data",
+            })),
+        );
+        return;
+      }
+
+      const [contentId] = contentEntry;
+      console.log(`✅ Found content entry ${contentId} for URL: ${url}`);
+
+      // Fetch OG metadata
+      console.log(`🌐 Fetching OG metadata for: ${url}`);
+      const ogMetadata = await OGMetadataService.fetchMetadata(url);
+      console.log(`✅ OG metadata fetched:`, ogMetadata);
+
+      // Merge with existing content (OG metadata takes precedence when available)
+      const enrichedContent: UrlContent = {
+        ...initialContent,
+        title: ogMetadata?.title || initialContent.title,
+        ...(ogMetadata?.description
+          ? { description: ogMetadata.description }
+          : {}),
+        ...(ogMetadata?.favicon ? { favicon: ogMetadata.favicon } : {}),
+        ...(ogMetadata?.image
+          ? { preview: ogMetadata.image, image: ogMetadata.image }
+          : {}),
+        // OG metadata fields - only include if they have values
+        ...(ogMetadata?.siteName ? { siteName: ogMetadata.siteName } : {}),
+        ...(ogMetadata?.type ? { type: ogMetadata.type } : {}),
+        ...(ogMetadata?.author ? { author: ogMetadata.author } : {}),
+        ...(ogMetadata?.publishedTime
+          ? { publishedTime: ogMetadata.publishedTime }
+          : {}),
+        ...(ogMetadata?.twitterCard
+          ? { twitterCard: ogMetadata.twitterCard }
+          : {}),
+        ...(ogMetadata?.twitterSite
+          ? { twitterSite: ogMetadata.twitterSite }
+          : {}),
+        ...(ogMetadata?.twitterCreator
+          ? { twitterCreator: ogMetadata.twitterCreator }
+          : {}),
+      };
+
+      console.log(
+        `🔄 Updating content ${contentId} with enriched metadata:`,
+        enrichedContent,
+      );
+
+      // Update content by merging the enriched data into the existing data field
+      contentStore.updateContent(contentId, {
+        data: enrichedContent,
+      });
+
+      console.log(`✅ Content enriched and updated successfully for: ${url}`);
+
+      // Verify the update
+      const updatedContent = contentStore.getContent(contentId);
+      console.log(`🔍 Verification - updated content:`, updatedContent);
+    } catch (error) {
+      console.error(`❌ Failed to enrich metadata for ${url}:`, error);
+      // Don't throw - this is background enrichment, failure shouldn't affect the widget
+    }
+  }
+
+  /**
+   * Check for existing metadata first, then enrich if needed
+   */
+  private async checkAndEnrichMetadata(
+    url: string,
+    initialContent: UrlContent,
+  ): Promise<void> {
+    try {
+      console.log(`🔍 Checking for existing metadata for: ${url}`);
+
+      // Import content store dynamically to avoid circular dependencies
+      const { useContentStore } = await import("../../stores/contentStore");
+      const contentStore = useContentStore.getState();
+      const allContent = contentStore.content;
+
+      // Look for existing URL content with rich metadata
+      const existingUrlContent = Object.values(allContent).find(
+        (content) =>
+          content.type === "url" &&
+          content.data &&
+          (content.data as any).url === url &&
+          // Check if it has rich metadata (not just basic info)
+          ((content.data as any).siteName ||
+            (content.data as any).description ||
+            (content.data as any).image ||
+            (content.data as any).preview),
+      );
+
+      if (existingUrlContent) {
+        console.log(
+          `✅ Found existing metadata for: ${url}`,
+          existingUrlContent.data,
+        );
+
+        // Wait a bit to ensure our content is stored
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Find our newly created content entry
+        const currentContentEntry = Object.entries(allContent).find(
+          ([_, content]) =>
+            content.type === "url" &&
+            content.data &&
+            (content.data as any).url === url,
+        );
+
+        if (currentContentEntry) {
+          const [contentId] = currentContentEntry;
+          console.log(`🔄 Reusing existing metadata for content ${contentId}`);
+
+          // Update our content with the existing rich metadata
+          contentStore.updateContent(contentId, {
+            data: existingUrlContent.data,
+          });
+
+          console.log(`✅ Applied cached metadata successfully for: ${url}`);
+        }
+      } else {
+        console.log(
+          `🌐 No existing metadata found, fetching fresh data for: ${url}`,
+        );
+        // No existing metadata found, fetch fresh
+        await this.enrichMetadataInBackground(url, initialContent);
+      }
+    } catch (error) {
+      console.error(`❌ Failed to check/enrich metadata for ${url}:`, error);
+      // Fallback to normal enrichment
+      await this.enrichMetadataInBackground(url, initialContent);
+    }
   }
 
   private extractDomainFromUrl(url: string): string {

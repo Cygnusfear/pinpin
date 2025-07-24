@@ -74,7 +74,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 
   return (
     <div className="pointer-events-none fixed bottom-0 z-50 flex w-screen flex-row items-center justify-center">
-      <div className="mb-12 rounded-full bg-slate-50/10 p-0 px-4 shadow-lg backdrop-blur-lg">
+      <div className="glass mb-12 rounded-full bg-slate-50/10 p-0 px-4 shadow-lg backdrop-blur-lg">
         <div className="flex flex-row gap-2">
           {widgetButtons.map((button, index) => (
             <Tooltip key={button.type}>

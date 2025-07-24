@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useContentActions } from "../../stores/widgetStore";
 import type { UrlContent, WidgetRendererProps } from "../../types/widgets";
@@ -27,6 +27,12 @@ export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
   const [previewImage, setHasPreview] = useState(
     data.image || data.preview || null,
   );
+
+  // Update preview image when data changes (for metadata enrichment)
+  useEffect(() => {
+    const newPreviewImage = data.image || data.preview || null;
+    setHasPreview(newPreviewImage);
+  }, [data.image, data.preview]);
 
   const handleLinkClick = useCallback(
     (event: React.MouseEvent) => {
