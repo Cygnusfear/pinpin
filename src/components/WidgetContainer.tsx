@@ -1,8 +1,12 @@
 import { motion } from "framer-motion";
 import type React from "react";
-import { getWidgetRegistry } from "../core/WidgetRegistry";
-import type { HydratedWidget, WidgetEvents, WidgetRenderState } from "../types/widgets";
 import { useEffect } from "react";
+import { getWidgetRegistry } from "../core/WidgetRegistry";
+import type {
+  HydratedWidget,
+  WidgetEvents,
+  WidgetRenderState,
+} from "../types/widgets";
 
 interface WidgetContainerProps {
   widget: HydratedWidget;
@@ -89,41 +93,42 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
   // Handle widget container clicks with interactive content detection
   const handleWidgetClick = (event: React.MouseEvent) => {
-    console.log('📦 WidgetContainer clicked:', {
+    console.log("📦 WidgetContainer clicked:", {
       widgetId: widget.id,
       widgetType: widget.type,
       target: event.target,
       targetTagName: (event.target as HTMLElement).tagName,
       currentTarget: event.currentTarget,
       defaultPrevented: event.defaultPrevented,
-      propagationStopped: event.isPropagationStopped?.() || 'unknown'
+      propagationStopped: event.isPropagationStopped?.() || "unknown",
     });
 
     // Check if the click is on interactive content
     const target = event.target as HTMLElement;
-    const isButton = target.tagName === 'BUTTON';
-    const closestButton = target.closest('button');
-    const hasInteractiveAttr = target.hasAttribute('data-interactive');
-    const closestInteractive = target.closest('[data-interactive]');
-    
-    const isInteractiveContent = isButton || closestButton || hasInteractiveAttr || closestInteractive;
-    
-    console.log('📦 Interactive content detection:', {
+    const isButton = target.tagName === "BUTTON";
+    const closestButton = target.closest("button");
+    const hasInteractiveAttr = target.hasAttribute("data-interactive");
+    const closestInteractive = target.closest("[data-interactive]");
+
+    const isInteractiveContent =
+      isButton || closestButton || hasInteractiveAttr || closestInteractive;
+
+    console.log("📦 Interactive content detection:", {
       isButton,
       closestButton: !!closestButton,
       hasInteractiveAttr,
       closestInteractive: !!closestInteractive,
-      isInteractiveContent
+      isInteractiveContent,
     });
-    
+
     // If clicking on interactive content, don't trigger onSelect
     if (isInteractiveContent) {
-      console.log('📦 Interactive content detected - stopping propagation');
+      console.log("📦 Interactive content detected - stopping propagation");
       event.stopPropagation();
       return;
     }
-    
-    console.log('📦 Non-interactive content - calling events.onSelect()');
+
+    console.log("📦 Non-interactive content - calling events.onSelect()");
     // Otherwise, proceed with normal widget selection
     events.onSelect();
   };
@@ -147,12 +152,12 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         pointerEvents: widget.locked ? "none" : "auto",
       }}
       className="select-none"
-      initial={{ opacity: 0, scale: 0.8, rotate: widget.rotation }}
+      initial={{ opacity: 0, scale: 0.8, rotateY: widget.rotation }}
       animate={{
         opacity: 1,
         scale: 1,
         transition: { duration: 0.2 },
-        rotate: widget.rotation,
+        rotateY: widget.rotation,
       }}
       exit={{ opacity: 0, scale: 0.8 }}
       onClick={widget.locked ? undefined : handleWidgetClick}
@@ -196,7 +201,9 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
             0 2px 4px rgba(0,0,0,0.1),
             0 8px 16px rgba(0,0,0,0.1)
           `,
-          border: state.isSelected ? "2px solid #3b82f6" : "none",
+          border: state.isSelected
+            ? "2px solid #3b82f6"
+            : "2px solid transparent",
           overflow: "hidden",
         }}
       >
