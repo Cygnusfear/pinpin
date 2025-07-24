@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type React from "react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { getWidgetRegistry } from "../core/WidgetRegistry";
 import type {
   HydratedWidget,
@@ -23,7 +23,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   const renderer = registry.getRenderer(widget.type);
 
   // Render widget content using plugin renderer or fallback
-  const renderWidgetContent = () => {
+  const renderWidgetContent = useMemo(() => {
     if (widget.type === "loading") {
       return (
         <div className="flex h-full flex-col items-center justify-center p-4 text-center">
@@ -89,49 +89,52 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         <div className="text-gray-500 text-xs">No renderer available</div>
       </div>
     );
-  };
+  }, [renderer?.component, events, state, widget]);
 
   // Handle widget container clicks with interactive content detection
-  const handleWidgetClick = (event: React.MouseEvent) => {
-    console.log("📦 WidgetContainer clicked:", {
-      widgetId: widget.id,
-      widgetType: widget.type,
-      target: event.target,
-      targetTagName: (event.target as HTMLElement).tagName,
-      currentTarget: event.currentTarget,
-      defaultPrevented: event.defaultPrevented,
-      propagationStopped: event.isPropagationStopped?.() || "unknown",
-    });
+  const handleWidgetClick = useCallback(
+    (event: React.MouseEvent) => {
+      console.log("📦 WidgetContainer clicked:", {
+        widgetId: widget.id,
+        widgetType: widget.type,
+        target: event.target,
+        targetTagName: (event.target as HTMLElement).tagName,
+        currentTarget: event.currentTarget,
+        defaultPrevented: event.defaultPrevented,
+        propagationStopped: event.isPropagationStopped?.() || "unknown",
+      });
 
-    // Check if the click is on interactive content
-    const target = event.target as HTMLElement;
-    const isButton = target.tagName === "BUTTON";
-    const closestButton = target.closest("button");
-    const hasInteractiveAttr = target.hasAttribute("data-interactive");
-    const closestInteractive = target.closest("[data-interactive]");
+      // Check if the click is on interactive content
+      const target = event.target as HTMLElement;
+      const isButton = target.tagName === "BUTTON";
+      const closestButton = target.closest("button");
+      const hasInteractiveAttr = target.hasAttribute("data-interactive");
+      const closestInteractive = target.closest("[data-interactive]");
 
-    const isInteractiveContent =
-      isButton || closestButton || hasInteractiveAttr || closestInteractive;
+      const isInteractiveContent =
+        isButton || closestButton || hasInteractiveAttr || closestInteractive;
 
-    console.log("📦 Interactive content detection:", {
-      isButton,
-      closestButton: !!closestButton,
-      hasInteractiveAttr,
-      closestInteractive: !!closestInteractive,
-      isInteractiveContent,
-    });
+      console.log("📦 Interactive content detection:", {
+        isButton,
+        closestButton: !!closestButton,
+        hasInteractiveAttr,
+        closestInteractive: !!closestInteractive,
+        isInteractiveContent,
+      });
 
-    // If clicking on interactive content, don't trigger onSelect
-    if (isInteractiveContent) {
-      console.log("📦 Interactive content detected - stopping propagation");
-      event.stopPropagation();
-      return;
-    }
+      // If clicking on interactive content, don't trigger onSelect
+      if (isInteractiveContent) {
+        console.log("📦 Interactive content detected - stopping propagation");
+        event.stopPropagation();
+        return;
+      }
 
-    console.log("📦 Non-interactive content - calling events.onSelect()");
-    // Otherwise, proceed with normal widget selection
-    events.onSelect();
-  };
+      console.log("📦 Non-interactive content - calling events.onSelect()");
+      // Otherwise, proceed with normal widget selection
+      events.onSelect();
+    },
+    [widget.id, events.onSelect, widget.type],
+  );
 
   return (
     <motion.div
@@ -207,7 +210,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
           overflow: "hidden",
         }}
       >
-        {renderWidgetContent()}
+        {renderWidgetContent}
       </div>
 
       {/* Pin Shadow */}
