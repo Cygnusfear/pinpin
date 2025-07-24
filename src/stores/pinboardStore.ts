@@ -30,7 +30,7 @@ export { registerAllPlugins, getAvailableWidgetTypes } from "../plugins";
 
 // Export core services
 export { getWidgetRegistry } from "../core/WidgetRegistry";
-export { getGenericWidgetFactory } from "../core/GenericWidgetFactory";
+export { getWidgetFactory as getGenericWidgetFactory } from "../core/GenericWidgetFactory";
 
 // Export types for convenience
 export type {

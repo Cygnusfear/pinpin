@@ -1,4 +1,6 @@
 import { PinataSDK } from "pinata";
+import ENV from "./env";
+import { logger } from "./logger";
 
 // ============================================================================
 // PINATA SERVICE - IPFS FILE STORAGE VIA PINATA SDK
@@ -35,8 +37,8 @@ export class PinataService {
     try {
       // Store config for later use
       this.config = {
-        pinataJwt: config.pinataJwt || import.meta.env.VITE_PINATA_JWT,
-        pinataGateway: config.pinataGateway || import.meta.env.VITE_PINATA_GATEWAY,
+        pinataJwt: config.pinataJwt || ENV.VITE_PINATA_JWT,
+        pinataGateway: config.pinataGateway || ENV.VITE_PINATA_GATEWAY,
         ...config
       };
 
@@ -83,7 +85,6 @@ export class PinataService {
 
       // Upload to Pinata using the SDK
       const upload = await this.pinata.upload.public.file(file);
-      
       // Notify upload completion
       this.notifyProgress(uploadId, 100, 'completed');
 

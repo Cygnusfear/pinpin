@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getGenericWidgetFactory } from "../core/GenericWidgetFactory";
+import { getWidgetFactory } from "../core/GenericWidgetFactory";
 import {
   type InteractionCallbacks,
   InteractionController,
@@ -236,7 +236,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
       dataTransfer: DataTransfer,
       screenPosition: { x: number; y: number },
     ) => {
-      const genericFactory = getGenericWidgetFactory();
+      const genericFactory = getWidgetFactory();
 
       // Calculate canvas position
       const canvasRect = canvasRef.current?.getBoundingClientRect();
@@ -296,7 +296,7 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
       const clipboardData = e.clipboardData;
       if (!clipboardData) return;
 
-      const genericFactory = getGenericWidgetFactory();
+      const genericFactory = getWidgetFactory();
 
       // Check if we have content to handle
       if (!genericFactory.canHandleData(clipboardData)) return;

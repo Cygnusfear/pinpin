@@ -280,6 +280,10 @@ export interface WidgetExportData {
   dependencies?: string[];
 }
 
+export interface RootWidgetFactory {
+  
+}
+
 /**
  * Widget factory interface - unified pattern
  */
@@ -291,8 +295,8 @@ export interface WidgetFactory<T = any> {
   validate?(widget: HydratedWidget<T>): WidgetValidationResult;
   serialize?(widget: HydratedWidget<T>, options: SerializationOptions): Promise<WidgetExportData>;
   deserialize?(data: WidgetExportData): Promise<HydratedWidget<T>>;
-  getDefaultSize(): { width: number; height: number };
-  getCapabilities(): WidgetCapabilities;
+  getDefaultSize(type?: string): { width: number; height: number };
+  getCapabilities(type?: string): WidgetCapabilities;
 }
 
 // ============================================================================

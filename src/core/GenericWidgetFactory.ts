@@ -1,19 +1,29 @@
 import type {
   CreateWidgetInput,
   Position,
-  WidgetFactory,
+  WidgetFactory as IWidgetFactory,
 } from "../types/widgets";
 import { getWidgetRegistry } from "./WidgetRegistry";
 
 // ============================================================================
-// GENERIC WIDGET FACTORY - UNIFIED PATTERN
+// WIDGET FACTORY
 // ============================================================================
 
 /**
- * Clean, unified generic widget factory implementation
  * Handles widget creation from various data sources using registered factories
  */
-export class GenericWidgetFactory {
+export class WidgetFactory implements IWidgetFactory<any> {
+
+  type: string = "omega";
+
+  canHandle(_data: any): boolean {
+    return false;
+  }
+
+  create(_data: any, _position: Position): Promise<CreateWidgetInput> {
+    throw new Error("Do not use base factory");
+  }
+
   /**
    * Provides default widget data that all plugin factories should inherit from
    * Plugin factories should only override what's specific to their widget type
@@ -125,7 +135,7 @@ export class GenericWidgetFactory {
   /**
    * Gets the best factory for the provided data (first match)
    */
-  getBestFactory(data: any): WidgetFactory | null {
+  getBestFactory(data: any): IWidgetFactory | null {
     const registry = getWidgetRegistry();
     const allTypes = registry.getAllTypes();
 
@@ -133,7 +143,7 @@ export class GenericWidgetFactory {
     for (const typeDefinition of allTypes) {
       const factory = registry.getFactory(typeDefinition.type);
       if (factory?.canHandle(data)) {
-        return factory;
+        return factory as IWidgetFactory; 
       }
     }
 
@@ -269,7 +279,7 @@ export class GenericWidgetFactory {
   /**
    * Get default size for a widget type
    */
-  getDefaultSize(type: string): { width: number; height: number } {
+  getDefaultSize(type?: string): { width: number; height: number } {
     const registry = getWidgetRegistry();
     const factory = registry.getFactory(type);
     
@@ -313,9 +323,9 @@ export class GenericWidgetFactory {
 // ============================================================================
 
 // Export singleton instance
-export const genericWidgetFactory = new GenericWidgetFactory();
+export const widgetFactory = new WidgetFactory();
 
 // Helper function to get the global factory
-export function getGenericWidgetFactory(): GenericWidgetFactory {
-  return genericWidgetFactory;
+export function getWidgetFactory(): WidgetFactory {
+  return widgetFactory;
 }
