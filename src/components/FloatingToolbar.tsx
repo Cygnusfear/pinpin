@@ -31,8 +31,11 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   const registry = getWidgetRegistry();
   const allTypes = registry.getAllTypes();
 
+  // Filter to only show widgets that are not autoCreateOnly
+  const manualCreateTypes = allTypes.filter((type) => !type.autoCreateOnly);
+
   // Define widget buttons with their creation data
-  const widgetButtons: WidgetButton[] = allTypes.map((type) => ({
+  const widgetButtons: WidgetButton[] = manualCreateTypes.map((type) => ({
     type: type.type,
     name: type.name,
     icon: type.icon,
@@ -49,59 +52,10 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
         return;
       }
 
-      let createData: any;
-
-      // Create appropriate data based on widget type
-      switch (widgetType) {
-        case "note":
-          createData = {
-            type: "note",
-            text: "New note",
-          };
-          break;
-        case "calculator":
-          createData = {
-            type: "calculator",
-            calculator: true,
-          };
-          break;
-        case "image":
-          // For image, we'll create a placeholder that prompts for upload
-          createData = {
-            type: "image",
-            src: "https://via.placeholder.com/200x150?text=Drag+Image+Here",
-            alt: "Placeholder image - drag an image here to replace",
-            originalDimensions: { width: 200, height: 150 },
-          };
-          break;
-        case "url":
-          createData = {
-            type: "url",
-            url: "https://example.com",
-            title: "Example Link",
-            description: "Click to edit this link",
-          };
-          break;
-        case "document":
-          createData = {
-            type: "document",
-            fileName: "New Document",
-            fileType: "document",
-            fileSize: 0,
-            mimeType: "text/plain",
-            content: "Drop a file here or click to edit",
-          };
-          break;
-        case "todo":
-          createData = {
-            type: "todo",
-            items: [],
-            title: "Todo List",
-          };
-          break;
-        default:
-          createData = { type: widgetType };
-      }
+      // Get demo defaults from the factory
+      const createData = factory.getDemoDefaults
+        ? factory.getDemoDefaults()
+        : { type: widgetType };
 
       // Create the widget using the factory
       const widgetCreateData = await factory.create(createData, canvasPosition);

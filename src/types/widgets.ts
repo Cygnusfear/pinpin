@@ -1,15 +1,4 @@
-// ============================================================================
-// UNIFIED WIDGET ARCHITECTURE - Clean Slate Implementation
-// ============================================================================
-// This file implements the new unified widget architecture as outlined in the
-// Architecture Improvement Plan. It replaces the dual widget system with a
-// single, clean approach.
-
-import React from 'react';
-
-// ============================================================================
-// CORE WIDGET TYPES - UNIFIED ARCHITECTURE
-// ============================================================================
+import type React from "react";
 
 /**
  * Widget - Lightweight positioning and metadata
@@ -280,20 +269,22 @@ export interface WidgetExportData {
   dependencies?: string[];
 }
 
-export interface RootWidgetFactory {
-  
-}
+export type RootWidgetFactory = {};
 
 /**
  * Widget factory interface - unified pattern
  */
 export interface WidgetFactory<T = any> {
   type: string; // Widget type handled by factory
-  
+
   canHandle(data: any): boolean; // Whether factory can handle input
   create(data: any, position: Position): Promise<CreateWidgetInput>;
+  getDemoDefaults?(): any; // Get demo defaults for manual widget creation
   validate?(widget: HydratedWidget<T>): WidgetValidationResult;
-  serialize?(widget: HydratedWidget<T>, options: SerializationOptions): Promise<WidgetExportData>;
+  serialize?(
+    widget: HydratedWidget<T>,
+    options: SerializationOptions,
+  ): Promise<WidgetExportData>;
   deserialize?(data: WidgetExportData): Promise<HydratedWidget<T>>;
   getDefaultSize(type?: string): { width: number; height: number };
   getCapabilities(type?: string): WidgetCapabilities;
@@ -372,6 +363,7 @@ export interface WidgetTypeDefinition {
   configurable: boolean;
   supportedMimeTypes?: string[];
   supportedExtensions?: string[];
+  autoCreateOnly?: boolean;
 }
 
 /**

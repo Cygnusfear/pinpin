@@ -1,7 +1,4 @@
-import type {
-  WidgetPlugin,
-  WidgetTypeDefinition,
-} from "../../types/widgets";
+import type { WidgetPlugin, WidgetTypeDefinition } from "../../types/widgets";
 import { UrlFactory } from "./factory";
 import { UrlRenderer } from "./renderer";
 
@@ -9,20 +6,23 @@ import { UrlRenderer } from "./renderer";
 // URL WIDGET PLUGIN - CLEAN IMPLEMENTATION
 // ============================================================================
 
-export const urlTypeDefinition: WidgetTypeDefinition[] = [{
-  type: "url",
-  name: "URL Link",
-  description: "Display web links with previews and metadata",
-  icon: "🔗",
-  category: "web",
-  defaultSize: { width: 320, height: 180 },
-  minSize: { width: 200, height: 120 },
-  maxSize: { width: 600, height: 400 },
-  aspectRatioLocked: false,
-  resizable: true,
-  rotatable: false,
-  configurable: true,
-}];
+export const urlTypeDefinition: WidgetTypeDefinition[] = [
+  {
+    type: "url",
+    name: "URL Link",
+    description: "Display web links with previews and metadata",
+    icon: "🔗",
+    category: "web",
+    defaultSize: { width: 320, height: 180 },
+    minSize: { width: 200, height: 120 },
+    maxSize: { width: 600, height: 400 },
+    aspectRatioLocked: false,
+    resizable: true,
+    rotatable: false,
+    configurable: true,
+    autoCreateOnly: true,
+  },
+];
 
 export class UrlPlugin implements WidgetPlugin {
   id = "url";
@@ -38,23 +38,27 @@ export class UrlPlugin implements WidgetPlugin {
 
   async install(registry: any): Promise<void> {
     // Register type definition
-    this.types.forEach(type => registry.registerType(type));
-    
+    this.types.forEach((type) => registry.registerType(type));
+
     // Register factory
-    this.factories.forEach(factory => registry.registerFactory(factory));
-    
+    this.factories.forEach((factory) => registry.registerFactory(factory));
+
     // Register renderer
-    this.renderers.forEach(renderer => registry.registerRenderer(renderer));
-    
+    this.renderers.forEach((renderer) => registry.registerRenderer(renderer));
+
     console.log(`✅ Installed ${this.name} v${this.version}`);
   }
 
   async uninstall(registry: any): Promise<void> {
     // Unregister in reverse order
-    this.renderers.forEach(renderer => registry.unregisterRenderer(renderer.type));
-    this.factories.forEach(factory => registry.unregisterFactory(factory.type));
-    this.types.forEach(type => registry.unregisterType(type.type));
-    
+    this.renderers.forEach((renderer) =>
+      registry.unregisterRenderer(renderer.type),
+    );
+    this.factories.forEach((factory) =>
+      registry.unregisterFactory(factory.type),
+    );
+    this.types.forEach((type) => registry.unregisterType(type.type));
+
     console.log(`❌ Uninstalled ${this.name}`);
   }
 }

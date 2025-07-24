@@ -1,12 +1,12 @@
-import { noteTypeDefinition } from ".";
 import type {
-  WidgetFactory,
   CreateWidgetInput,
+  HydratedWidget,
+  NoteContent,
   Position,
   WidgetCapabilities,
-  NoteContent,
-  HydratedWidget,
+  WidgetFactory,
 } from "../../types/widgets";
+import { noteTypeDefinition } from ".";
 
 export class NoteFactory implements WidgetFactory<NoteContent> {
   type = "note";
@@ -21,16 +21,23 @@ export class NoteFactory implements WidgetFactory<NoteContent> {
     if (typeof data === "string" && data.trim().length > 0) {
       // Don't handle URLs or math expressions (let other widgets handle those)
       const isUrl = /^https?:\/\//.test(data.trim());
-      const isMath = /^[\d\+\-\*\/\(\)\.\s]+$/.test(data.trim());
+      const isMath = /^[\d+\-\*\/\(\)\.\s]+$/.test(data.trim());
       return !isUrl && !isMath;
     }
 
     return false;
   }
 
+  getDemoDefaults(): any {
+    return {
+      type: "note",
+      content: "New note",
+    };
+  }
+
   async create(data: any, position: Position): Promise<CreateWidgetInput> {
     let content = "";
-    
+
     if (typeof data === "string") {
       content = data.trim();
     } else if (data?.content) {

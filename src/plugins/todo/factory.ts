@@ -1,10 +1,10 @@
 import type {
-  WidgetFactory,
   CreateWidgetInput,
-  Position,
-  WidgetCapabilities,
-  TodoContent,
   HydratedWidget,
+  Position,
+  TodoContent,
+  WidgetCapabilities,
+  WidgetFactory,
 } from "../../types/widgets";
 
 export class TodoFactory implements WidgetFactory<TodoContent> {
@@ -18,10 +18,10 @@ export class TodoFactory implements WidgetFactory<TodoContent> {
 
     // Handle checklist-like text
     if (typeof data === "string") {
-      const lines = data.split('\n');
-      const hasCheckboxes = lines.some(line => 
-        /^\s*[-*]\s*\[[\sx]\]/i.test(line) || 
-        /^\s*\d+\.\s/.test(line)
+      const lines = data.split("\n");
+      const hasCheckboxes = lines.some(
+        (line) =>
+          /^\s*[-*]\s*\[[\sx]\]/i.test(line) || /^\s*\d+\.\s/.test(line),
       );
       return hasCheckboxes;
     }
@@ -29,17 +29,25 @@ export class TodoFactory implements WidgetFactory<TodoContent> {
     return false;
   }
 
+  getDemoDefaults(): any {
+    return {
+      type: "todo",
+      items: [],
+      title: "Todo List",
+    };
+  }
+
   async create(data: any, position: Position): Promise<CreateWidgetInput> {
     let title = "Todo List";
-    let items: TodoContent['items'] = [];
+    let items: TodoContent["items"] = [];
 
     if (typeof data === "string" && this.canHandle(data)) {
-      const lines = data.split('\n').filter(line => line.trim());
-      title = lines[0]?.replace(/^\s*[-*]\s*\[[\sx]\]\s*/i, '') || "Todo List";
-      
+      const lines = data.split("\n").filter((line) => line.trim());
+      title = lines[0]?.replace(/^\s*[-*]\s*\[[\sx]\]\s*/i, "") || "Todo List";
+
       items = lines.slice(1).map((line, index) => ({
         id: `item-${Date.now()}-${index}`,
-        text: line.replace(/^\s*[-*]\s*\[[\sx]\]\s*/i, '').trim(),
+        text: line.replace(/^\s*[-*]\s*\[[\sx]\]\s*/i, "").trim(),
         completed: /\[x\]/i.test(line),
         createdAt: Date.now(),
       }));
