@@ -6,14 +6,14 @@ import { createUseLogger, createWebVitalsComponent } from '@axiomhq/react';
 import ENV from './env';
 
 const axiomClient = new Axiom({
-  token: ENV.AXIOM_TOKEN,
+  token: ENV.VITE_AXIOM_TOKEN,
 });
 
 export const logger = new Logger({
   transports: [
     new AxiomJSTransport({
       axiom: axiomClient,
-      dataset: ENV.AXIOM_DATASET,
+      dataset: ENV.VITE_AXIOM_DATASET,
     }),
   ],
 });
