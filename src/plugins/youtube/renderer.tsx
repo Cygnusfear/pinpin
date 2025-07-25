@@ -74,6 +74,12 @@ const IsolatedYouTubePlayer: React.FC<IsolatedPlayerProps> = ({
   // Track if we're in initialization mode to prevent sync events during setup
   const isInitializingRef = useRef(false);
 
+  // Queue for play commands when video isn't ready
+  const playCommandQueueRef = useRef<{action: 'play' | 'pause', currentTime: number, timestamp: number} | null>(null);
+  
+  // Timeout for queued commands (clear stale commands after 10 seconds)
+  const queueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Load YouTube API
   useEffect(() => {
     if (window.YT?.Player) {
@@ -186,6 +192,49 @@ const IsolatedYouTubePlayer: React.FC<IsolatedPlayerProps> = ({
               isInitializing: isInitializingRef.current,
             });
 
+            // Check if we have a queued command and the video is now ready to play
+            // Expand the states that can execute queued commands
+            const canExecuteCommands = playerState === window.YT.PlayerState.PAUSED ||
+                                     playerState === window.YT.PlayerState.PLAYING ||
+                                     playerState === window.YT.PlayerState.CUED ||
+                                     playerState === window.YT.PlayerState.BUFFERING;
+            
+            if (playCommandQueueRef.current && canExecuteCommands) {
+              const queuedCommand = playCommandQueueRef.current;
+              playCommandQueueRef.current = null; // Clear the queue
+              
+              console.log("🔄 Video ready, executing queued command", {
+                queuedAction: queuedCommand.action,
+                currentTime: queuedCommand.currentTime,
+                playerState: playerState,
+                stateDescription: Object.keys(window.YT.PlayerState).find(key => window.YT.PlayerState[key] === playerState)
+              });
+
+              // Execute the queued command
+              justSyncedRef.current = true;
+              
+              try {
+                if (queuedCommand.action === 'play') {
+                  event.target.seekTo(queuedCommand.currentTime, true);
+                  const result = event.target.playVideo();
+                  console.log("🔄 Executed queued play command", { result });
+                } else {
+                  event.target.seekTo(queuedCommand.currentTime, true);
+                  const result = event.target.pauseVideo();
+                  console.log("🔄 Executed queued pause command", { result });
+                }
+              } catch (error) {
+                console.error("🔄 Error executing queued command:", error);
+              }
+              
+              // Reset the sync flag after a delay
+              setTimeout(() => {
+                justSyncedRef.current = false;
+              }, 1000);
+              
+              return; // Skip normal state change processing
+            }
+
             // Only sync state changes that are NOT from our own sync operations
             // and NOT during initialization
             if (!justSyncedRef.current && !isInitializingRef.current) {
@@ -219,6 +268,15 @@ const IsolatedYouTubePlayer: React.FC<IsolatedPlayerProps> = ({
     }
 
     return () => {
+      // Clear any pending command timeout
+      if (queueTimeoutRef.current) {
+        clearTimeout(queueTimeoutRef.current);
+        queueTimeoutRef.current = null;
+      }
+      
+      // Clear any queued commands
+      playCommandQueueRef.current = null;
+      
       if (playerRef.current) {
         try {
           playerRef.current.destroy();
@@ -274,26 +332,90 @@ const IsolatedYouTubePlayer: React.FC<IsolatedPlayerProps> = ({
 
       // Refined sync behavior: only sync play/pause interactions
       if (targetIsPlaying !== isCurrentlyPlaying) {
-        console.log("🔄 SYNCING: State mismatch detected");
+        console.log("🔄 SYNCING: State mismatch detected", {
+          isInitializing: isInitializingRef.current,
+          justSynced: justSyncedRef.current,
+        });
+        
+        // Check if we're still initializing - this might block sync
+        if (isInitializingRef.current) {
+          console.log("🔄 BLOCKED: Cannot sync while initializing");
+          return;
+        }
+
+        // Check if video is loaded enough to play (state must be >= 2 for PAUSED or higher)
+        if (currentState === window.YT.PlayerState.UNSTARTED || currentState === window.YT.PlayerState.BUFFERING) {
+          console.log("🔄 Video not ready for playback, queueing command", {
+            currentState: currentState,
+            stateDescription: currentState === window.YT.PlayerState.UNSTARTED ? 'UNSTARTED' : 'BUFFERING',
+            queuedAction: targetIsPlaying ? 'play' : 'pause'
+          });
+          
+          // Queue the command for when video is ready
+          playCommandQueueRef.current = {
+            action: targetIsPlaying ? 'play' : 'pause',
+            currentTime: targetCurrentTime,
+            timestamp: Date.now()
+          };
+          
+          // Seek if we can (this works even when not fully loaded)
+          try {
+            player.seekTo(targetCurrentTime, true);
+            console.log("🔄 Seeked to position while queueing", { targetCurrentTime });
+          } catch (e) {
+            console.log("🔄 Could not seek while video loading", { error: e });
+          }
+          
+          return;
+        }
+        
         justSyncedRef.current = true; // Mark that we're about to sync
         
         if (targetIsPlaying) {
           console.log("🔄 Playing video (synced from other user)", {
             seekTo: targetCurrentTime,
             action: "play",
+            playerState: currentState,
           });
-          // When someone plays, seek to their current time first, then play
-          player.seekTo(targetCurrentTime, true);
-          player.playVideo();
+          
+          try {
+            // When someone plays, seek to their current time first, then play
+            player.seekTo(targetCurrentTime, true);
+            const playResult = player.playVideo();
+            console.log("🔄 playVideo() called", { result: playResult });
+            
+            // Verify the command worked after a short delay
+            setTimeout(() => {
+              const newState = player.getPlayerState();
+              const newPlaying = newState === window.YT.PlayerState.PLAYING;
+              console.log("🔄 Play command result", {
+                newState,
+                newPlaying,
+                expectedPlaying: true,
+                success: newPlaying === true,
+              });
+            }, 100);
+          } catch (error) {
+            console.error("🔄 Error executing play command:", error);
+          }
         } else {
           console.log("🔄 Pausing video (synced from other user)", {
             action: "pause",
+            playerState: currentState,
           });
-          // When someone pauses, just pause - no seeking needed
-          player.pauseVideo();
+          
+          try {
+            const pauseResult = player.pauseVideo();
+            console.log("🔄 pauseVideo() called", { result: pauseResult });
+          } catch (error) {
+            console.error("🔄 Error executing pause command:", error);
+          }
         }
       } else {
-        console.log("🔄 No sync needed - states match");
+        console.log("🔄 No sync needed - states match", {
+          both: `${isCurrentlyPlaying ? 'playing' : 'paused'}`,
+          isInitializing: isInitializingRef.current,
+        });
       }
 
       lastSyncDataRef.current = data;
