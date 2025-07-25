@@ -42,6 +42,7 @@ export default defineConfig({
         target: "http://localhost:6080",
         changeOrigin: true,
         secure: false,
+        ws: true, // Enable websocket proxying
       },
     },
   },

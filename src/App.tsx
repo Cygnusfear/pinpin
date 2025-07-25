@@ -2,6 +2,7 @@ import type React from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Route, Routes } from "react-router-dom";
+
 import { SyncProvider } from "./components/SyncProvider";
 import { TooltipProvider } from "./components/ui/tooltip";
 import Pinboard from "./views/Pinboard";

@@ -30,7 +30,12 @@ process.on("SIGTERM", () => {
 });
 
 // Start the server
-server.start().catch((error) => {
-  console.error("❌ Failed to start MCP server:", error);
-  process.exit(1);
-});
+server
+  .start()
+  .then(() => {
+    console.log("✅ MCP server started successfully");
+  })
+  .catch((error) => {
+    console.error("❌ Failed to start MCP server:", error);
+    process.exit(1);
+  });

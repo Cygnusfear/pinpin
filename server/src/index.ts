@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+// Removed keepsync imports - using WebSocket bridge instead
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
@@ -36,87 +37,20 @@ import {
   healthHandler,
 } from "./routes/chatHandlers.js";
 
+// Import terminal WebSocket setup
+import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
+
 // Claude AI chat endpoints
 app.post("/api/claude/chat", claudeChatHandler);
 app.post("/api/claude/generate-starting-location", claudeLocationHandler);
 app.get("/api/health", healthHandler);
 
-// Keepsync data endpoints for MCP server
-app.get("/api/keepsync/stores/:storeId", (req, res) => {
-  const { storeId } = req.params;
+// Set up terminal WebSocket routes
+setupTerminalWebSocket(app.getApp());
 
-  // For demo purposes, return test data that represents keepsync stores
-  const testData = {
-    "pinboard-widgets": {
-      widgets: [
-        {
-          id: "widget_demo_1",
-          type: "note",
-          position: { x: 100, y: 100 },
-          size: { width: 200, height: 150 },
-          transform: { rotation: 0, scale: 1 },
-          zIndex: 0,
-          selected: false,
-          contentId: "content_demo_1",
-        },
-        {
-          id: "widget_demo_2",
-          type: "todo",
-          position: { x: 350, y: 100 },
-          size: { width: 200, height: 200 },
-          transform: { rotation: 0, scale: 1 },
-          zIndex: 1,
-          selected: false,
-          contentId: "content_demo_2",
-        },
-      ],
-      lastModified: Date.now(),
-    },
-    "pinboard-content": {
-      content: {
-        content_demo_1: {
-          id: "content_demo_1",
-          type: "note",
-          text: "This is a demo note accessible via MCP",
-          lastModified: Date.now(),
-        },
-        content_demo_2: {
-          id: "content_demo_2",
-          type: "todo",
-          items: [
-            { id: "todo_1", text: "Test MCP integration", completed: false },
-            {
-              id: "todo_2",
-              text: "Connect to Claude Desktop",
-              completed: true,
-            },
-          ],
-          lastModified: Date.now(),
-        },
-      },
-      lastModified: Date.now(),
-    },
-    "pinboard-ui": {
-      selection: ["widget_demo_1"],
-      canvasTransform: { x: 0, y: 0, scale: 1 },
-      interactionMode: "select",
-      lastModified: Date.now(),
-    },
-  };
+// WebSocket bridge removed - MCP server now connects directly to keepsync
 
-  const data = testData[storeId as keyof typeof testData];
-  if (data) {
-    res.json(data);
-  } else {
-    res.status(404).json({ error: `Store '${storeId}' not found` });
-  }
-});
-
-app.get("/api/keepsync/documents", (_req, res) => {
-  res.json({
-    documents: ["pinboard-widgets", "pinboard-content", "pinboard-ui"],
-  });
-});
+// Keepsync API endpoints removed - MCP server now connects directly to keepsync
 
 // Add ping endpoint for health checks
 // WARNING: ALL SERVERS MUST INCLUDE A /ping ENDPOINT FOR HEALTH CHECKS, OTHERWISE THEY WILL FAIL

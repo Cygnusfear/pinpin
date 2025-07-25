@@ -1,3 +1,4 @@
+import { BrowserWebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -8,9 +9,17 @@ import {
   McpError,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import {
+  configureSyncEngine,
+  getSyncEngine,
+  ls,
+  readDoc,
+  writeDoc,
+} from "@tonk/keepsync";
+import WebSocket from "ws";
 
-// Note: Using HTTP API instead of direct keepsync connection
-// import { configureSyncEngine, ls, mkDir, readDoc, writeDoc } from "@tonk/keepsync";
+// Polyfill WebSocket for Node.js environment
+global.WebSocket = WebSocket as any;
 
 /**
  * MCP Server for Keepsync Store Access
@@ -55,26 +64,31 @@ class KeepsyncMCPServer {
     if (this.syncEngineInitialized) return;
 
     try {
-      // Configure sync engine for server environment
+      // Connect to the keepsync server on port 7777 (same as frontend)
+      const wsUrl = "ws://localhost:7777/sync";
+      const wsAdapter = new BrowserWebSocketClientAdapter(wsUrl);
+
       await configureSyncEngine({
-        url: process.env.SYNC_URL || "http://localhost:3000",
-        // Server-side sync engine configuration
-        network: [],
+        url: "http://localhost:7777",
+        network: [wsAdapter as any],
+        storage: undefined, // No storage for MCP server, just read-only access
       });
 
-      // Wait for sync engine to be ready
-      const { getSyncEngine } = await import("@tonk/keepsync");
       const engine = await getSyncEngine();
-      if (engine) {
-        console.log("⏳ MCP Server: Waiting for sync engine to be ready...");
-        await engine.whenReady();
-        console.log("✅ MCP Server: Sync engine ready");
+      if (!engine) {
+        throw new Error("Failed to get sync engine");
       }
 
+      console.log("⏳ Waiting for sync engine to be ready...");
+      await engine.whenReady();
+
       this.syncEngineInitialized = true;
-      console.log("✅ MCP Server: Sync engine initialized");
+      console.log("✅ MCP Server: Keepsync connection initialized");
     } catch (error) {
-      console.error("❌ MCP Server: Failed to initialize sync engine:", error);
+      console.error(
+        "❌ MCP Server: Failed to initialize keepsync connection:",
+        error,
+      );
       throw error;
     }
   }
@@ -731,6 +745,16 @@ class KeepsyncMCPServer {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.log("🚀 Keepsync MCP Server started");
+
+    // Initialize sync engine immediately to test connection
+    try {
+      await this.initializeSyncEngine();
+    } catch (error) {
+      console.error(
+        "⚠️ Warning: Could not connect to keepsync on startup:",
+        error,
+      );
+    }
   }
 }
 
