@@ -41,6 +41,83 @@ app.post("/api/claude/chat", claudeChatHandler);
 app.post("/api/claude/generate-starting-location", claudeLocationHandler);
 app.get("/api/health", healthHandler);
 
+// Keepsync data endpoints for MCP server
+app.get("/api/keepsync/stores/:storeId", (req, res) => {
+  const { storeId } = req.params;
+
+  // For demo purposes, return test data that represents keepsync stores
+  const testData = {
+    "pinboard-widgets": {
+      widgets: [
+        {
+          id: "widget_demo_1",
+          type: "note",
+          position: { x: 100, y: 100 },
+          size: { width: 200, height: 150 },
+          transform: { rotation: 0, scale: 1 },
+          zIndex: 0,
+          selected: false,
+          contentId: "content_demo_1",
+        },
+        {
+          id: "widget_demo_2",
+          type: "todo",
+          position: { x: 350, y: 100 },
+          size: { width: 200, height: 200 },
+          transform: { rotation: 0, scale: 1 },
+          zIndex: 1,
+          selected: false,
+          contentId: "content_demo_2",
+        },
+      ],
+      lastModified: Date.now(),
+    },
+    "pinboard-content": {
+      content: {
+        content_demo_1: {
+          id: "content_demo_1",
+          type: "note",
+          text: "This is a demo note accessible via MCP",
+          lastModified: Date.now(),
+        },
+        content_demo_2: {
+          id: "content_demo_2",
+          type: "todo",
+          items: [
+            { id: "todo_1", text: "Test MCP integration", completed: false },
+            {
+              id: "todo_2",
+              text: "Connect to Claude Desktop",
+              completed: true,
+            },
+          ],
+          lastModified: Date.now(),
+        },
+      },
+      lastModified: Date.now(),
+    },
+    "pinboard-ui": {
+      selection: ["widget_demo_1"],
+      canvasTransform: { x: 0, y: 0, scale: 1 },
+      interactionMode: "select",
+      lastModified: Date.now(),
+    },
+  };
+
+  const data = testData[storeId as keyof typeof testData];
+  if (data) {
+    res.json(data);
+  } else {
+    res.status(404).json({ error: `Store '${storeId}' not found` });
+  }
+});
+
+app.get("/api/keepsync/documents", (_req, res) => {
+  res.json({
+    documents: ["pinboard-widgets", "pinboard-content", "pinboard-ui"],
+  });
+});
+
 // Add ping endpoint for health checks
 // WARNING: ALL SERVERS MUST INCLUDE A /ping ENDPOINT FOR HEALTH CHECKS, OTHERWISE THEY WILL FAIL
 app.get("/ping", (_req, res) => {
