@@ -3,16 +3,14 @@ import { useCallback, useState } from "react";
 import { PinataService } from "../../services/pinataService";
 import { useFileUpload } from "../../stores/contentStore";
 import { useWidgetContent, useWidgetState } from "../../stores/selectiveHooks";
-import type { SelectiveWidgetRendererProps } from "../../types/widgets";
+import type { WidgetRendererProps } from "../../types/widgets";
 import type { ImageContent } from "./types";
 
 // ============================================================================
 // IMAGE WIDGET RENDERER - SELECTIVE REACTIVITY
 // ============================================================================
 
-export const ImageRenderer: React.FC<SelectiveWidgetRendererProps> = ({
-  widgetId,
-}) => {
+export const ImageRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Selective subscriptions - only re-render when these specific values change
   const src = useWidgetContent(widgetId, (content) => content.data.src);
   const alt = useWidgetContent(widgetId, (content) => content.data.alt);
@@ -187,6 +185,3 @@ export const ImageRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     </div>
   );
 };
-
-// Mark this component as using selective reactivity
-(ImageRenderer as any).selectiveReactivity = true;

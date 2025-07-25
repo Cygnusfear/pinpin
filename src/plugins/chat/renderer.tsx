@@ -5,12 +5,10 @@ import {
   useWidgetActions,
   useWidgetContent,
 } from "../../stores/selectiveHooks";
-import type { SelectiveWidgetRendererProps } from "../../types/widgets";
+import type { WidgetRendererProps } from "../../types/widgets";
 import type { ChatContent, ChatMessage } from "./types";
 
-export const ChatRenderer: React.FC<SelectiveWidgetRendererProps> = ({
-  widgetId,
-}) => {
+export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Selective subscriptions - only re-render when these specific values change
   const messages = useWidgetContent(
     widgetId,
@@ -305,6 +303,3 @@ export const ChatRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     </div>
   );
 };
-
-// Mark this component as using selective reactivity
-(ChatRenderer as any).selectiveReactivity = true;

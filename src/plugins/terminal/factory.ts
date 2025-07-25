@@ -140,25 +140,10 @@ export class TerminalFactory implements WidgetFactory<TerminalContent> {
   /**
    * Get demo defaults for manual widget creation
    */
-  getDemoDefaults(): TerminalContent {
+  getDemoDefaults(): any {
     return {
-      sessionId: null,
-      title: "Demo Terminal",
-      isConnected: false,
-      lastActivity: Date.now(),
-      theme: {
-        background: "#1a1a1a",
-        foreground: "#ffffff",
-        cursor: "#ffffff",
-        selection: "#404040",
-      },
-      settings: {
-        fontSize: 14,
-        fontFamily: "Monaco, Menlo, 'Ubuntu Mono', monospace",
-        cursorBlink: true,
-        scrollback: 1000,
-        bellSound: false,
-      },
+      type: "terminal",
+      title: "Terminal",
     };
   }
 

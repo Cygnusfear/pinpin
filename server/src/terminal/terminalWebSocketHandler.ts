@@ -45,6 +45,10 @@ export function setupTerminalWebSocket(app: ExpressWithRouteTracking): void {
     // Set up session manager event listeners
     const handleSessionData = (sid: string, data: string) => {
       if (sid === sessionId) {
+        console.log(
+          `📤 Sending PTY data to client for session ${sid}:`,
+          JSON.stringify(data),
+        );
         const response: TerminalWebSocketResponse = {
           type: "data",
           sessionId: sid,
@@ -117,6 +121,32 @@ export function setupTerminalWebSocket(app: ExpressWithRouteTracking): void {
               console.log(
                 `Created terminal session ${sessionId} for widget ${widgetId}`,
               );
+
+              // Send a welcome message to test if the terminal can receive data
+              setTimeout(() => {
+                if (sessionId) {
+                  const welcomeData: TerminalWebSocketResponse = {
+                    type: "data",
+                    sessionId,
+                    data: `\r\n\x1b[32mTerminal session ${sessionId.slice(-8)} ready\x1b[0m\r\n`,
+                  };
+                  ws.send(JSON.stringify(welcomeData));
+                  console.log(`Sent welcome message to session ${sessionId}`);
+
+                  // Send an empty command to trigger shell prompt
+                  setTimeout(() => {
+                    if (sessionId) {
+                      const success = terminalSessionManager.writeToSession(
+                        sessionId,
+                        "\r",
+                      );
+                      console.log(
+                        `Sent newline to trigger prompt for session ${sessionId}: ${success}`,
+                      );
+                    }
+                  }, 200);
+                }
+              }, 100);
             } catch (error) {
               const response: TerminalWebSocketResponse = {
                 type: "error",

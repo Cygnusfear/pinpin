@@ -4,7 +4,7 @@ import {
   useWidgetActions,
   useWidgetContent,
 } from "../../stores/selectiveHooks";
-import type { SelectiveWidgetRendererProps } from "../../types/widgets";
+import type { WidgetRendererProps } from "../../types/widgets";
 import type { YouTubeContent } from "./types";
 
 // YouTube Player API types
@@ -398,7 +398,7 @@ const IsolatedYouTubePlayer: React.FC<IsolatedPlayerProps> = ({ widgetId }) => {
 // YOUTUBE RENDERER - NEW SELECTIVE REACTIVITY INTERFACE
 // ============================================================================
 
-export const YouTubeRenderer: React.FC<SelectiveWidgetRendererProps> = ({
+export const YouTubeRenderer: React.FC<WidgetRendererProps> = ({
   widgetId,
 }) => {
   // Selective subscriptions - only re-render when these specific values change
@@ -467,6 +467,3 @@ export const YouTubeRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     </div>
   );
 };
-
-// Mark this component as using selective reactivity
-(YouTubeRenderer as any).selectiveReactivity = true;

@@ -2,7 +2,7 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useWidgetContent } from "../../stores/selectiveHooks";
-import type { SelectiveWidgetRendererProps } from "../../types/widgets";
+import type { WidgetRendererProps } from "../../types/widgets";
 import type { UrlContent } from "./types";
 
 // ============================================================================
@@ -19,9 +19,7 @@ const extractDomainFromUrl = (url: string): string => {
   }
 };
 
-export const UrlRenderer: React.FC<SelectiveWidgetRendererProps> = ({
-  widgetId,
-}) => {
+export const UrlRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Selective subscriptions - only re-render when these specific values change
   const data = useWidgetContent(widgetId, (content) => content.data);
   const url = useWidgetContent(widgetId, (content) => content.data.url);
@@ -189,6 +187,3 @@ export const UrlRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     </div>
   );
 };
-
-// Mark this component as using selective reactivity
-(UrlRenderer as any).selectiveReactivity = true;

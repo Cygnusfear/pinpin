@@ -17,7 +17,7 @@ import {
   useWidgetContentError,
   useWidgetState,
 } from "../../stores/selectiveHooks";
-import type { SelectiveWidgetRendererProps } from "../../types/widgets";
+import type { WidgetRendererProps } from "../../types/widgets";
 import type {
   TerminalConnectionState,
   TerminalContent,
@@ -28,7 +28,7 @@ import type {
 // Import xterm CSS
 import "xterm/css/xterm.css";
 
-export const TerminalRenderer: React.FC<SelectiveWidgetRendererProps> = ({
+export const TerminalRenderer: React.FC<WidgetRendererProps> = ({
   widgetId,
 }) => {
   // Selective subscriptions - only re-render when specific data changes
@@ -88,12 +88,9 @@ export const TerminalRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     switch (response.type) {
       case "created":
         updateContentFn({
-          data: {
-            ...currentData,
-            sessionId: response.sessionId,
-            isConnected: true,
-            lastActivity: Date.now(),
-          },
+          sessionId: response.sessionId,
+          isConnected: true,
+          lastActivity: Date.now(),
         });
         break;
 

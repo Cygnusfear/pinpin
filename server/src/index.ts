@@ -36,7 +36,7 @@ import {
   claudeLocationHandler,
   healthHandler,
 } from "./routes/chatHandlers.js";
-
+import { terminalSessionManager } from "./terminal/terminalSessionManager.js";
 // Import terminal WebSocket setup
 import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
 
@@ -44,6 +44,29 @@ import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
 app.post("/api/claude/chat", claudeChatHandler);
 app.post("/api/claude/generate-starting-location", claudeLocationHandler);
 app.get("/api/health", healthHandler);
+
+// Terminal test endpoint for debugging
+app.post("/api/terminal/test", (req: any, res: any) => {
+  const { sessionId, data } = req.body;
+  if (!sessionId || !data) {
+    return res.status(400).json({ error: "sessionId and data required" });
+  }
+
+  const success = terminalSessionManager.writeToSession(sessionId, data);
+  res.json({ success, sessionId, data });
+});
+
+// List all active sessions for debugging
+app.get("/api/terminal/sessions", (_req: any, res: any) => {
+  const sessions = terminalSessionManager.getActiveSessions();
+  const sessionInfo = sessions.map((s) => ({
+    id: s.id,
+    widgetId: s.widgetId,
+    createdAt: new Date(s.createdAt).toISOString(),
+    lastActivity: new Date(s.lastActivity).toISOString(),
+  }));
+  res.json({ sessions: sessionInfo });
+});
 
 // Set up terminal WebSocket routes
 setupTerminalWebSocket(app);

@@ -203,19 +203,9 @@ export interface WidgetFactory<T = any> {
 // ============================================================================
 
 /**
- * Widget renderer props - Legacy interface
+ * Widget renderer props - Selective reactivity interface
  */
-export interface WidgetRendererProps<T = any> {
-  widget: HydratedWidget<T>; // Widget with loaded content
-  state: WidgetRenderState; // Render state
-  events: WidgetEvents; // Event handlers
-  canvasTransform: CanvasTransform; // Canvas transform
-}
-
-/**
- * Widget renderer props - New selective reactivity interface
- */
-export interface SelectiveWidgetRendererProps {
+export interface WidgetRendererProps {
   widgetId: string; // Only widget ID for selective subscriptions
 }
 
@@ -250,7 +240,7 @@ export interface WidgetContextMenuProps<T = any> {
  */
 export interface WidgetRenderer<T = any> {
   type: string; // Widget type handled by renderer
-  component: React.ComponentType<WidgetRendererProps<T>>;
+  component: React.ComponentType<WidgetRendererProps>;
   toolbar?: React.ComponentType<WidgetToolbarProps<T>>;
   inspector?: React.ComponentType<WidgetInspectorProps<T>>;
   contextMenu?: React.ComponentType<WidgetContextMenuProps<T>>;

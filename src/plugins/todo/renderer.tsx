@@ -4,12 +4,10 @@ import {
   useWidgetActions,
   useWidgetContent,
 } from "../../stores/selectiveHooks";
-import type { SelectiveWidgetRendererProps } from "../../types/widgets";
+import type { WidgetRendererProps } from "../../types/widgets";
 import type { TodoContent } from "./types";
 
-export const TodoRenderer: React.FC<SelectiveWidgetRendererProps> = ({
-  widgetId,
-}) => {
+export const TodoRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // ALL HOOKS MUST BE CALLED FIRST - before any conditional logic
   // Selective subscriptions - only re-render when these specific values change
   const title = useWidgetContent(widgetId, (content) => content?.data?.title);
@@ -185,6 +183,3 @@ export const TodoRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     </div>
   );
 };
-
-// Mark this component as using selective reactivity
-(TodoRenderer as any).selectiveReactivity = true;

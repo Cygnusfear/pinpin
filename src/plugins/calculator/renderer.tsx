@@ -4,7 +4,7 @@ import {
   useWidgetActions,
   useWidgetContent,
 } from "../../stores/selectiveHooks";
-import type { SelectiveWidgetRendererProps } from "../../types/widgets";
+import type { WidgetRendererProps } from "../../types/widgets";
 import type { CalculatorContent } from "./types";
 
 // ============================================================================
@@ -18,7 +18,7 @@ const OPERATOR_STYLE =
 const EQUALS_STYLE =
   "flex-1 h-12 bg-green-500 hover:bg-green-600 text-white border border-green-600 rounded text-lg font-medium transition-colors";
 
-export const CalculatorRenderer: React.FC<SelectiveWidgetRendererProps> = ({
+export const CalculatorRenderer: React.FC<WidgetRendererProps> = ({
   widgetId,
 }) => {
   // Selective subscriptions - only re-render when these specific values change
@@ -310,6 +310,3 @@ export const CalculatorRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     </div>
   );
 };
-
-// Mark this component as using selective reactivity
-(CalculatorRenderer as any).selectiveReactivity = true;

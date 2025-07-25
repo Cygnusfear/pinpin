@@ -4,12 +4,10 @@ import {
   useWidgetActions,
   useWidgetContent,
 } from "../../stores/selectiveHooks";
-import type { SelectiveWidgetRendererProps } from "../../types/widgets";
+import type { WidgetRendererProps } from "../../types/widgets";
 import type { NoteContent } from "./types";
 
-export const NoteRenderer: React.FC<SelectiveWidgetRendererProps> = ({
-  widgetId,
-}) => {
+export const NoteRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Selective subscriptions - only re-render when these specific values change
   const content = useWidgetContent(widgetId, (content) => content.data.content);
   const backgroundColor = useWidgetContent(
@@ -153,6 +151,3 @@ export const NoteRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     </div>
   );
 };
-
-// Mark this component as using selective reactivity
-(NoteRenderer as any).selectiveReactivity = true;

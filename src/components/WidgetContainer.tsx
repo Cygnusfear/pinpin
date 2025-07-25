@@ -72,31 +72,8 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
       const RendererComponent = renderer.component;
 
-      // ============================================================================
-      // SELECTIVE REACTIVITY SUPPORT - BACKWARD COMPATIBILITY
-      // ============================================================================
-
-      // Check for selective reactivity support flag on component
-      // New interface components will have a selectiveReactivity flag set to true
-      const isSelectiveInterface =
-        (RendererComponent as any).selectiveReactivity === true;
-
-      if (isSelectiveInterface) {
-        // New selective reactivity interface - only pass widgetId
-        // Use type assertion to handle the interface difference
-        const SelectiveComponent = RendererComponent as any;
-        return <SelectiveComponent key={widget.id} widgetId={widget.id} />;
-      }
-
-      // Legacy interface - pass full props for backward compatibility
-      return (
-        <RendererComponent
-          widget={widget}
-          state={state}
-          events={events}
-          canvasTransform={state.transform}
-        />
-      );
+      // All widgets now use the selective reactivity interface
+      return <RendererComponent key={widget.id} widgetId={widget.id} />;
     }
 
     // Fallback renderer for unknown widget types

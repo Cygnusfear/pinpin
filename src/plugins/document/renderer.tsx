@@ -7,31 +7,31 @@ import {
   useWidgetContent,
   useWidgetState,
 } from "../../stores/selectiveHooks";
-import type { SelectiveWidgetRendererProps } from "../../types/widgets";
+import type { WidgetRendererProps } from "../../types/widgets";
 import type { DocumentContent } from "./types";
 
 // ============================================================================
 // DOCUMENT WIDGET RENDERER - SELECTIVE REACTIVITY IMPLEMENTATION
 // ============================================================================
 
-export const DocumentRenderer: React.FC<SelectiveWidgetRendererProps> = ({
+export const DocumentRenderer: React.FC<WidgetRendererProps> = ({
   widgetId,
 }) => {
   // Selective subscriptions - only re-render when specific data changes
   const contentData = useWidgetContent(widgetId, (content) => content?.data);
-  const { isContentLoaded, contentError, contentId } = useWidgetState(
+  const { isLoading, hasError, errorMessage } = useWidgetState(
     widgetId,
     (state) => ({
-      isContentLoaded: state.isContentLoaded,
-      contentError: state.contentError,
-      contentId: state.contentId,
+      isLoading: state.isLoading,
+      hasError: state.hasError,
+      errorMessage: state.errorMessage,
     }),
   );
   const { updateContent } = useWidgetActions(widgetId);
   const { getUploadState, retryFileUpload } = useFileUpload();
 
   // Get upload state for this widget's content
-  const uploadState = getUploadState(contentId);
+  const uploadState = getUploadState(widgetId);
 
   const handleDownload = useCallback(
     (event: React.MouseEvent) => {
@@ -114,7 +114,7 @@ export const DocumentRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
   };
 
-  if (!isContentLoaded) {
+  if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
         <div className="text-gray-500">Loading...</div>
@@ -122,12 +122,12 @@ export const DocumentRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     );
   }
 
-  if (contentError) {
+  if (hasError) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
         <div className="p-4 text-center text-red-500">
           <div className="mb-2 text-2xl">⚠️</div>
-          <div className="text-sm">Error: {contentError}</div>
+          <div className="text-sm">Error: {errorMessage}</div>
         </div>
       </div>
     );
@@ -251,7 +251,7 @@ export const DocumentRenderer: React.FC<SelectiveWidgetRendererProps> = ({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    retryFileUpload(contentId);
+                    retryFileUpload(widgetId);
                   }}
                   className="underline hover:text-yellow-300"
                   title="Retry upload"
@@ -281,6 +281,3 @@ export const DocumentRenderer: React.FC<SelectiveWidgetRendererProps> = ({
     </div>
   );
 };
-
-// Backward compatibility flag
-(DocumentRenderer as any).selectiveReactivity = true;
