@@ -1,11 +1,11 @@
+import fs from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
-import express from "express";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import fs from "fs";
 import dotenv from "dotenv";
-import { ExpressWithRouteTracking } from "./routeTracker.js";
+import express from "express";
 import { FileSystemRoutes } from "./fileSystemRoutes.js";
+import { ExpressWithRouteTracking } from "./routeTracker.js";
 
 // Import configuration
 const __filename = fileURLToPath(import.meta.url);
@@ -28,6 +28,18 @@ app.use(express.json());
 
 // Initialize file system routes
 new FileSystemRoutes(app, projectRoot);
+
+// Import and setup chat routes
+import {
+  claudeChatHandler,
+  claudeLocationHandler,
+  healthHandler,
+} from "./routes/chatHandlers.js";
+
+// Claude AI chat endpoints
+app.post("/api/claude/chat", claudeChatHandler);
+app.post("/api/claude/generate-starting-location", claudeLocationHandler);
+app.get("/api/health", healthHandler);
 
 // Add ping endpoint for health checks
 // WARNING: ALL SERVERS MUST INCLUDE A /ping ENDPOINT FOR HEALTH CHECKS, OTHERWISE THEY WILL FAIL
