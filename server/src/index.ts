@@ -1,9 +1,11 @@
 import cors from "cors";
+import express from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import fs from "fs";
 import dotenv from "dotenv";
 import { ExpressWithRouteTracking } from "./routeTracker.js";
+import { FileSystemRoutes } from "./fileSystemRoutes.js";
 
 // Import configuration
 const __filename = fileURLToPath(import.meta.url);
@@ -20,6 +22,12 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 6080;
 
 // Enable CORS
 app.use(cors());
+
+// Enable JSON parsing for POST requests
+app.use(express.json());
+
+// Initialize file system routes
+new FileSystemRoutes(app, projectRoot);
 
 // Add ping endpoint for health checks
 // WARNING: ALL SERVERS MUST INCLUDE A /ping ENDPOINT FOR HEALTH CHECKS, OTHERWISE THEY WILL FAIL
