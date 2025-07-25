@@ -3,7 +3,7 @@
  *
  * Defines the tool schemas that Claude uses for structured responses
  * in the D&D chat system including narrative generation, location creation,
- * and file system operations.
+ * file system operations, and general conversation.
  */
 
 /**
@@ -14,7 +14,8 @@
  */
 export const chatNarrativeTool = {
   name: "returnNarrative",
-  description: "Narrative and mechanical changes the game engine will consume",
+  description:
+    "Respond to user messages with narrative content, general conversation, or D&D gameplay with mechanical changes",
   input_schema: {
     type: "object" as const,
     required: ["message"],

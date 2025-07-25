@@ -15,21 +15,25 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom when messages change or typing state changes
-  const messages = widget.content?.data?.messages || [];
-  const isTyping = widget.content?.data?.isTyping || false;
+  // Function to scroll to bottom of chat
+  const scrollToBottom = useCallback(() => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, []);
 
+  // Auto-scroll when messages change
   useEffect(() => {
-    // Always scroll to bottom when content changes
-    const timer = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100); // Small delay to ensure DOM is updated
-
-    return () => clearTimeout(timer);
-  }, [messages.length, isTyping]);
+    scrollToBottom();
+  }, [scrollToBottom]);
 
   const handleSendMessage = useCallback(async () => {
     if (!inputValue.trim() || !widget.isContentLoaded || isLoading) return;
@@ -54,6 +58,9 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
     setInputValue("");
     setIsLoading(true);
     setError(null);
+
+    // Scroll to bottom after adding user message
+    setTimeout(scrollToBottom, 100);
 
     try {
       // Send to Claude API with simple context
@@ -81,6 +88,9 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
         };
 
         updateContent(widget.contentId, { data: finalData });
+
+        // Scroll to bottom after adding assistant message
+        setTimeout(scrollToBottom, 100);
       } else {
         throw new Error("Invalid response from Claude API");
       }
@@ -98,7 +108,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, widget, updateContent, isLoading]);
+  }, [inputValue, widget, updateContent, isLoading, scrollToBottom]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -161,7 +171,10 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 space-y-3 overflow-auto p-3">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 space-y-3 overflow-auto p-3"
+      >
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center text-gray-400 text-sm">
             Start a conversation with Claude...

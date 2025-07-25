@@ -35,6 +35,174 @@ import {
 } from "../validation/chatValidation.js";
 import { validateChatResponse } from "../validation/responseValidation.js";
 
+/**
+ * Handle filesystem operations by calling the appropriate internal API
+ */
+async function handleFilesystemOperation(
+  toolName: string,
+  input: any,
+): Promise<any> {
+  const baseUrl =
+    process.env.NODE_ENV === "production"
+      ? "https://your-domain.com" // Replace with your actual domain
+      : "http://localhost:6080";
+
+  try {
+    switch (toolName) {
+      case "listDirectory": {
+        const { path } = input;
+        const response = await fetch(
+          `${baseUrl}/api/fs/list?path=${encodeURIComponent(path)}`,
+        );
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to list directory");
+        }
+        return await response.json();
+      }
+
+      case "readFile": {
+        const { path, encoding = "utf8" } = input;
+        const url = `${baseUrl}/api/fs/read?path=${encodeURIComponent(path)}&encoding=${encoding}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to read file");
+        }
+        return await response.json();
+      }
+
+      case "writeFile": {
+        const { path, content, encoding = "utf8" } = input;
+        const response = await fetch(`${baseUrl}/api/fs/write`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ path, content, encoding }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to write file");
+        }
+        return await response.json();
+      }
+
+      default:
+        throw new Error(`Unknown filesystem operation: ${toolName}`);
+    }
+  } catch (error: any) {
+    console.error(`Filesystem operation error (${toolName}):`, error.message);
+    throw error;
+  }
+}
+
+/**
+ * Format filesystem operation results into user-friendly messages
+ */
+function formatFilesystemResponse(toolName: string, result: any): string {
+  switch (toolName) {
+    case "listDirectory":
+      if (result.items && Array.isArray(result.items)) {
+        const fileCount = result.items.filter(
+          (item: any) => item.type === "file",
+        ).length;
+        const dirCount = result.items.filter(
+          (item: any) => item.type === "directory",
+        ).length;
+        const itemsList = result.items
+          .map(
+            (item: any) =>
+              `${item.type === "directory" ? "📁" : "📄"} ${item.name}`,
+          )
+          .join("\n");
+        return `Directory listing for "${result.currentPath}":\n\nFound ${fileCount} files and ${dirCount} directories:\n\n${itemsList}`;
+      }
+      return `Listed directory: ${JSON.stringify(result)}`;
+
+    case "readFile":
+      if (result.content) {
+        const preview =
+          result.content.length > 500
+            ? `${result.content.substring(0, 500)}...\n\n[Content truncated]`
+            : result.content;
+        return `File content (${result.size} bytes, ${result.encoding} encoding):\n\n\`\`\`\n${preview}\n\`\`\``;
+      }
+      return `Read file: ${JSON.stringify(result)}`;
+
+    case "writeFile":
+      return `Successfully wrote ${result.size} bytes to "${result.path}"`;
+
+    default:
+      return `Filesystem operation completed: ${JSON.stringify(result)}`;
+  }
+}
+
+/**
+ * Process Claude tool response and return appropriate result
+ */
+async function processToolResponse(toolUse: any, res: Response): Promise<void> {
+  console.log("=== Claude Tool Use Debug ===");
+  console.log("Tool name:", toolUse.name);
+  console.log("==============================");
+
+  // Handle different tool types
+  if (toolUse.name === "returnNarrative") {
+    const structuredResponse = toolUse.input as any;
+
+    // Validate response
+    const responseValidation = validateChatResponse(structuredResponse);
+    if (!responseValidation.isValid) {
+      console.error("=== Response Validation Failed ===");
+      console.error("Validation errors:", responseValidation.errors);
+      throw new Error(
+        `Response validation failed: ${responseValidation.errors.join(", ")}`,
+      );
+    }
+
+    console.log("=== Claude D&D Response Success ===");
+    console.log("Response keys:", Object.keys(structuredResponse));
+    console.log("Message length:", structuredResponse.message?.length || 0);
+    if (structuredResponse.character_moved !== undefined) {
+      console.log("Character moved:", structuredResponse.character_moved);
+      if (structuredResponse.character_moved === "unexplored_location") {
+        console.log(
+          "Creating new location:",
+          structuredResponse.new_location?.location?.name || "Unknown",
+        );
+      }
+    }
+    console.log("==================================");
+
+    res.json({
+      success: true,
+      data: structuredResponse,
+    });
+  } else if (
+    ["listDirectory", "readFile", "writeFile"].includes(toolUse.name)
+  ) {
+    // Handle filesystem operations
+    const result = await handleFilesystemOperation(
+      toolUse.name,
+      toolUse.input as any,
+    );
+
+    // Format filesystem response to match expected client structure
+    const formattedMessage = formatFilesystemResponse(toolUse.name, result);
+
+    res.json({
+      success: true,
+      data: {
+        message: formattedMessage,
+        tool: toolUse.name,
+        filesystem_result: result,
+      },
+    });
+  } else {
+    throw new Error(`Unknown tool: ${toolUse.name}`);
+  }
+}
+
 // Initialize Anthropic client (lazy initialization to ensure env vars are loaded)
 let anthropic: Anthropic | null = null;
 
@@ -131,12 +299,12 @@ export const claudeChatHandler = async (req: Request, res: Response) => {
       system: systemMessage,
       messages: claudeMessages,
       tools: [
-        chatNarrativeTool,
+        chatNarrativeTool, // Primary tool for conversation and D&D
         listDirectoryTool,
         readFileTool,
         writeFileTool,
       ],
-      tool_choice: { type: "auto" },
+      tool_choice: { type: "any" },
     });
 
     console.log("=== Claude Chat Completion Debug ===");
@@ -147,45 +315,14 @@ export const claudeChatHandler = async (req: Request, res: Response) => {
     );
     console.log("==================================");
 
-    // Find tool use in response
-    const toolUse = response.content.find(
-      (c) => c.type === "tool_use" && c.name === "returnNarrative",
-    );
+    // Find tool use in response (forced by tool_choice: "any")
+    const toolUse = response.content.find((c) => c.type === "tool_use");
     if (!toolUse || toolUse.type !== "tool_use") {
-      throw new Error("No returnNarrative tool use found in Claude response");
+      throw new Error("No tool use found in Claude response");
     }
 
-    const structuredResponse = toolUse.input as any;
-
-    // Validate response
-    const responseValidation = validateChatResponse(structuredResponse);
-    if (!responseValidation.isValid) {
-      console.error("=== Response Validation Failed ===");
-      console.error("Validation errors:", responseValidation.errors);
-      throw new Error(
-        `Response validation failed: ${responseValidation.errors.join(", ")}`,
-      );
-    }
-
-    console.log("=== Claude Tool Use Success ===");
-    console.log("Tool name:", toolUse.name);
-    console.log("Response keys:", Object.keys(structuredResponse));
-    console.log("Message length:", structuredResponse.message?.length || 0);
-    if (structuredResponse.character_moved !== undefined) {
-      console.log("Character moved:", structuredResponse.character_moved);
-      if (structuredResponse.character_moved === "unexplored_location") {
-        console.log(
-          "Creating new location:",
-          structuredResponse.new_location?.location?.name || "Unknown",
-        );
-      }
-    }
-    console.log("============================");
-
-    res.json({
-      success: true,
-      data: structuredResponse,
-    });
+    // Process the tool response
+    await processToolResponse(toolUse, res);
   } catch (error: any) {
     console.error("=== Claude Chat API Error Debug ===");
     console.error("Error type:", typeof error);
