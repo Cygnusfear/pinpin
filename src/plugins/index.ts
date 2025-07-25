@@ -4,6 +4,7 @@ import { chatPlugin } from "./chat";
 import { documentPlugin } from "./document";
 import { imagePlugin } from "./image";
 import { notePlugin } from "./note";
+import { terminalPlugin } from "./terminal";
 import { todoPlugin } from "./todo";
 import { urlPlugin } from "./url";
 import { youTubePlugin } from "./youtube";
@@ -18,6 +19,7 @@ export const plugins = [
   notePlugin,
   todoPlugin,
   imagePlugin,
+  terminalPlugin,
   youTubePlugin, // YouTube plugin before URL plugin for priority
   urlPlugin,
   documentPlugin,
@@ -97,6 +99,7 @@ export { ChatFactory, ChatRenderer, chatPlugin } from "./chat";
 export { DocumentFactory, DocumentRenderer, documentPlugin } from "./document";
 export { ImageFactory, ImageRenderer, imagePlugin } from "./image";
 export { NoteFactory, NoteRenderer, notePlugin } from "./note";
+export { TerminalFactory, TerminalRenderer, terminalPlugin } from "./terminal";
 export { TodoFactory, TodoRenderer, todoPlugin } from "./todo";
 export { UrlFactory, UrlRenderer, urlPlugin } from "./url";
 export { YouTubeFactory, YouTubeRenderer, youTubePlugin } from "./youtube";

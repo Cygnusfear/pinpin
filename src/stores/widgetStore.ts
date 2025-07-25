@@ -2,10 +2,10 @@ import { type DocumentId, sync } from "@tonk/keepsync";
 import { create } from "zustand";
 import { SYNC_CONFIG } from "../config/syncEngine";
 import type {
-  Widget,
+  CanvasTransform,
   CreateWidgetInput,
   TransformUpdate,
-  CanvasTransform,
+  Widget,
 } from "../types/widgets";
 import { useContentStore } from "./contentStore";
 
@@ -31,7 +31,10 @@ export interface WidgetStoreActions {
   removeWidget: (id: string) => void;
 
   // Performance-critical transform updates
-  updateWidgetTransform: (id: string, transform: TransformUpdate['transform']) => void;
+  updateWidgetTransform: (
+    id: string,
+    transform: TransformUpdate["transform"],
+  ) => void;
   updateMultipleWidgetTransforms: (updates: TransformUpdate[]) => void;
 
   // Selection operations (local state, not synced)
@@ -49,7 +52,9 @@ export interface WidgetStoreActions {
   // Batch operations
   addMultipleWidgets: (inputs: CreateWidgetInput[]) => Promise<void>;
   removeMultipleWidgets: (ids: string[]) => void;
-  updateMultipleWidgets: (updates: Array<{ id: string; updates: Partial<Widget> }>) => void;
+  updateMultipleWidgets: (
+    updates: Array<{ id: string; updates: Partial<Widget> }>,
+  ) => void;
 }
 
 export type WidgetStore = WidgetStoreState & WidgetStoreActions;
@@ -101,15 +106,19 @@ export const useWidgetStore = create<WidgetStore>(
           let contentId: string;
 
           // Check if this is a file upload (has originalFile property)
-          const isFileUpload = input.content &&
+          const isFileUpload =
+            input.content &&
             (input.content as any).isFileUpload &&
             (input.content as any).originalFile;
 
           if (isFileUpload) {
             // Use file upload method for files
             const originalFile = (input.content as any).originalFile;
-            console.log("📤 Detected file upload, using Storacha upload for:", originalFile.name);
-            
+            console.log(
+              "📤 Detected file upload, using Storacha upload for:",
+              originalFile.name,
+            );
+
             contentId = await contentStore.addFileContent(originalFile, {
               type: input.type,
               ...input.content,
@@ -197,7 +206,7 @@ export const useWidgetStore = create<WidgetStore>(
       // Performance-critical transform updates
       updateWidgetTransform: (
         id: string,
-        transform: TransformUpdate['transform'],
+        transform: TransformUpdate["transform"],
       ): void => {
         const now = Date.now();
         set((state) => ({
@@ -279,7 +288,9 @@ export const useWidgetStore = create<WidgetStore>(
       },
 
       // Batch operations
-      addMultipleWidgets: async (inputs: CreateWidgetInput[]): Promise<void> => {
+      addMultipleWidgets: async (
+        inputs: CreateWidgetInput[],
+      ): Promise<void> => {
         for (const input of inputs) {
           await get().addWidget(input);
         }
@@ -367,20 +378,30 @@ export const useWidgetActions = () => {
   const addWidget = useWidgetStore((state) => state.addWidget);
   const updateWidget = useWidgetStore((state) => state.updateWidget);
   const removeWidget = useWidgetStore((state) => state.removeWidget);
-  const updateWidgetTransform = useWidgetStore((state) => state.updateWidgetTransform);
+  const updateWidgetTransform = useWidgetStore(
+    (state) => state.updateWidgetTransform,
+  );
   const updateMultipleWidgetTransforms = useWidgetStore(
     (state) => state.updateMultipleWidgetTransforms,
   );
   const selectWidget = useWidgetStore((state) => state.selectWidget);
   const selectWidgets = useWidgetStore((state) => state.selectWidgets);
   const clearSelection = useWidgetStore((state) => state.clearSelection);
-  const getSelectedWidgets = useWidgetStore((state) => state.getSelectedWidgets);
+  const getSelectedWidgets = useWidgetStore(
+    (state) => state.getSelectedWidgets,
+  );
   const getWidget = useWidgetStore((state) => state.getWidget);
   const getWidgetsByType = useWidgetStore((state) => state.getWidgetsByType);
   const reorderWidget = useWidgetStore((state) => state.reorderWidget);
-  const addMultipleWidgets = useWidgetStore((state) => state.addMultipleWidgets);
-  const removeMultipleWidgets = useWidgetStore((state) => state.removeMultipleWidgets);
-  const updateMultipleWidgets = useWidgetStore((state) => state.updateMultipleWidgets);
+  const addMultipleWidgets = useWidgetStore(
+    (state) => state.addMultipleWidgets,
+  );
+  const removeMultipleWidgets = useWidgetStore(
+    (state) => state.removeMultipleWidgets,
+  );
+  const updateMultipleWidgets = useWidgetStore(
+    (state) => state.updateMultipleWidgets,
+  );
 
   return {
     addWidget,
@@ -417,3 +438,23 @@ export const useContentActions = () => {
     removeContent,
   };
 };
+
+// ============================================================================
+// SELECTIVE REACTIVITY EXPORTS
+// ============================================================================
+
+// Export selective reactivity hooks from separate file
+export {
+  useHydratedWidgetData,
+  useMultipleWidgetContent,
+  useMultipleWidgetStates,
+  useSelectedWidgets,
+  useWidget,
+  useWidgetActions as useSelectiveWidgetActions,
+  useWidgetContent,
+  useWidgetContentError,
+  useWidgetContentLoaded,
+  useWidgetInfo,
+  useWidgetState,
+  useWidgetsByType,
+} from "./selectiveHooks";

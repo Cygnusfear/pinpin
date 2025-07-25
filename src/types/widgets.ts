@@ -203,13 +203,20 @@ export interface WidgetFactory<T = any> {
 // ============================================================================
 
 /**
- * Widget renderer props
+ * Widget renderer props - Legacy interface
  */
 export interface WidgetRendererProps<T = any> {
   widget: HydratedWidget<T>; // Widget with loaded content
   state: WidgetRenderState; // Render state
   events: WidgetEvents; // Event handlers
   canvasTransform: CanvasTransform; // Canvas transform
+}
+
+/**
+ * Widget renderer props - New selective reactivity interface
+ */
+export interface SelectiveWidgetRendererProps {
+  widgetId: string; // Only widget ID for selective subscriptions
 }
 
 /**

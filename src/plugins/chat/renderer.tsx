@@ -1,16 +1,29 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sendChatMessage } from "../../services/claudeService";
-import { useContentActions } from "../../stores/widgetStore";
-import type { WidgetRendererProps } from "../../types/widgets";
+import {
+  useWidgetActions,
+  useWidgetContent,
+} from "../../stores/selectiveHooks";
+import type { SelectiveWidgetRendererProps } from "../../types/widgets";
 import type { ChatContent, ChatMessage } from "./types";
 
-export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
-  widget,
-  state,
-  events,
+export const ChatRenderer: React.FC<SelectiveWidgetRendererProps> = ({
+  widgetId,
 }) => {
-  const { updateContent } = useContentActions();
+  // Selective subscriptions - only re-render when these specific values change
+  const messages = useWidgetContent(
+    widgetId,
+    (content) => content.data.messages || [],
+  );
+  const isTyping = useWidgetContent(
+    widgetId,
+    (content) => content.data.isTyping || false,
+  );
+
+  // Get update actions
+  const { updateContent } = useWidgetActions(widgetId);
+
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +49,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
   }, [scrollToBottom]);
 
   const handleSendMessage = useCallback(async () => {
-    if (!inputValue.trim() || !widget.isContentLoaded || isLoading) return;
+    if (!inputValue.trim() || !messages || isLoading) return;
 
     const userMessage: ChatMessage = {
       role: "user",
@@ -45,16 +58,13 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
     };
 
     // Add user message immediately
-    const currentMessages = widget.content.data.messages || [];
-    const updatedMessages = [...currentMessages, userMessage];
+    const updatedMessages = [...messages, userMessage];
 
-    const newData = {
-      ...widget.content.data,
+    updateContent({
       messages: updatedMessages,
       isTyping: true,
-    };
+    });
 
-    updateContent(widget.contentId, { data: newData });
     setInputValue("");
     setIsLoading(true);
     setError(null);
@@ -81,13 +91,10 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
         };
 
         const finalMessages = [...updatedMessages, assistantMessage];
-        const finalData = {
-          ...widget.content.data,
+        updateContent({
           messages: finalMessages,
           isTyping: false,
-        };
-
-        updateContent(widget.contentId, { data: finalData });
+        });
 
         // Scroll to bottom after adding assistant message
         setTimeout(scrollToBottom, 100);
@@ -99,16 +106,14 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
       setError(err instanceof Error ? err.message : "Failed to send message");
 
       // Remove typing indicator on error
-      const errorData = {
-        ...widget.content.data,
+      updateContent({
         messages: updatedMessages,
         isTyping: false,
-      };
-      updateContent(widget.contentId, { data: errorData });
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, widget, updateContent, isLoading, scrollToBottom]);
+  }, [inputValue, messages, updateContent, isLoading, scrollToBottom]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -121,39 +126,25 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
   );
 
   const handleClearConversation = useCallback(() => {
-    if (!widget.isContentLoaded) return;
+    if (!messages) return;
 
-    const newData = {
-      ...widget.content.data,
+    updateContent({
       messages: [],
       isTyping: false,
-    };
+    });
 
-    updateContent(widget.contentId, { data: newData });
     setShowClearDialog(false);
     setError(null);
-  }, [widget, updateContent]);
+  }, [messages, updateContent]);
 
   // Loading state
-  if (!widget.isContentLoaded) {
+  if (!messages) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg bg-blue-100 shadow">
         <div className="text-gray-500">Loading chat...</div>
       </div>
     );
   }
-
-  // Error state
-  if (widget.contentError) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-lg bg-red-100 shadow">
-        <div className="text-red-500">Error: {widget.contentError}</div>
-      </div>
-    );
-  }
-
-  const data = widget.content.data;
-  const messages = data.messages || [];
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-blue-200 bg-white shadow-md">
@@ -212,7 +203,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
             ))}
 
             {/* Typing indicator */}
-            {data.isTyping && (
+            {isTyping && (
               <div className="flex justify-start">
                 <div className="rounded-lg bg-gray-100 px-3 py-2 text-gray-800 text-sm">
                   <div className="flex items-center space-x-1">
@@ -314,3 +305,6 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
     </div>
   );
 };
+
+// Mark this component as using selective reactivity
+(ChatRenderer as any).selectiveReactivity = true;

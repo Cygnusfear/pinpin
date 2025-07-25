@@ -2,26 +2,38 @@ import type React from "react";
 import { useCallback, useState } from "react";
 import { PinataService } from "../../services/pinataService";
 import { useFileUpload } from "../../stores/contentStore";
-import { useContentActions } from "../../stores/widgetStore";
-import type { WidgetRendererProps } from "../../types/widgets";
+import { useWidgetContent, useWidgetState } from "../../stores/selectiveHooks";
+import type { SelectiveWidgetRendererProps } from "../../types/widgets";
 import type { ImageContent } from "./types";
 
 // ============================================================================
-// IMAGE WIDGET RENDERER - CLEAN IMPLEMENTATION
+// IMAGE WIDGET RENDERER - SELECTIVE REACTIVITY
 // ============================================================================
 
-export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
-  widget,
-  state,
-  events,
+export const ImageRenderer: React.FC<SelectiveWidgetRendererProps> = ({
+  widgetId,
 }) => {
-  const { updateContent } = useContentActions();
+  // Selective subscriptions - only re-render when these specific values change
+  const src = useWidgetContent(widgetId, (content) => content.data.src);
+  const alt = useWidgetContent(widgetId, (content) => content.data.alt);
+  const filters = useWidgetContent(widgetId, (content) => content.data.filters);
+  const originalDimensions = useWidgetContent(
+    widgetId,
+    (content) => content.data.originalDimensions,
+  );
+
+  // Subscribe to widget state
+  const isSelected = useWidgetState(widgetId, (state) => state.isSelected);
+
+  // Get content ID for upload state
+  const contentId = useWidgetContent(widgetId, (content) => content.id);
+
   const { getUploadState, retryFileUpload } = useFileUpload();
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState<string | null>(null);
 
   // Get upload state for this widget's content
-  const uploadState = getUploadState(widget.contentId);
+  const uploadState = contentId ? getUploadState(contentId) : null;
 
   const handleImageLoad = useCallback(() => {
     setImageLoading(false);
@@ -34,7 +46,7 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
   }, []);
 
   // Early returns for loading and error states
-  if (!widget.isContentLoaded) {
+  if (!src) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg bg-gray-100">
         <div className="text-gray-500">Loading...</div>
@@ -42,61 +54,36 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
     );
   }
 
-  if (widget.contentError) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-lg bg-gray-100">
-        <div className="p-4 text-center text-red-500">
-          <div className="mb-2 text-2xl">⚠️</div>
-          <div className="text-sm">Error: {widget.contentError}</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Additional null safety check
-  if (!widget.content || !widget.content.data) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-lg bg-gray-100">
-        <div className="p-4 text-center text-red-500">
-          <div className="mb-2 text-2xl">⚠️</div>
-          <div className="text-sm">Error: Image content is missing</div>
-        </div>
-      </div>
-    );
-  }
-
-  const data = widget.content.data;
-
   const handleImageClick = useCallback(
     (event: React.MouseEvent) => {
       // Mark as interactive to prevent widget selection
       event.stopPropagation();
 
       // Could add image viewing/editing functionality here
-      if (widget.content?.data?.src) {
-        console.log("Image clicked:", widget.content.data.src);
+      if (src) {
+        console.log("Image clicked:", src);
       }
     },
-    [widget.content?.data?.src],
+    [src],
   );
 
   // Build filter styles if filters are applied
   let filterStyle = "";
-  if (data.filters) {
-    const filters = [];
-    if (data.filters.brightness !== undefined) {
-      filters.push(`brightness(${data.filters.brightness}%)`);
+  if (filters) {
+    const filterArray = [];
+    if (filters.brightness !== undefined) {
+      filterArray.push(`brightness(${filters.brightness}%)`);
     }
-    if (data.filters.contrast !== undefined) {
-      filters.push(`contrast(${data.filters.contrast}%)`);
+    if (filters.contrast !== undefined) {
+      filterArray.push(`contrast(${filters.contrast}%)`);
     }
-    if (data.filters.saturation !== undefined) {
-      filters.push(`saturate(${data.filters.saturation}%)`);
+    if (filters.saturation !== undefined) {
+      filterArray.push(`saturate(${filters.saturation}%)`);
     }
-    if (data.filters.blur !== undefined) {
-      filters.push(`blur(${data.filters.blur}px)`);
+    if (filters.blur !== undefined) {
+      filterArray.push(`blur(${filters.blur}px)`);
     }
-    filterStyle = filters.join(" ");
+    filterStyle = filterArray.join(" ");
   }
 
   return (
@@ -117,7 +104,7 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
           <div className="p-4 text-center">
             <div className="mb-2 text-4xl">🖼️</div>
             <div className="mb-2 text-red-500 text-sm">{imageError}</div>
-            <div className="text-gray-500 text-xs">{data.src}</div>
+            <div className="text-gray-500 text-xs">{src}</div>
           </div>
         </div>
       )}
@@ -125,8 +112,8 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
       {/* Main image */}
       <img
         draggable={false}
-        src={data.src}
-        alt={data.alt || "Image"}
+        src={src}
+        alt={alt || "Image"}
         className="h-full w-full cursor-pointer object-contain"
         style={{
           filter: filterStyle || undefined,
@@ -139,20 +126,17 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
       />
 
       {/* Image info overlay (shown on hover if not selected) */}
-      {!state.isSelected &&
-        !imageLoading &&
-        !imageError &&
-        data.originalDimensions && (
-          <div className="absolute right-0 bottom-0 left-0 bg-black bg-opacity-75 p-2 text-white text-xs opacity-0 transition-opacity hover:opacity-100">
-            <div className="truncate">{data.alt || "Image"}</div>
-            <div className="text-gray-300 text-xs">
-              {data.originalDimensions.width} × {data.originalDimensions.height}
-            </div>
+      {!isSelected && !imageLoading && !imageError && originalDimensions && (
+        <div className="absolute right-0 bottom-0 left-0 bg-black bg-opacity-75 p-2 text-white text-xs opacity-0 transition-opacity hover:opacity-100">
+          <div className="truncate">{alt || "Image"}</div>
+          <div className="text-gray-300 text-xs">
+            {originalDimensions.width} × {originalDimensions.height}
           </div>
-        )}
+        </div>
+      )}
 
       {/* Filter indicator */}
-      {data.filters && Object.keys(data.filters).length > 0 && (
+      {filters && Object.keys(filters).length > 0 && (
         <div className="absolute top-2 right-2 rounded bg-black bg-opacity-75 px-2 py-1 text-white text-xs">
           <span>🎨</span>
         </div>
@@ -179,7 +163,9 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  retryFileUpload(widget.contentId);
+                  if (contentId) {
+                    retryFileUpload(contentId);
+                  }
                 }}
                 className="underline hover:text-yellow-300"
                 title="Retry upload"
@@ -192,7 +178,7 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
       )}
 
       {/* Show IPFS indicator for completed uploads */}
-      {!uploadState && PinataService.isIpfsUrl(data.src) && (
+      {!uploadState && src && PinataService.isIpfsUrl(src) && (
         <div className="absolute top-2 left-2 flex items-center gap-1 rounded bg-green-600 bg-opacity-90 px-2 py-1 text-white text-xs">
           <span>🌐</span>
           <span>IPFS</span>
@@ -201,3 +187,6 @@ export const ImageRenderer: React.FC<WidgetRendererProps<ImageContent>> = ({
     </div>
   );
 };
+
+// Mark this component as using selective reactivity
+(ImageRenderer as any).selectiveReactivity = true;

@@ -1,40 +1,46 @@
 import type React from "react";
 import { useCallback, useState } from "react";
-import { useContentActions } from "../../stores/widgetStore";
-import type { WidgetRendererProps } from "../../types/widgets";
+import {
+  useWidgetActions,
+  useWidgetContent,
+} from "../../stores/selectiveHooks";
+import type { SelectiveWidgetRendererProps } from "../../types/widgets";
 import type { TodoContent } from "./types";
 
-export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
-  widget,
-  state,
-  events,
+export const TodoRenderer: React.FC<SelectiveWidgetRendererProps> = ({
+  widgetId,
 }) => {
-  const { updateContent } = useContentActions();
+  // ALL HOOKS MUST BE CALLED FIRST - before any conditional logic
+  // Selective subscriptions - only re-render when these specific values change
+  const title = useWidgetContent(widgetId, (content) => content?.data?.title);
+  const items = useWidgetContent(widgetId, (content) => content?.data?.items);
+
+  // Get update actions
+  const { updateContent } = useWidgetActions(widgetId);
+
+  // Local state hooks
   const [newItemText, setNewItemText] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
 
   const handleToggleItem = useCallback(
     (itemId: string) => {
-      if (!widget.isContentLoaded || !widget.content.data) return;
+      if (!items) return;
 
-      const data = widget.content.data;
-      const updatedItems = data.items.map((item) =>
+      const updatedItems = items.map((item) =>
         item.id === itemId ? { ...item, completed: !item.completed } : item,
       );
 
-      updateContent(widget.contentId, {
-        data: { ...data, items: updatedItems },
+      updateContent({
+        items: updatedItems,
       });
     },
-    [widget, updateContent],
+    [items, updateContent],
   );
 
   const handleAddItem = useCallback(() => {
-    if (!widget.isContentLoaded || !widget.content.data || !newItemText.trim())
-      return;
+    if (!items || !newItemText.trim()) return;
 
-    const data = widget.content.data;
     const newItem = {
       id: `item-${Date.now()}`,
       text: newItemText.trim(),
@@ -42,43 +48,40 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
       createdAt: Date.now(),
     };
 
-    const updatedItems = [...data.items, newItem];
-    updateContent(widget.contentId, {
-      data: { ...data, items: updatedItems },
+    const updatedItems = [...items, newItem];
+    updateContent({
+      items: updatedItems,
     });
     setNewItemText("");
-  }, [widget, newItemText, updateContent]);
+  }, [items, newItemText, updateContent]);
 
   const handleDeleteItem = useCallback(
     (itemId: string) => {
-      if (!widget.isContentLoaded || !widget.content.data) return;
+      if (!items) return;
 
-      const data = widget.content.data;
-      const updatedItems = data.items.filter((item) => item.id !== itemId);
-
-      updateContent(widget.contentId, {
-        data: { ...data, items: updatedItems },
+      const updatedItems = items.filter((item) => item.id !== itemId);
+      updateContent({
+        items: updatedItems,
       });
     },
-    [widget, updateContent],
+    [items, updateContent],
   );
 
   const handleTitleEdit = useCallback(() => {
-    if (!widget.isContentLoaded || !widget.content.data) return;
+    if (!title) return;
 
-    setTitleValue(widget.content.data.title);
+    setTitleValue(title);
     setEditingTitle(true);
-  }, [widget]);
+  }, [title]);
 
   const handleTitleSave = useCallback(() => {
-    if (!widget.isContentLoaded || !widget.content.data) return;
+    if (!title) return;
 
-    const data = widget.content.data;
-    updateContent(widget.contentId, {
-      data: { ...data, title: titleValue },
+    updateContent({
+      title: titleValue,
     });
     setEditingTitle(false);
-  }, [widget, titleValue, updateContent]);
+  }, [title, titleValue, updateContent]);
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent, action: () => void) => {
@@ -90,7 +93,8 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
     [],
   );
 
-  if (!widget.isContentLoaded) {
+  // Loading state
+  if (!title || !items) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
         <div className="text-gray-500">Loading...</div>
@@ -98,16 +102,7 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
     );
   }
 
-  if (widget.contentError) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
-        <div className="text-red-500">Error: {widget.contentError}</div>
-      </div>
-    );
-  }
-
-  const data = widget.content.data;
-  const completedCount = data.items.filter((item) => item.completed).length;
+  const completedCount = items.filter((item) => item.completed).length;
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white shadow">
@@ -127,17 +122,17 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
             className="cursor-pointer font-semibold text-gray-800 text-lg"
             onClick={handleTitleEdit}
           >
-            {data.title}
+            {title}
           </h3>
         )}
         <div className="text-gray-500 text-sm">
-          {completedCount} of {data.items.length} completed
+          {completedCount} of {items.length} completed
         </div>
       </div>
 
       {/* Todo Items */}
       <div className="flex-1 overflow-auto p-2">
-        {data.items.map((item) => (
+        {items.map((item) => (
           <div
             key={item.id}
             className="group flex items-center gap-2 rounded p-2 hover:bg-gray-50"
@@ -156,6 +151,7 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
               {item.text}
             </span>
             <button
+              type="button"
               onClick={() => handleDeleteItem(item.id)}
               className="text-red-500 text-sm opacity-0 hover:text-red-700 group-hover:opacity-100"
             >
@@ -177,6 +173,7 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
             className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
+            type="button"
             onClick={handleAddItem}
             disabled={!newItemText.trim()}
             className="rounded-md bg-blue-500 px-3 py-2 text-sm text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -188,3 +185,6 @@ export const TodoRenderer: React.FC<WidgetRendererProps<TodoContent>> = ({
     </div>
   );
 };
+
+// Mark this component as using selective reactivity
+(TodoRenderer as any).selectiveReactivity = true;

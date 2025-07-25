@@ -46,7 +46,7 @@ app.post("/api/claude/generate-starting-location", claudeLocationHandler);
 app.get("/api/health", healthHandler);
 
 // Set up terminal WebSocket routes
-setupTerminalWebSocket(app.getApp());
+setupTerminalWebSocket(app);
 
 // WebSocket bridge removed - MCP server now connects directly to keepsync
 

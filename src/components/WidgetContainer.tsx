@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type React from "react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { getWidgetRegistry } from "../core/WidgetRegistry";
 import type {
   HydratedWidget,
@@ -71,6 +71,24 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       }
 
       const RendererComponent = renderer.component;
+
+      // ============================================================================
+      // SELECTIVE REACTIVITY SUPPORT - BACKWARD COMPATIBILITY
+      // ============================================================================
+
+      // Check for selective reactivity support flag on component
+      // New interface components will have a selectiveReactivity flag set to true
+      const isSelectiveInterface =
+        (RendererComponent as any).selectiveReactivity === true;
+
+      if (isSelectiveInterface) {
+        // New selective reactivity interface - only pass widgetId
+        // Use type assertion to handle the interface difference
+        const SelectiveComponent = RendererComponent as any;
+        return <SelectiveComponent key={widget.id} widgetId={widget.id} />;
+      }
+
+      // Legacy interface - pass full props for backward compatibility
       return (
         <RendererComponent
           widget={widget}
@@ -89,7 +107,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         <div className="text-gray-500 text-xs">No renderer available</div>
       </div>
     );
-  }, [renderer?.component, events, state, widget]);
+  }, [widget, state, events, renderer?.component]);
 
   // Handle widget container clicks with interactive content detection
   const handleWidgetClick = useCallback(

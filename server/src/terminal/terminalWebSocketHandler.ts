@@ -5,9 +5,8 @@
  * Each connection corresponds to a terminal widget in the frontend.
  */
 
-import type { Application } from "express";
-import type * as expressWs from "express-ws";
 import type { WebSocket } from "ws";
+import type { ExpressWithRouteTracking } from "../routeTracker.js";
 import { terminalSessionManager } from "./terminalSessionManager.js";
 
 export interface TerminalWebSocketMessage {
@@ -35,11 +34,9 @@ export interface TerminalWebSocketResponse {
 /**
  * Set up terminal WebSocket routes
  */
-export function setupTerminalWebSocket(app: Application): void {
-  // Cast to get access to WebSocket methods
-  const wsApp = app as Application & expressWs.WithWebsocketMethod;
-
-  wsApp.ws("/api/terminal/:widgetId", (ws: WebSocket, req) => {
+export function setupTerminalWebSocket(app: ExpressWithRouteTracking): void {
+  // Use the native WebSocket support from ExpressWithRouteTracking
+  app.ws("/api/terminal/:widgetId", (ws: WebSocket, req: any) => {
     const widgetId = req.params.widgetId;
     let sessionId: string | null = null;
 
@@ -224,7 +221,7 @@ export function setupTerminalWebSocket(app: Application): void {
   });
 
   // Health endpoint for terminal service
-  app.get("/api/terminal/health", (_req, res) => {
+  app.get("/api/terminal/health", (_req: any, res: any) => {
     const stats = terminalSessionManager.getStats();
     res.json({
       status: "ok",

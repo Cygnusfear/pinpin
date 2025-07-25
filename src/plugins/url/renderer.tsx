@@ -1,8 +1,8 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useContentActions } from "../../stores/widgetStore";
-import type { WidgetRendererProps } from "../../types/widgets";
+import { useWidgetContent } from "../../stores/selectiveHooks";
+import type { SelectiveWidgetRendererProps } from "../../types/widgets";
 import type { UrlContent } from "./types";
 
 // ============================================================================
@@ -19,21 +19,22 @@ const extractDomainFromUrl = (url: string): string => {
   }
 };
 
-export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
-  widget,
-  state,
-  events,
+export const UrlRenderer: React.FC<SelectiveWidgetRendererProps> = ({
+  widgetId,
 }) => {
-  const data = useMemo(() => widget.content.data, [widget.content.data]);
-  const [previewImage, setHasPreview] = useState(
-    data.image || data.preview || null,
-  );
+  // Selective subscriptions - only re-render when these specific values change
+  const data = useWidgetContent(widgetId, (content) => content.data);
+  const url = useWidgetContent(widgetId, (content) => content.data.url);
+  const image = useWidgetContent(widgetId, (content) => content.data.image);
+  const preview = useWidgetContent(widgetId, (content) => content.data.preview);
+
+  const [previewImage, setHasPreview] = useState(image || preview || null);
 
   // Update preview image when data changes (for metadata enrichment)
   useEffect(() => {
-    const newPreviewImage = data.image || data.preview || null;
+    const newPreviewImage = image || preview || null;
     setHasPreview(newPreviewImage);
-  }, [data.image, data.preview]);
+  }, [image, preview]);
 
   const handleLinkClick = useCallback(
     (event: React.MouseEvent) => {
@@ -41,15 +42,15 @@ export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
       event.stopPropagation();
 
       // Open link in new tab
-      if (widget.content?.data.url) {
-        window.open(widget.content.data.url, "_blank", "noopener,noreferrer");
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
       }
     },
-    [widget.content?.data.url],
+    [url],
   );
 
   // Early returns for loading and error states
-  if (!widget.isContentLoaded) {
+  if (!data) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
         <div className="text-gray-500">Loading...</div>
@@ -57,19 +58,8 @@ export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
     );
   }
 
-  if (widget.contentError) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
-        <div className="p-4 text-center text-red-500">
-          <div className="mb-2 text-2xl">⚠️</div>
-          <div className="text-sm">Error: {widget.contentError}</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Additional null safety check
-  if (!widget.content || !widget.content.data) {
+  // Invalid URL check
+  if (!url) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg bg-white shadow">
         <div className="p-4 text-center text-red-500">
@@ -199,3 +189,6 @@ export const UrlRenderer: React.FC<WidgetRendererProps<UrlContent>> = ({
     </div>
   );
 };
+
+// Mark this component as using selective reactivity
+(UrlRenderer as any).selectiveReactivity = true;
