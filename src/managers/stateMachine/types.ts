@@ -59,6 +59,7 @@ export interface WheelEvent {
   deltaX: number;
   deltaY: number;
   modifiers: KeyModifiers;
+  overScrollableContent?: boolean;
 }
 
 export interface ContextMenuEvent {

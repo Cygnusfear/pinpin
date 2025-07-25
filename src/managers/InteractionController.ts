@@ -433,7 +433,10 @@ export class InteractionController {
     const screenPoint = this.getScreenPoint(event);
     const modifiers = this.getModifiers(event);
 
-    // Create state machine event
+    // Check if the wheel event is over scrollable content within a widget
+    const shouldAllowScrolling = this.isWheelEventOverScrollableContent(event);
+
+    // Create state machine event with scrollable content information
     const stateMachineEvent: StateMachineEvent = {
       type: "wheel",
       point: canvasPoint,
@@ -441,12 +444,14 @@ export class InteractionController {
       deltaX: event.deltaX,
       deltaY: event.deltaY,
       modifiers: modifiers,
+      overScrollableContent: shouldAllowScrolling,
     };
 
     // Process through state machine
     const result = this.stateMachine.processEvent(stateMachineEvent);
 
-    if (result.preventDefault) {
+    // Only prevent default if we're not over scrollable content OR the state machine explicitly requests it
+    if (result.preventDefault && !shouldAllowScrolling) {
       event.preventDefault();
     }
     if (result.stopPropagation) {
@@ -454,6 +459,107 @@ export class InteractionController {
     }
 
     this.updateLegacyInteractionState();
+  }
+
+  /**
+   * Check if a wheel event target is within scrollable content inside a widget
+   */
+  private isWheelEventOverScrollableContent(event: WheelEvent): boolean {
+    const target = event.target as HTMLElement;
+    if (!target) return false;
+
+    // Walk up the DOM tree to find scrollable elements within widgets
+    let element: HTMLElement | null = target;
+    let foundWidget = false;
+
+    while (element && element !== this.canvasElement) {
+      // Check if we're inside a widget container
+      if (element.hasAttribute("data-widget-id")) {
+        foundWidget = true;
+      }
+
+      // If we're inside a widget, check for scrollable elements
+      if (foundWidget && this.isElementScrollable(element)) {
+        if (this.canElementScrollInDirection(element, event)) {
+          return true;
+        }
+      }
+
+      element = element.parentElement;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if an element is scrollable
+   */
+  private isElementScrollable(element: HTMLElement): boolean {
+    const computedStyle = window.getComputedStyle(element);
+    const overflowY = computedStyle.overflowY;
+    const overflowX = computedStyle.overflowX;
+
+    const isScrollableY =
+      (overflowY === "auto" || overflowY === "scroll") &&
+      element.scrollHeight > element.clientHeight;
+    const isScrollableX =
+      (overflowX === "auto" || overflowX === "scroll") &&
+      element.scrollWidth > element.clientWidth;
+
+    return isScrollableY || isScrollableX;
+  }
+
+  /**
+   * Check if an element can scroll in the direction of the wheel event
+   */
+  private canElementScrollInDirection(
+    element: HTMLElement,
+    event: WheelEvent,
+  ): boolean {
+    const computedStyle = window.getComputedStyle(element);
+    const overflowY = computedStyle.overflowY;
+    const overflowX = computedStyle.overflowX;
+
+    const isScrollableY =
+      (overflowY === "auto" || overflowY === "scroll") &&
+      element.scrollHeight > element.clientHeight;
+    const isScrollableX =
+      (overflowX === "auto" || overflowX === "scroll") &&
+      element.scrollWidth > element.clientWidth;
+
+    // Check vertical scrolling
+    if (isScrollableY && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+      return this.canScrollVertically(element, event.deltaY);
+    }
+
+    // Check horizontal scrolling
+    if (isScrollableX && Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+      return this.canScrollHorizontally(element, event.deltaX);
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if an element can scroll vertically in the given direction
+   */
+  private canScrollVertically(element: HTMLElement, deltaY: number): boolean {
+    const canScrollUp = element.scrollTop > 0;
+    const canScrollDown =
+      element.scrollTop < element.scrollHeight - element.clientHeight;
+
+    return (deltaY < 0 && canScrollUp) || (deltaY > 0 && canScrollDown);
+  }
+
+  /**
+   * Check if an element can scroll horizontally in the given direction
+   */
+  private canScrollHorizontally(element: HTMLElement, deltaX: number): boolean {
+    const canScrollLeft = element.scrollLeft > 0;
+    const canScrollRight =
+      element.scrollLeft < element.scrollWidth - element.clientWidth;
+
+    return (deltaX < 0 && canScrollLeft) || (deltaX > 0 && canScrollRight);
   }
 
   private handleContextMenu(event: MouseEvent): void {

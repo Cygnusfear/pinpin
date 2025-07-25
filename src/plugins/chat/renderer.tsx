@@ -159,7 +159,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
     <div className="flex h-full flex-col rounded-lg border border-blue-200 bg-white shadow-md">
       {/* Header */}
       <div className="flex items-center justify-between border-gray-200 border-b p-3">
-        <h3 className="font-medium text-gray-800">💬 Chat with Claude</h3>
+        <h3 className="font-medium text-gray-800">💬 Chat with Tonk</h3>
         <button
           type="button"
           onClick={() => setShowClearDialog(true)}
@@ -228,7 +228,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps<ChatContent>> = ({
                       />
                     </div>
                     <span className="ml-2 text-gray-500 text-xs">
-                      Claude is typing...
+                      Tonk is typing...
                     </span>
                   </div>
                 </div>

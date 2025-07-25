@@ -155,6 +155,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         pointerEvents: widget.locked ? "none" : "auto",
       }}
       className="select-none"
+      data-widget-id={widget.id}
       initial={{ opacity: 0, scale: 0.8, rotateY: widget.rotation }}
       animate={{
         opacity: 1,
