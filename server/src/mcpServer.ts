@@ -300,31 +300,25 @@ class KeepsyncMCPServer {
       try {
         const resources = [
           {
-            uri: "keepsync://stores/widgets",
+            uri: "pinboard://widgets",
             mimeType: "application/json",
-            name: "Widget Store",
+            name: "📌 All Pinboard Widgets",
             description:
-              "All widgets on the pinboard with their positions and properties",
+              "All widgets currently on the pinboard: notes, todos, calculators, images, etc. with their positions and properties",
           },
           {
-            uri: "keepsync://stores/content",
+            uri: "pinboard://content",
             mimeType: "application/json",
-            name: "Content Store",
+            name: "📝 Widget Content & Text",
             description:
-              "Widget content data including text, images, and file references",
+              "The actual content inside widgets: note text, todo items, calculator values, image URLs, etc.",
           },
           {
-            uri: "keepsync://stores/ui",
+            uri: "pinboard://ui-state",
             mimeType: "application/json",
-            name: "UI Store",
+            name: "🖱️ Current UI State",
             description:
-              "UI state including selection, canvas transform, and interaction mode",
-          },
-          {
-            uri: "keepsync://documents/list",
-            mimeType: "application/json",
-            name: "Document List",
-            description: "List all available keepsync documents",
+              "What's currently selected, canvas zoom/position, and interaction mode",
           },
         ];
 
@@ -346,7 +340,7 @@ class KeepsyncMCPServer {
         const { uri } = request.params;
 
         try {
-          if (uri === "keepsync://stores/widgets") {
+          if (uri === "pinboard://widgets") {
             const widgetData = await readDoc("pinboard-widgets");
             return {
               contents: [
@@ -363,7 +357,7 @@ class KeepsyncMCPServer {
             };
           }
 
-          if (uri === "keepsync://stores/content") {
+          if (uri === "pinboard://content") {
             const contentData = await readDoc("pinboard-content");
             return {
               contents: [
@@ -380,7 +374,7 @@ class KeepsyncMCPServer {
             };
           }
 
-          if (uri === "keepsync://stores/ui") {
+          if (uri === "pinboard://ui-state") {
             const uiData = await readDoc("pinboard-ui");
             return {
               contents: [
@@ -431,90 +425,94 @@ class KeepsyncMCPServer {
       return {
         tools: [
           {
-            name: "read_keepsync_doc",
-            description: "Read a document from the keepsync store by path",
+            name: "view_all_pinboard_widgets",
+            description:
+              "See all widgets currently on the pinboard (notes, todos, calculators, images, etc.) with their positions and properties",
             inputSchema: {
               type: "object",
-              properties: {
-                path: {
-                  type: "string",
-                  description:
-                    "Document path (e.g., 'pinboard-widgets', 'pinboard-content')",
-                },
-              },
-              required: ["path"],
+              properties: {},
             },
           },
           {
-            name: "write_keepsync_doc",
-            description: "Write or update a document in the keepsync store",
+            name: "view_widget_content",
+            description:
+              "Get the actual content/text of widgets (what's written inside notes, todo items, etc.)",
             inputSchema: {
               type: "object",
-              properties: {
-                path: {
-                  type: "string",
-                  description: "Document path to write to",
-                },
-                content: {
-                  type: "object",
-                  description: "Content to write to the document",
-                },
-              },
-              required: ["path", "content"],
+              properties: {},
             },
           },
           {
-            name: "list_keepsync_docs",
-            description: "List all documents in a keepsync directory",
+            name: "view_pinboard_ui_state",
+            description:
+              "See the current UI state: what's selected, canvas position/zoom, and interaction mode",
             inputSchema: {
               type: "object",
-              properties: {
-                path: {
-                  type: "string",
-                  description: "Directory path to list (default: '/')",
-                  default: "/",
-                },
-              },
+              properties: {},
             },
           },
           {
-            name: "add_widget",
-            description: "Add a new widget to the pinboard",
+            name: "add_pinboard_widget",
+            description:
+              "Add a new widget to the pinboard (note, todo list, calculator, image, etc.)",
             inputSchema: {
               type: "object",
               properties: {
                 type: {
                   type: "string",
-                  description:
-                    "Widget type (note, todo, calculator, image, etc.)",
+                  description: "Type of widget to add",
+                  enum: [
+                    "note",
+                    "todo",
+                    "calculator",
+                    "image",
+                    "document",
+                    "url",
+                    "chat",
+                    "youtube",
+                  ],
                 },
                 position: {
                   type: "object",
                   properties: {
-                    x: { type: "number" },
-                    y: { type: "number" },
+                    x: {
+                      type: "number",
+                      description: "X coordinate on the pinboard",
+                    },
+                    y: {
+                      type: "number",
+                      description: "Y coordinate on the pinboard",
+                    },
                   },
                   required: ["x", "y"],
                 },
                 size: {
                   type: "object",
                   properties: {
-                    width: { type: "number" },
-                    height: { type: "number" },
+                    width: {
+                      type: "number",
+                      description: "Widget width in pixels",
+                    },
+                    height: {
+                      type: "number",
+                      description: "Widget height in pixels",
+                    },
                   },
                   required: ["width", "height"],
                 },
                 content: {
                   type: "object",
-                  description: "Initial content for the widget",
+                  description:
+                    "Initial content (e.g., text for notes, items for todos)",
                 },
               },
               required: ["type", "position", "size"],
             },
           },
           {
-            name: "update_widget",
-            description: "Update an existing widget on the pinboard",
+            name: "update_pinboard_widget",
+            description:
+              "Update an existing widget on the pinboard (move it, resize it, or change its content)",
             inputSchema: {
               type: "object",
               properties: {
@@ -531,14 +529,14 @@ class KeepsyncMCPServer {
             },
           },
           {
-            name: "remove_widget",
-            description: "Remove a widget from the pinboard",
+            name: "remove_pinboard_widget",
+            description: "Remove/delete a widget from the pinboard completely",
             inputSchema: {
               type: "object",
               properties: {
                 id: {
                   type: "string",
-                  description: "Widget ID to remove",
+                  description: "ID of the widget to remove",
                 },
               },
               required: ["id"],
@@ -556,43 +554,43 @@ class KeepsyncMCPServer {
 
       try {
         switch (name) {
-          case "read_keepsync_doc": {
-            const doc = await readDoc(args.path);
+          case "view_all_pinboard_widgets": {
+            const widgets = await readDoc("pinboard-widgets");
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(doc, null, 2),
+                  text: `## 📌 Pinboard Widgets\n\n${JSON.stringify(widgets || { widgets: [], lastModified: 0 }, null, 2)}`,
                 },
               ],
             };
           }
 
-          case "write_keepsync_doc": {
-            await writeDoc(args.path, args.content);
+          case "view_widget_content": {
+            const content = await readDoc("pinboard-content");
             return {
               content: [
                 {
                   type: "text",
-                  text: `Successfully wrote to document: ${args.path}`,
+                  text: `## 📝 Widget Content\n\n${JSON.stringify(content || { content: {}, lastModified: 0 }, null, 2)}`,
                 },
               ],
             };
           }
 
-          case "list_keepsync_docs": {
-            const docs = await ls(args.path || "/");
+          case "view_pinboard_ui_state": {
+            const uiState = await readDoc("pinboard-ui");
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(docs, null, 2),
+                  text: `## 🖱️ Pinboard UI State\n\n${JSON.stringify(uiState || { selection: [], canvasTransform: { x: 0, y: 0, scale: 1 } }, null, 2)}`,
                 },
               ],
             };
           }
 
-          case "add_widget": {
+          case "add_pinboard_widget": {
             // Read current widget store
             const widgetStore = (await readDoc("pinboard-widgets")) || {
               widgets: [],
@@ -647,7 +645,7 @@ class KeepsyncMCPServer {
             };
           }
 
-          case "update_widget": {
+          case "update_pinboard_widget": {
             // Read current widget store
             const widgetStore = (await readDoc("pinboard-widgets")) || {
               widgets: [],
@@ -683,7 +681,7 @@ class KeepsyncMCPServer {
             };
           }
 
-          case "remove_widget": {
+          case "remove_pinboard_widget": {
             // Read current widget store
             const widgetStore = (await readDoc("pinboard-widgets")) || {
               widgets: [],
