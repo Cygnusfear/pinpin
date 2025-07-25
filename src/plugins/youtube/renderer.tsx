@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useContentActions } from "../../stores/widgetStore";
 import type { WidgetRendererProps } from "../../types/widgets";
 import type { YouTubeContent } from "./types";
@@ -43,40 +43,44 @@ declare global {
   }
 }
 
-export const YouTubeRenderer: React.FC<WidgetRendererProps<YouTubeContent>> = ({
-  widget,
+// ============================================================================
+// ISOLATED YOUTUBE PLAYER COMPONENT
+// ============================================================================
+
+interface IsolatedPlayerProps {
+  videoId: string;
+  contentId: string;
+  data: YouTubeContent;
+  onPlayerEvent: (updates: Partial<YouTubeContent>) => void;
+}
+
+const IsolatedYouTubePlayer: React.FC<IsolatedPlayerProps> = ({
+  videoId,
+  contentId,
+  data,
+  onPlayerEvent,
 }) => {
-  const { updateContent } = useContentActions();
   const playerRef = useRef<YouTubePlayer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isApiReady, setIsApiReady] = useState(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+  // Store current video ID to detect changes
+  const currentVideoIdRef = useRef(videoId);
+  const lastSyncDataRef = useRef<YouTubeContent>(data);
+
+  // Track if we just performed a sync operation to avoid feedback loops
+  const justSyncedRef = useRef(false);
   
-  // Use refs for ALL changing values to prevent effect dependencies
-  const dataRef = useRef(widget.content?.data);
-  const widgetRef = useRef(widget);
-  const updateContentRef = useRef(updateContent);
-  const isLocalUpdateRef = useRef(false);
+  // Track if we're in initialization mode to prevent sync events during setup
+  const isInitializingRef = useRef(false);
 
-  // Get current data
-  const data = widget.content?.data;
-  const videoId = data?.videoId;
-
-  // Update refs when values change (doesn't trigger re-renders)
-  useEffect(() => {
-    dataRef.current = data;
-    widgetRef.current = widget;
-    updateContentRef.current = updateContent;
-  });
-
-  // Load YouTube API only once
+  // Load YouTube API
   useEffect(() => {
     if (window.YT?.Player) {
       setIsApiReady(true);
       return;
     }
 
-    // Check if script already exists
     const existingScript = document.querySelector(
       'script[src*="youtube.com/iframe_api"]',
     );
@@ -92,80 +96,23 @@ export const YouTubeRenderer: React.FC<WidgetRendererProps<YouTubeContent>> = ({
       return;
     }
 
-    // Load YouTube API script
     const script = document.createElement("script");
     script.src = "https://www.youtube.com/iframe_api";
     script.async = true;
-
     window.onYouTubeIframeAPIReady = () => setIsApiReady(true);
     document.head.appendChild(script);
   }, []);
 
-  // Completely stable event handlers - NO dependencies at all!
-  const onPlayerReady = useCallback((event: YTEvent) => {
-    console.log("YouTube player ready");
-    setIsPlayerReady(true);
-
-    // Set initial state from current data
-    const currentData = dataRef.current;
-    if (currentData) {
-      if (currentData.currentTime > 0) {
-        event.target.seekTo(currentData.currentTime, true);
-      }
-      if (currentData.isPlaying) {
-        event.target.playVideo();
-      }
-    }
-  }, []);
-
-  const onPlayerStateChange = useCallback((event: YTEvent) => {
-    if (isLocalUpdateRef.current) return; // Don't update if this is our own change
-
-    const playerState = event.target.getPlayerState();
-    const currentTime = event.target.getCurrentTime();
-    const isPlaying = playerState === window.YT.PlayerState.PLAYING;
-
-    console.log("Player state changed:", { playerState, isPlaying, currentTime });
-
-    // Get current data and functions from refs
-    const currentData = dataRef.current;
-    const currentWidget = widgetRef.current;
-    const currentUpdateContent = updateContentRef.current;
-    
-    if (!currentData || !currentWidget.isContentLoaded) return;
-
-    // Set flag to prevent feedback loop
-    isLocalUpdateRef.current = true;
-
-    // Update content store with new state
-    const newData = {
-      ...currentData,
-      isPlaying,
-      currentTime,
-      lastInteraction: {
-        type: isPlaying ? ("play" as const) : ("pause" as const),
-        timestamp: Date.now(),
-      },
-    };
-
-    currentUpdateContent(currentWidget.contentId, { data: newData });
-
-    // Reset flag after a short delay
-    setTimeout(() => {
-      isLocalUpdateRef.current = false;
-    }, 100);
-  }, []);
-
-  // Memoize start time only when video changes
-  const initialStartTime = useMemo(() => data?.startTime || 0, [data?.startTime]);
-
-  // Initialize player ONLY when API ready and video ID changes - completely stable!
+  // Initialize or recreate player when API is ready or video changes
   useEffect(() => {
     if (!isApiReady || !videoId || !containerRef.current) {
       return;
     }
 
-    const playerId = `youtube-player-${widget.id}`;
+    // Only recreate player if video ID changed
+    if (playerRef.current && currentVideoIdRef.current === videoId) {
+      return;
+    }
 
     // Clean up existing player
     if (playerRef.current) {
@@ -177,6 +124,9 @@ export const YouTubeRenderer: React.FC<WidgetRendererProps<YouTubeContent>> = ({
       playerRef.current = null;
       setIsPlayerReady(false);
     }
+
+    currentVideoIdRef.current = videoId;
+    const playerId = `youtube-player-${contentId}`;
 
     // Create player container
     const playerDiv = document.createElement("div");
@@ -191,7 +141,7 @@ export const YouTubeRenderer: React.FC<WidgetRendererProps<YouTubeContent>> = ({
       const player = new window.YT.Player(playerId, {
         videoId: videoId,
         playerVars: {
-          autoplay: 0,
+          autoplay: 1,
           controls: 1,
           disablekb: 0,
           enablejsapi: 1,
@@ -200,15 +150,70 @@ export const YouTubeRenderer: React.FC<WidgetRendererProps<YouTubeContent>> = ({
           modestbranding: 1,
           playsinline: 1,
           rel: 0,
-          start: initialStartTime,
+          start: data.startTime || 0,
         },
         events: {
-          onReady: onPlayerReady,
-          onStateChange: onPlayerStateChange,
+          onReady: (event: YTEvent) => {
+            console.log("🎬 YouTube player ready");
+            setIsPlayerReady(true);
+
+            // Mark that we're initializing to prevent sync events
+            isInitializingRef.current = true;
+
+            // Set initial state from last interaction
+            if (data.lastInteraction?.currentTime && data.lastInteraction.currentTime > 0) {
+              event.target.seekTo(data.lastInteraction.currentTime, true);
+            }
+            if (data.lastInteraction?.isPlaying) {
+              event.target.playVideo();
+            }
+
+            // Clear initialization flag after a short delay to allow state changes to settle
+            setTimeout(() => {
+              isInitializingRef.current = false;
+            }, 500);
+          },
+          onStateChange: (event: YTEvent) => {
+            const playerState = event.target.getPlayerState();
+            const currentTime = event.target.getCurrentTime();
+            const isPlaying = playerState === window.YT.PlayerState.PLAYING;
+
+            console.log("🎬 Player state changed:", {
+              playerState,
+              isPlaying,
+              currentTime,
+              justSynced: justSyncedRef.current,
+              isInitializing: isInitializingRef.current,
+            });
+
+            // Only sync state changes that are NOT from our own sync operations
+            // and NOT during initialization
+            if (!justSyncedRef.current && !isInitializingRef.current) {
+              console.log("🎯 User interaction detected - syncing state");
+              onPlayerEvent({
+                lastInteraction: {
+                  type: isPlaying ? "play" : "pause",
+                  timestamp: Date.now(),
+                  currentTime,
+                  isPlaying,
+                },
+              });
+            } else {
+              if (justSyncedRef.current) {
+                console.log("🔄 Skipping sync - this was our own sync operation");
+                justSyncedRef.current = false; // Reset flag
+              } else if (isInitializingRef.current) {
+                console.log("🔄 Skipping sync - player is initializing");
+              }
+            }
+          },
         },
       });
 
       playerRef.current = player;
+
+      // No need for complex user interaction detection
+      // We'll use the sync flag approach instead
     } catch (error) {
       console.error("Failed to create YouTube player:", error);
     }
@@ -224,96 +229,123 @@ export const YouTubeRenderer: React.FC<WidgetRendererProps<YouTubeContent>> = ({
       }
       setIsPlayerReady(false);
     };
-  }, [isApiReady, videoId, widget.id, initialStartTime, onPlayerReady, onPlayerStateChange]);
+  }, [isApiReady, videoId, contentId, data.startTime]);
 
   // Sync player state when content changes from other users
   useEffect(() => {
-    if (!isPlayerReady || !playerRef.current || !data || isLocalUpdateRef.current) {
+    console.log("🔄 Sync effect triggered", {
+      isPlayerReady,
+      hasPlayer: !!playerRef.current,
+      contentId,
+      lastInteraction: data.lastInteraction,
+    });
+
+    if (!isPlayerReady || !playerRef.current) {
+      console.log("🔄 Skipping sync - player not ready or missing");
       return;
     }
 
     const player = playerRef.current;
+    const lastData = lastSyncDataRef.current;
 
     try {
-      const currentTime = player.getCurrentTime();
-      const currentState = player.getPlayerState();
-      const isCurrentlyPlaying = currentState === window.YT.PlayerState.PLAYING;
-
-      console.log("Syncing player state:", {
-        remoteIsPlaying: data.isPlaying,
-        localIsPlaying: isCurrentlyPlaying,
-        remoteTime: data.currentTime,
-        localTime: currentTime,
+      // We rely on justSyncedRef flag for feedback loop detection
+      // Timestamp-based detection was incorrectly flagging cross-browser events
+      console.log("🔄 Processing sync event", {
+        hasLastInteraction: !!data.lastInteraction,
+        interactionType: data.lastInteraction?.type,
+        interactionTime: data.lastInteraction?.timestamp,
       });
 
-      // Sync playback state
-      if (data.isPlaying !== isCurrentlyPlaying) {
-        if (data.isPlaying) {
-          console.log("🔄 Playing video (synced from other user)");
+      const currentState = player.getPlayerState();
+      const isCurrentlyPlaying = currentState === window.YT.PlayerState.PLAYING;
+      
+      // Get target state from last interaction
+      const targetIsPlaying = data.lastInteraction?.isPlaying ?? false;
+      const targetCurrentTime = data.lastInteraction?.currentTime ?? 0;
+
+      console.log("🔄 Sync state comparison", {
+        currentState,
+        isCurrentlyPlaying,
+        targetIsPlaying,
+        targetCurrentTime,
+        needsSync: targetIsPlaying !== isCurrentlyPlaying,
+      });
+
+      // Refined sync behavior: only sync play/pause interactions
+      if (targetIsPlaying !== isCurrentlyPlaying) {
+        console.log("🔄 SYNCING: State mismatch detected");
+        justSyncedRef.current = true; // Mark that we're about to sync
+        
+        if (targetIsPlaying) {
+          console.log("🔄 Playing video (synced from other user)", {
+            seekTo: targetCurrentTime,
+            action: "play",
+          });
+          // When someone plays, seek to their current time first, then play
+          player.seekTo(targetCurrentTime, true);
           player.playVideo();
         } else {
-          console.log("🔄 Pausing video (synced from other user)");
+          console.log("🔄 Pausing video (synced from other user)", {
+            action: "pause",
+          });
+          // When someone pauses, just pause - no seeking needed
           player.pauseVideo();
         }
+      } else {
+        console.log("🔄 No sync needed - states match");
       }
 
-      // Sync time position if there's a significant difference
-      const timeDifference = Math.abs(currentTime - data.currentTime);
-      if (timeDifference > 2) {
-        console.log(`🔄 Seeking to ${data.currentTime}s (diff: ${timeDifference.toFixed(1)}s)`);
-        player.seekTo(data.currentTime, true);
-      }
+      lastSyncDataRef.current = data;
     } catch (error) {
-      console.error("Failed to sync player:", error);
+      console.error("🔄 Failed to sync player:", error);
     }
-  }, [data, isPlayerReady]);
+  }, [data, isPlayerReady, contentId]);
 
-  // Periodic position updates when playing
-  useEffect(() => {
-    if (!isPlayerReady || !playerRef.current || !data?.isPlaying) {
-      return;
-    }
+  // No more periodic position sync - players run naturally once playing
 
-    const interval = setInterval(() => {
-      if (playerRef.current && dataRef.current && !isLocalUpdateRef.current) {
-        try {
-          const currentTime = playerRef.current.getCurrentTime();
-          const currentData = dataRef.current;
-          
-          // Only update if there's a meaningful change (every 2 seconds)
-          if (Math.abs(currentTime - currentData.currentTime) > 2) {
-            const currentWidget = widgetRef.current;
-            const currentUpdateContent = updateContentRef.current;
-            
-            if (currentWidget.isContentLoaded) {
-              // Set flag to prevent feedback loop
-              isLocalUpdateRef.current = true;
-              
-              const newData = {
-                ...currentData,
-                currentTime,
-                lastInteraction: {
-                  type: "seek" as const,
-                  timestamp: Date.now(),
-                },
-              };
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full" />
 
-              currentUpdateContent(currentWidget.contentId, { data: newData });
+      {/* Loading overlay */}
+      {!isPlayerReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black">
+          <div className="text-white">
+            {!isApiReady ? "Loading YouTube API..." : "Initializing player..."}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
-              // Reset flag after a short delay
-              setTimeout(() => {
-                isLocalUpdateRef.current = false;
-              }, 100);
-            }
-          }
-        } catch (error) {
-          console.warn("Periodic sync failed:", error);
-        }
-      }
-    }, 2000);
+// ============================================================================
+// YOUTUBE RENDERER - SIMPLE PRESENTATION LAYER
+// ============================================================================
 
-    return () => clearInterval(interval);
-  }, [isPlayerReady, data?.isPlaying]);
+export const YouTubeRenderer: React.FC<WidgetRendererProps<YouTubeContent>> = ({
+  widget,
+  state,
+  events,
+}) => {
+  const { updateContent } = useContentActions();
+
+  // Handle player events using content store pattern
+  const handlePlayerEvent = useCallback(
+    (updates: Partial<YouTubeContent>) => {
+      if (!widget.isContentLoaded || !widget.content.data) return;
+
+      const newData = {
+        ...widget.content.data,
+        ...updates,
+      };
+
+      // Update content store - this will sync automatically
+      updateContent(widget.contentId, { data: newData });
+    },
+    [widget, updateContent],
+  );
 
   // Loading state
   if (!widget.isContentLoaded) {
@@ -334,6 +366,7 @@ export const YouTubeRenderer: React.FC<WidgetRendererProps<YouTubeContent>> = ({
   }
 
   // Invalid video ID
+  const data = widget.content.data;
   if (!data?.videoId) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg bg-yellow-100">
@@ -344,17 +377,13 @@ export const YouTubeRenderer: React.FC<WidgetRendererProps<YouTubeContent>> = ({
 
   return (
     <div className="group relative h-full w-full overflow-hidden rounded-lg bg-black shadow-lg">
-      {/* Player container */}
-      <div key={widget.id} ref={containerRef} className="h-full w-full" />
-
-      {/* Loading overlay */}
-      {!isPlayerReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="text-white">
-            {!isApiReady ? "Loading YouTube API..." : "Initializing player..."}
-          </div>
-        </div>
-      )}
+      {/* Isolated Player Component */}
+      <IsolatedYouTubePlayer
+        videoId={data.videoId}
+        contentId={widget.contentId}
+        data={data}
+        onPlayerEvent={handlePlayerEvent}
+      />
 
       {/* Video info overlay */}
       {data.title && (
@@ -363,7 +392,7 @@ export const YouTubeRenderer: React.FC<WidgetRendererProps<YouTubeContent>> = ({
 
           {/* Party sync status */}
           <div className="mt-1 flex items-center gap-2 text-white text-xs opacity-75">
-            {data.isPlaying ? (
+            {data.lastInteraction?.isPlaying ? (
               <>
                 <div className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
                 <span>Playing</span>

@@ -90,14 +90,20 @@ export class YouTubeFactory implements WidgetFactory<YouTubeContent> {
       }
     }
 
+    // Create content following content store pattern
+    // Initial state is paused at the start time
     const content: YouTubeContent = {
       url,
       videoId,
       title: title || `YouTube Video (${videoId})`,
       thumbnail,
-      currentTime: startTime,
-      isPlaying: false,
       startTime,
+      lastInteraction: {
+        type: "pause",
+        timestamp: Date.now(),
+        currentTime: startTime,
+        isPlaying: false,
+      },
     };
 
     return {
@@ -244,12 +250,18 @@ export class YouTubeFactory implements WidgetFactory<YouTubeContent> {
         errors.push("Video ID is required and must be a string");
       }
 
-      if (typeof data.currentTime !== "number" || data.currentTime < 0) {
-        warnings.push("Current time should be a non-negative number");
-      }
+      if (data.lastInteraction) {
+        if (typeof data.lastInteraction.currentTime !== "number" || data.lastInteraction.currentTime < 0) {
+          warnings.push("Last interaction current time should be a non-negative number");
+        }
 
-      if (typeof data.isPlaying !== "boolean") {
-        warnings.push("isPlaying should be a boolean value");
+        if (typeof data.lastInteraction.isPlaying !== "boolean") {
+          warnings.push("Last interaction isPlaying should be a boolean value");
+        }
+
+        if (!["play", "pause", "seek"].includes(data.lastInteraction.type)) {
+          warnings.push("Last interaction type should be 'play', 'pause', or 'seek'");
+        }
       }
     }
 

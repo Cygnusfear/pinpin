@@ -24,7 +24,7 @@ export const youTubeTypeDefinition: WidgetTypeDefinition[] = [
 export class YouTubePlugin implements WidgetPlugin {
   id = "youtube";
   name = "YouTube Player";
-  version = "1.0.0";
+  version = "2.0.0";
   description =
     "Synchronized YouTube video player with real-time position sharing";
   author = "Pinboard Team";
@@ -66,3 +66,4 @@ export const youTubePlugin = new YouTubePlugin();
 // Export individual components for flexibility
 export { YouTubeFactory } from "./factory";
 export { YouTubeRenderer } from "./renderer";
+export type { YouTubeContent } from "./types";
