@@ -1,5 +1,6 @@
 import React, { type ReactNode, useEffect, useState } from "react";
 import { initializeSyncEngine } from "../config/syncEngine";
+import { sync } from "@tonk/keepsync";
 
 interface SyncProviderProps {
   children: ReactNode;
@@ -30,7 +31,7 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
       setStatus("initializing");
       setError(undefined);
 
-      const success = initializeSyncEngine();
+      const success = await initializeSyncEngine(); 
 
       if (success) {
         setStatus("synced");
@@ -112,8 +113,8 @@ const SyncStatusIndicator: React.FC = () => {
         return {
           icon: "🔄",
           text: "Connecting...",
-          color: "bg-yellow-500",
-          textColor: "text-yellow-900",
+          color: "bg-white",
+          textColor: "text-grey-500",
         };
       case "synced":
         return {

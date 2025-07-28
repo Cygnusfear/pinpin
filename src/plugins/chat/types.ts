@@ -17,6 +17,12 @@ export interface ChatContent {
     provider?: "claude" | "groq";
     enableProviderSwitching?: boolean;
     showProviderInMessages?: boolean;
+    markdownRendering?: {
+      enabled: boolean;
+      showThinkTags: boolean;
+      expandThinkTagsByDefault: boolean;
+      enableSyntaxHighlighting: boolean;
+    };
   };
 }
 

@@ -203,13 +203,13 @@ export class MCPInternalAdapter {
       },
       {
         name: "update_widget_content",
-        description: "Update the content/text inside a widget (separate from widget properties like position/size)",
+        description: "Update the content/text inside a widget (separate from widget properties like position/size). IMPORTANT: Use the exact contentId shown in view_all_pinboard_widgets output.",
         inputSchema: {
           type: "object",
           properties: {
             contentId: {
               type: "string",
-              description: "Content ID of the widget content to update",
+              description: "EXACT Content ID from view_all_pinboard_widgets (format: content_ck2act_XXXXXXXXX or similar). Do NOT modify or guess the ID.",
             },
             updates: {
               type: "object",
@@ -380,6 +380,7 @@ export class MCPInternalAdapter {
    - Position: (${w.x}, ${w.y})
    - Size: ${w.width} × ${w.height}
    - Created: ${new Date(w.createdAt || 0).toLocaleString()}
+   - **CONTENT ID FOR UPDATES: \`${w.contentId}\`** (use this exact ID for update_widget_content tool)
    - Content status: ${contentStatus}${contentPreview}`;
         }).join('\n\n');
         
@@ -553,11 +554,18 @@ export class MCPInternalAdapter {
         const cleanUpdates = JSON.parse(JSON.stringify(updates));
         
         // Update the specific content with clean data
+        // Map 'text' field to 'content' field for note widgets to match frontend expectations
+        const mappedUpdates = { ...cleanUpdates };
+        if (mappedUpdates.text && existingContent[contentId].type === 'note') {
+          mappedUpdates.content = mappedUpdates.text;
+          delete mappedUpdates.text;
+        }
+        
         existingContent[contentId] = {
           ...existingContent[contentId],
           data: {
             ...existingContent[contentId].data,
-            ...cleanUpdates,
+            ...mappedUpdates,
           },
           lastModified: Date.now(),
         };

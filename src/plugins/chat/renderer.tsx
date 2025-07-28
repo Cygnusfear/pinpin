@@ -7,6 +7,7 @@ import {
 } from "../../stores/selectiveHooks";
 import type { WidgetRendererProps } from "../../types/widgets";
 import type { ChatContent, ChatMessage } from "./types";
+import MarkdownRenderer from "./components/MarkdownRenderer";
 
 export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Selective subscriptions - only re-render when these specific values change
@@ -35,23 +36,57 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Function to scroll to bottom of chat
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((immediate = false) => {
     if (messagesContainerRef.current) {
       const container = messagesContainerRef.current;
       container.scrollTo({
         top: container.scrollHeight,
-        behavior: "smooth",
+        behavior: immediate ? "auto" : "smooth",
       });
     }
   }, []);
 
-  // Auto-scroll when messages change
+  // Enhanced auto-scroll when messages change
   useEffect(() => {
-    scrollToBottom();
-  }, [scrollToBottom]);
+    // Scroll immediately for new messages
+    scrollToBottom(true);
+    
+    // Then smooth scroll after a short delay to account for dynamic content rendering
+    const timeoutId = setTimeout(() => {
+      scrollToBottom(false);
+    }, 150);
+    
+    return () => clearTimeout(timeoutId);
+  }, [messages, scrollToBottom]);
+
+  // Observer for dynamic content changes (like think section expansions)
+  useEffect(() => {
+    if (!messagesContainerRef.current) return;
+    
+    const resizeObserver = new ResizeObserver((entries) => {
+      // Only auto-scroll if user is near the bottom (within 100px)
+      const container = messagesContainerRef.current;
+      if (container) {
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+        if (isNearBottom) {
+          scrollToBottom(false);
+        }
+      }
+    });
+    
+    // Observe all message content for size changes
+    const messageElements = messagesContainerRef.current.querySelectorAll('[data-message]');
+    messageElements.forEach(element => {
+      resizeObserver.observe(element);
+    });
+    
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [messages, scrollToBottom]);
 
   const handleSendMessage = useCallback(async () => {
-    if (!inputValue.trim() || !messages || isLoading) return;
+    if (!inputValue.trim() || !messages) return;
 
     const userMessage: ChatMessage = {
       role: "user",
@@ -70,6 +105,11 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     setInputValue("");
     setIsLoading(true);
     setError(null);
+
+    // Immediately refocus the input field for smooth conversation flow
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
 
     // Scroll to bottom after adding user message
     setTimeout(scrollToBottom, 100);
@@ -121,7 +161,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, messages, updateContent, isLoading, scrollToBottom]);
+  }, [inputValue, messages, updateContent, scrollToBottom]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -129,9 +169,33 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
         e.preventDefault();
         handleSendMessage();
       }
+      // Ctrl+K to clear conversation
+      if (e.key === "k" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setShowClearDialog(true);
+      }
+      // Escape to close clear dialog
+      if (e.key === "Escape" && showClearDialog) {
+        e.preventDefault();
+        setShowClearDialog(false);
+      }
     },
-    [handleSendMessage],
+    [handleSendMessage, showClearDialog],
   );
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Focus input with Ctrl+/ or Cmd+/
+      if (e.key === "/" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   const handleClearConversation = useCallback(() => {
     if (!messages) return;
@@ -201,6 +265,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
             {messages.map((message, index) => (
               <div
                 key={index}
+                data-message
                 className={`flex ${
                   message.role === "user" ? "justify-end" : "justify-start"
                 }`}
@@ -212,9 +277,19 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                       : "bg-gray-100 text-gray-800"
                   }`}
                 >
-                  <div className="whitespace-pre-wrap break-words">
-                    {message.content}
-                  </div>
+                  {message.role === "assistant" ? (
+                    <MarkdownRenderer
+                      content={message.content}
+                      className="prose prose-sm max-w-none"
+                      showThinkTags={true}
+                      expandThinkTagsByDefault={false}
+                      enableSyntaxHighlighting={true}
+                    />
+                  ) : (
+                    <div className="whitespace-pre-wrap break-words">
+                      {message.content}
+                    </div>
+                  )}
                   <div
                     className={`mt-1 flex items-center justify-between text-xs ${
                       message.role === "user"
@@ -293,20 +368,16 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type your message..."
-            disabled={isLoading}
-            className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
+            className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           />
           <button
             type="button"
             onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isLoading}
+            disabled={!inputValue.trim()}
             className="rounded bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            {isLoading ? "..." : "Send"}
+            Send
           </button>
-        </div>
-        <div className="mt-1 text-gray-500 text-xs">
-          Press Enter to send, Shift+Enter for new line
         </div>
       </div>
 

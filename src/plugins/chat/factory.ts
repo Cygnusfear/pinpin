@@ -44,6 +44,12 @@ export class ChatFactory implements WidgetFactory<ChatContent> {
       settings: {
         maxMessages: 100,
         autoScroll: true,
+        markdownRendering: {
+          enabled: true,
+          showThinkTags: true,
+          expandThinkTagsByDefault: false,
+          enableSyntaxHighlighting: true,
+        },
       },
     };
 
