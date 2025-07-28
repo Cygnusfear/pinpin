@@ -79,14 +79,14 @@ export class TerminalSessionManager extends EventEmitter {
       id: sessionId,
       ptyProcess,
       isActive: true,
-      createdAt: Date.now(),
-      lastActivity: Date.now(),
+      createdAt: new Date().toISOString(),
+      lastActivity: new Date().toISOString(),
       widgetId,
     };
 
     // Set up PTY event handlers
     ptyProcess.onData((data: string) => {
-      session.lastActivity = Date.now();
+      session.lastActivity = new Date().toISOString();
       this.emit("data", sessionId, data);
     });
 
@@ -125,7 +125,7 @@ export class TerminalSessionManager extends EventEmitter {
       return false;
     }
 
-    session.lastActivity = Date.now();
+    session.lastActivity = new Date().toISOString();
     session.ptyProcess.write(data);
     return true;
   }
@@ -140,7 +140,7 @@ export class TerminalSessionManager extends EventEmitter {
     }
 
     session.ptyProcess.resize(cols, rows);
-    session.lastActivity = Date.now();
+    session.lastActivity = new Date().toISOString();
     return true;
   }
 
@@ -195,7 +195,7 @@ export class TerminalSessionManager extends EventEmitter {
    * Clean up inactive sessions (older than 1 hour with no activity)
    */
   private cleanupInactiveSessions(): void {
-    const cutoffTime = Date.now() - 60 * 60 * 1000; // 1 hour ago
+    const cutoffTime = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1 hour ago
     const sessionsToDestroy: string[] = [];
 
     for (const [sessionId, session] of this.sessions) {

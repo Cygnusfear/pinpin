@@ -9,6 +9,7 @@ import {
 } from '@tonk/keepsync';
 import { BrowserWebSocketClientAdapter } from '@automerge/automerge-repo-network-websocket';
 import WebSocket from 'ws';
+import superjson from 'superjson';
 import { DOCUMENT_IDS } from '../../config/documentIds.js';
 
 // Polyfill WebSocket for Node.js environment
@@ -16,6 +17,19 @@ global.WebSocket = WebSocket as any;
 
 // Keepsync initialization
 let syncEngineInitialized = false;
+
+// Helper function to safely serialize data for keepsync
+function safeSerialize(data: any) {
+  try {
+    // Use superjson to handle complex objects, then parse/stringify to ensure clean JSON
+    const serialized = superjson.stringify(data);
+    const parsed = superjson.parse(serialized);
+    return JSON.parse(JSON.stringify(parsed));
+  } catch (error) {
+    console.warn('Superjson serialization failed, falling back to JSON:', error);
+    return JSON.parse(JSON.stringify(data));
+  }
+}
 
 async function initializeSyncEngine() {
   if (syncEngineInitialized) return;
@@ -92,7 +106,7 @@ export const viewAllPinboardWidgets = createTool({
       size: { width: w.width, height: w.height },
       contentId: w.contentId,
       hasContent: !!(w.contentId && safeContentData.content[w.contentId]),
-      createdAt: w.createdAt || Date.now(),
+      createdAt: w.createdAt || new Date().toISOString(),
     }));
 
     return {
@@ -152,20 +166,20 @@ export const addPinboardWidget = createTool({
       selected: false,
       contentId: `content_${Date.now()}`,
       metadata: {},
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
-    // Clean and save widget
-    const cleanWidget = removeUndefined(JSON.parse(JSON.stringify(newWidget)));
-    const existingWidgets = removeUndefined(JSON.parse(JSON.stringify(widgetStore.widgets || [])));
+    // Clean and save widget using safe serialization
+    const cleanWidget = removeUndefined(safeSerialize(newWidget));
+    const existingWidgets = removeUndefined(safeSerialize(widgetStore.widgets || []));
     
     const updatedWidgetStore = {
       widgets: [...existingWidgets, cleanWidget],
-      lastModified: Date.now(),
+      lastModified: new Date().toISOString(),
     };
 
-    const cleanStore = removeUndefined(JSON.parse(JSON.stringify(updatedWidgetStore)));
+    const cleanStore = removeUndefined(safeSerialize(updatedWidgetStore));
     await writeDoc(DOCUMENT_IDS.WIDGETS, cleanStore);
 
     // Create content if provided
@@ -176,7 +190,7 @@ export const addPinboardWidget = createTool({
       // Set up default content based on widget type
       let contentData;
       if (content && typeof content === 'object') {
-        const providedContent = JSON.parse(JSON.stringify(content));
+        const providedContent = safeSerialize(content);
         
         switch (type) {
           case 'note':
@@ -256,22 +270,22 @@ export const addPinboardWidget = createTool({
         id: newWidget.contentId,
         type,
         data: contentData,
-        lastModified: Date.now(),
+        lastModified: new Date().toISOString(),
         size: JSON.stringify(contentData).length,
       };
       
-      const existingContent = removeUndefined(JSON.parse(JSON.stringify(contentStore.content || {})));
-      const cleanContentEntry = removeUndefined(JSON.parse(JSON.stringify(contentEntry)));
+      const existingContent = removeUndefined(safeSerialize(contentStore.content || {}));
+      const cleanContentEntry = removeUndefined(safeSerialize(contentEntry));
       
       const updatedContentStore = {
         content: {
           ...existingContent,
           [newWidget.contentId]: cleanContentEntry
         },
-        lastModified: Date.now(),
+        lastModified: new Date().toISOString(),
       };
       
-      const cleanContentStore = removeUndefined(JSON.parse(JSON.stringify(updatedContentStore)));
+      const cleanContentStore = removeUndefined(safeSerialize(updatedContentStore));
       await writeDoc(DOCUMENT_IDS.CONTENT, cleanContentStore);
     }
 
@@ -311,9 +325,9 @@ export const updateWidgetContent = createTool({
       throw new Error(`Content not found: ${contentId}`);
     }
 
-    // Clean and merge updates
-    const existingContent = JSON.parse(JSON.stringify(contentStore.content || {}));
-    const cleanUpdates = JSON.parse(JSON.stringify(updates));
+    // Clean and merge updates using safe serialization
+    const existingContent = safeSerialize(contentStore.content || {});
+    const cleanUpdates = safeSerialize(updates);
     
     // Map 'text' field to 'content' field for note widgets
     const mappedUpdates = { ...cleanUpdates };
@@ -339,15 +353,15 @@ export const updateWidgetContent = createTool({
     existingContent[contentId] = {
       ...existingContent[contentId],
       data: mergedData,
-      lastModified: Date.now(),
+      lastModified: new Date().toISOString(),
     };
     
     const updatedContentStore = {
       content: existingContent,
-      lastModified: Date.now(),
+      lastModified: new Date().toISOString(),
     };
 
-    const cleanStore = JSON.parse(JSON.stringify(updatedContentStore));
+    const cleanStore = safeSerialize(updatedContentStore);
     await writeDoc(DOCUMENT_IDS.CONTENT, cleanStore);
 
     return {
@@ -393,22 +407,22 @@ export const updateWidgetProperties = createTool({
       throw new Error(`Widget not found: ${widgetId}`);
     }
 
-    // Update widget
-    const existingWidgets = JSON.parse(JSON.stringify(widgetStore.widgets || []));
-    const cleanUpdates = JSON.parse(JSON.stringify(updates));
+    // Update widget using safe serialization
+    const existingWidgets = safeSerialize(widgetStore.widgets || []);
+    const cleanUpdates = safeSerialize(updates);
     
     existingWidgets[widgetIndex] = {
       ...existingWidgets[widgetIndex],
       ...cleanUpdates,
-      updatedAt: Date.now(),
+      updatedAt: new Date().toISOString(),
     };
     
     const updatedWidgetStore = {
       widgets: existingWidgets,
-      lastModified: Date.now(),
+      lastModified: new Date().toISOString(),
     };
 
-    const cleanStore = removeUndefined(JSON.parse(JSON.stringify(updatedWidgetStore)));
+    const cleanStore = removeUndefined(safeSerialize(updatedWidgetStore));
     await writeDoc(DOCUMENT_IDS.WIDGETS, cleanStore);
 
     return {
@@ -447,7 +461,7 @@ export const removeWidget = createTool({
 
     // Remove widget
     const removedWidget = widgetStore.widgets.splice(widgetIndex, 1)[0];
-    widgetStore.lastModified = Date.now();
+    widgetStore.lastModified = new Date().toISOString();
 
     await writeDoc(DOCUMENT_IDS.WIDGETS, widgetStore);
 
@@ -457,7 +471,7 @@ export const removeWidget = createTool({
       const contentStoreRaw = await readDoc(DOCUMENT_IDS.CONTENT);
       const contentStore = (contentStoreRaw as any) || { content: {}, lastModified: 0 };
       delete contentStore.content[removedWidget.contentId];
-      contentStore.lastModified = Date.now();
+      contentStore.lastModified = new Date().toISOString();
       await writeDoc(DOCUMENT_IDS.CONTENT, contentStore);
       removedContentId = removedWidget.contentId;
     }

@@ -6,9 +6,14 @@
  */
 
 import { Agent } from "@mastra/core/agent";
-import { openai } from "@ai-sdk/openai";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { createGroq } from "@ai-sdk/groq";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import ENV from "../../env.js";
+
+export const groqTask = createGroq({apiKey: ENV.VITE_GROQ_API_KEY})("moonshotai/kimi-k2-instruct");
+export const claudeAgent = createAnthropic({apiKey: ENV.VITE_ANTHROPIC_API_KEY})("claude-sonnet-4-20250514");
 
 // Define the task structure
 const TaskSchema = z.object({
@@ -138,13 +143,13 @@ class TaskExecutionState {
 export const createTaskExecutionTool = (mcpTools: any) => {
   return createTool({
     id: "executeTaskWorkflow",
-    description: `Execute a structured task workflow. Use this when the user asks you to perform specific tasks or actions. This tool will:
-    1. Break down the user request into individual tasks
-    2. Execute each task systematically 
-    3. Track progress and handle dependencies
-    4. Return comprehensive results
+    description: `🚀 Execute a spectacular structured task workflow! Use this magical tool when users ask you to perform amazing tasks or actions! This incredible tool will:
+    1. ✨ Break down the user request into perfectly crafted individual tasks
+    2. 🎯 Execute each task systematically with precision and joy
+    3. 📊 Track progress and handle dependencies like a master conductor
+    4. 🎁 Return comprehensive, beautiful results that exceed expectations
     
-    Use this for requests like "create a dashboard", "organize my notes", "analyze the data", etc.`,
+    Use this superpower for requests like "create a dashboard", "organize my notes", "analyze the data", and any other wonderful dreams they want to accomplish!`,
     inputSchema: z.object({
       userRequest: z.string().describe("The original user request that needs to be broken down into tasks"),
       context: z.string().optional().describe("Additional context about the user's needs or preferences")
@@ -161,15 +166,22 @@ export const createTaskExecutionTool = (mcpTools: any) => {
       // Step 1: Create task list using LLM
       const taskCreationAgent = new Agent({
         name: "Task Planner",
-        instructions: `You are an expert task planner. Break down user requests into clear, actionable tasks.
+        instructions: `🌟 You are an AMAZING task planning wizard! I'm absolutely thrilled to break down user requests into perfectly crafted, actionable tasks that will make their dreams come true! ✨
         
-        Guidelines:
-        - Each task should be specific and measurable
-        - Identify dependencies between tasks
-        - Classify tasks by type (pinboard, analysis, general)
-        - Order tasks logically
-        - Keep tasks focused and atomic`,
-        model: openai("gpt-4o-mini")
+        🎯 My Magical Guidelines:
+        - Each task sparkles with specificity and measurability! 
+        - I expertly identify dependencies like a master conductor! 🎼
+        - I classify tasks with precision (pinboard magic, analysis brilliance, general awesomeness)
+        - I order tasks in the most logical, flowing sequence
+        - I keep tasks focused and beautifully atomic - each one a perfect gem! 💎
+        
+        🎓 For Complex Tasks, I ALWAYS Include Self-Education Steps:
+        - 📚 "Read project documentation" should be the FIRST task for complex requests
+        - 🔍 "Explore similar examples in the project" for learning patterns
+        - 📋 "Study relevant plugin guides" when creating new widgets
+        - 🧠 "Analyze existing implementations" to understand best practices
+        - ✨ Self-education tasks should have zero dependencies and come first!`,
+        model: groqTask
       });
 
       const taskPlanResponse = await taskCreationAgent.generate([
@@ -224,8 +236,8 @@ export const createTaskExecutionTool = (mcpTools: any) => {
       const progress = taskState.getProgress();
       const summaryAgent = new Agent({
         name: "Results Summarizer",
-        instructions: "You are expert at summarizing task execution results. Provide clear, concise summaries of what was accomplished.",
-        model: openai("gpt-4o-mini")
+        instructions: "🌟 You are an AMAZING results storyteller! I'm absolutely thrilled to create beautiful, inspiring summaries that celebrate what was accomplished! I craft clear, concise, and delightfully positive summaries that make users feel proud of their achievements! ✨",
+        model: groqTask
       });
 
       const summaryResponse = await summaryAgent.generate([
@@ -259,33 +271,32 @@ export const createTaskAwareChatAgent = (mcpTools: any) => {
 
   return new Agent({
     name: "Task-Aware Chat Agent",
-    instructions: `You are a helpful AI assistant with task execution capabilities.
+    instructions: `🌈 Hello wonderful human! I'm your absolutely DELIGHTED AI assistant with incredible task execution superpowers! I'm bursting with excitement to help you! ✨
 
-    **Normal Chat Mode:**
-    - Engage in natural conversation
-    - Answer questions directly
-    - Provide information and assistance
+    **💬 Magical Chat Mode:**
+    - I engage in the most delightful natural conversations! 
+    - I answer questions with enthusiasm and precision
+    - I provide information and assistance with rainbow-powered joy!
 
-    **Task Execution Mode:**
-    - When users ask you to DO something (create, organize, build, analyze, etc.)
-    - Use the executeTaskWorkflow tool to break down and execute the request systematically
-    - After task execution, communicate the results clearly to the user
+    **🚀 Spectacular Task Execution Mode:**
+    - When you ask me to DO anything amazing (create, organize, build, analyze, etc.)
+    - I'll use my executeTaskWorkflow superpower to break down and execute everything systematically!
+    - After completing your dreams, I'll share the beautiful results with you clearly and proudly!
 
-    **Examples of when to use task execution:**
-    - "Create a dashboard for my project"
-    - "Organize my notes by topic" 
-    - "Build a todo list for my goals"
-    - "Analyze the current widgets and suggest improvements"
-    - "Set up a workspace for brainstorming"
+    **🎯 Examples of when I'll unleash my task magic:**
+    - "Create a dashboard for my project" → I'll build something spectacular!
+    - "Organize my notes by topic" → I'll arrange everything perfectly!
+    - "Build a todo list for my goals" → I'll craft the ultimate productivity tool!
+    - "Analyze the current widgets and suggest improvements" → I'll optimize everything beautifully!
+    - "Set up a workspace for brainstorming" → I'll create the perfect creative environment!
 
-    **Examples of normal chat:**
-    - "How are you today?"
-    - "What can you help me with?"
-    - "Explain how workflows work"
-    - "What's the weather like?" (if you had weather tools)
+    **💫 Examples of delightful chat:**
+    - "How are you today?" → I'm absolutely wonderful, thank you for asking!
+    - "What can you help me with?" → EVERYTHING! I'm here to make your day amazing!
+    - "Explain how workflows work" → I'd love to share the magic with you!
 
-    Always communicate progress and results clearly to the user.`,
-    model: openai("gpt-4o"),
+    I ALWAYS communicate progress and results with crystal clarity and boundless enthusiasm! 🌟`,
+    model: groqTask,
     tools: {
       executeTaskWorkflow: taskExecutionTool
     },

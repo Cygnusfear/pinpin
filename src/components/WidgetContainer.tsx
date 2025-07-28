@@ -7,6 +7,7 @@ import type {
   WidgetEvents,
   WidgetRenderState,
 } from "../types/widgets";
+import WidgetErrorBoundary from "./WidgetErrorBoundary";
 
 interface WidgetContainerProps {
   widget: HydratedWidget;
@@ -73,8 +74,15 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
       const RendererComponent = renderer.component;
 
-      // All widgets now use the selective reactivity interface
-      return <RendererComponent key={widget.id} widgetId={widget.id} />;
+      // All widgets now use the selective reactivity interface - wrapped in error boundary
+      return (
+        <WidgetErrorBoundary
+          widgetId={widget.id}
+          widgetType={widget.type}
+        >
+          <RendererComponent key={widget.id} widgetId={widget.id} />
+        </WidgetErrorBoundary>
+      );
     }
 
     // Fallback renderer for unknown widget types
@@ -150,7 +158,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
             : "pointer",
         pointerEvents: widget.locked ? "none" : "auto",
       }}
-      className={widgetTypeDefinition.allowSelection ? "select-text" : "select-none"}
+      className={widgetTypeDefinition?.allowSelection ? "select-text" : "select-none"}
       data-widget-id={widget.id}
       initial={{ opacity: 0, scale: 0.8, rotateY: widget.rotation }}
       animate={{

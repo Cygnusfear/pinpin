@@ -124,7 +124,7 @@ export class MastraChatService {
             metadata: { 
               userId: request.userId,
               sessionId: request.sessionId,
-              startedAt: Date.now()
+              startedAt: new Date().toISOString()
             }
           },
           resource: request.userId,
@@ -217,7 +217,7 @@ export class MastraChatService {
             metadata: { 
               userId: request.userId,
               sessionId: request.sessionId,
-              startedAt: Date.now()
+              startedAt: new Date().toISOString()
             }
           },
           resource: request.userId,
@@ -299,7 +299,7 @@ export class MastraChatService {
         messages: result.messages.map((msg: any) => ({
           role: msg.role,
           content: msg.content,
-          timestamp: msg.timestamp || Date.now(),
+          timestamp: msg.timestamp || new Date().toISOString(),
         })),
         threadId: conversationId,
         totalMessages: result.messages.length,

@@ -178,8 +178,8 @@ class KeepsyncMCPServer {
       selected: false,
       contentId: `content_${Date.now()}`, // Always create contentId for all widgets
       metadata: {},
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // Create completely clean objects with deep serialization to avoid Automerge reference issues
@@ -188,7 +188,7 @@ class KeepsyncMCPServer {
     
     const updatedWidgetStore = {
       widgets: [...existingWidgets, cleanWidget],
-      lastModified: Date.now(),
+      lastModified: new Date().toISOString(),
     };
 
     // Ensure the entire store is clean
@@ -299,7 +299,7 @@ class KeepsyncMCPServer {
         id: newWidget.contentId,
         type: args.type as string,
         data: contentData, // Wrap content in data field to match frontend
-        lastModified: Date.now(),
+        lastModified: new Date().toISOString(),
         size: JSON.stringify(contentData).length, // Calculate approximate size
       };
       
@@ -312,7 +312,7 @@ class KeepsyncMCPServer {
           ...existingContent,
           [newWidget.contentId!]: cleanContentEntry
         },
-        lastModified: Date.now(),
+        lastModified: new Date().toISOString(),
       };
       
       // Ensure the entire content store is clean
@@ -368,12 +368,12 @@ The widget has been added to the pinboard${contentInfo} and is now available for
     existingWidgets[widgetIndex] = {
       ...existingWidgets[widgetIndex],
       ...updates,
-      updatedAt: Date.now(),
+      updatedAt: new Date().toISOString(),
     };
     
     const updatedWidgetStore = {
       widgets: existingWidgets,
-      lastModified: Date.now(),
+      lastModified: new Date().toISOString(),
     };
 
     // Ensure the entire store is clean
@@ -479,12 +479,12 @@ The widget has been added to the pinboard${contentInfo} and is now available for
     existingContent[contentId] = {
       ...existingContent[contentId],
       data: mergedData,
-      lastModified: Date.now(),
+      lastModified: new Date().toISOString(),
     };
     
     const updatedContentStore = {
       content: existingContent,
-      lastModified: Date.now(),
+      lastModified: new Date().toISOString(),
     };
 
     // Ensure the entire store is clean
@@ -526,7 +526,7 @@ The widget content has been updated and changes should be visible on the pinboar
 
     // Remove widget
     const removedWidget = widgetStore.widgets.splice(widgetIndex, 1)[0];
-    widgetStore.lastModified = Date.now();
+    widgetStore.lastModified = new Date().toISOString();
 
     // Save updated store
     await writeDoc(DOCUMENT_IDS.WIDGETS, widgetStore);
@@ -539,7 +539,7 @@ The widget content has been updated and changes should be visible on the pinboar
         lastModified: 0,
       };
       delete contentStore.content[removedWidget.contentId];
-      contentStore.lastModified = Date.now();
+      contentStore.lastModified = new Date().toISOString();
       await writeDoc(DOCUMENT_IDS.CONTENT, contentStore);
     }
 

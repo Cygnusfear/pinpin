@@ -8,6 +8,7 @@
 
 import { KeepsyncMCPServer } from "../mcpServer.js";
 import { DOCUMENT_IDS } from "../config/documentIds.js";
+import superjson from 'superjson';
 import type {
   Tool,
   CallToolResult,
@@ -33,6 +34,19 @@ export interface MCPResource {
   mimeType: string;
   name: string;
   description: string;
+}
+
+// Helper function to safely serialize data for keepsync
+function safeSerialize(data: any) {
+  try {
+    // Use superjson to handle complex objects, then parse/stringify to ensure clean JSON
+    const serialized = superjson.stringify(data);
+    const parsed = superjson.parse(serialized);
+    return JSON.parse(JSON.stringify(parsed));
+  } catch (error) {
+    console.warn('Superjson serialization failed, falling back to JSON:', error);
+    return JSON.parse(JSON.stringify(data));
+  }
 }
 
 /**
@@ -453,8 +467,8 @@ export class MCPInternalAdapter {
           selected: false,
           contentId: args.content ? `content_${Date.now()}` : undefined,
           metadata: {},
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
 
         // Create completely clean objects with deep serialization to avoid Automerge reference issues
@@ -463,7 +477,7 @@ export class MCPInternalAdapter {
         
         const updatedWidgetStore = {
           widgets: [...existingWidgets, cleanWidget],
-          lastModified: Date.now(),
+          lastModified: new Date().toISOString(),
         };
 
         // Ensure the entire store is clean
@@ -480,7 +494,7 @@ export class MCPInternalAdapter {
             id: newWidget.contentId!,
             type: args.type as string,
             data: contentData, // Wrap content in data field to match frontend
-            lastModified: Date.now(),
+            lastModified: new Date().toISOString(),
             size: JSON.stringify(contentData).length, // Calculate approximate size
           };
           
@@ -493,7 +507,7 @@ export class MCPInternalAdapter {
               ...existingContent,
               [newWidget.contentId!]: cleanContentEntry
             },
-            lastModified: Date.now(),
+            lastModified: new Date().toISOString(),
           };
           
           // Ensure the entire content store is clean
@@ -528,12 +542,12 @@ export class MCPInternalAdapter {
         existingWidgets[widgetIndex] = {
           ...existingWidgets[widgetIndex],
           ...updates,
-          updatedAt: Date.now(),
+          updatedAt: new Date().toISOString(),
         };
         
         const updatedWidgetStore = {
           widgets: existingWidgets,
-          lastModified: Date.now(),
+          lastModified: new Date().toISOString(),
         };
 
         // Ensure the entire store is clean
@@ -581,12 +595,12 @@ export class MCPInternalAdapter {
             ...existingContent[contentId].data,
             ...mappedUpdates,
           },
-          lastModified: Date.now(),
+          lastModified: new Date().toISOString(),
         };
         
         const updatedContentStore = {
           content: existingContent,
-          lastModified: Date.now(),
+          lastModified: new Date().toISOString(),
         };
 
         // Ensure the entire store is clean
@@ -627,7 +641,7 @@ The widget content has been updated and changes should be visible on the pinboar
         
         const updatedWidgetStore = {
           widgets: existingWidgets,
-          lastModified: Date.now(),
+          lastModified: new Date().toISOString(),
         };
 
         // Ensure the entire store is clean
@@ -643,7 +657,7 @@ The widget content has been updated and changes should be visible on the pinboar
           
           const updatedContentStore = {
             content: existingContent,
-            lastModified: Date.now(),
+            lastModified: new Date().toISOString(),
           };
           
           const cleanContentStore = JSON.parse(JSON.stringify(updatedContentStore));
