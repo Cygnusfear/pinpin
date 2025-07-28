@@ -768,17 +768,27 @@ The widget content has been updated and changes should be visible on the pinboar
           {
             name: "update_pinboard_widget",
             description:
-              "Update widget properties like position, size, rotation, z-index (NOT content - use update_widget_content for that)",
+              "Update widget properties like position, size, rotation, z-index (NOT content - use update_widget_content for that). IMPORTANT: Use exact widget ID from view_all_pinboard_widgets and nest properties inside 'updates' object.",
             inputSchema: {
               type: "object",
               properties: {
                 id: {
                   type: "string",
-                  description: "Widget ID to update",
+                  description: "EXACT Widget ID from view_all_pinboard_widgets (format: widget_XXXXX_XXXXX). NOT contentId!",
                 },
                 updates: {
                   type: "object",
-                  description: "Widget properties to update (x, y, width, height, rotation, zIndex, locked, etc.)",
+                  description: "Widget properties to update. Example: {\"x\": 100, \"y\": 200, \"width\": 300, \"height\": 150}",
+                  properties: {
+                    id: { type: "string", description: "EXACT Widget ID from view_all_pinboard_widgets (format: widget_XXXXX_XXXXX). NOT contentId!" },
+                    x: { type: "number", description: "X coordinate" },
+                    y: { type: "number", description: "Y coordinate" },
+                    width: { type: "number", description: "Widget width" },
+                    height: { type: "number", description: "Widget height" },
+                    rotation: { type: "number", description: "Rotation in degrees" },
+                    zIndex: { type: "number", description: "Z-index for layering" },
+                    locked: { type: "boolean", description: "Whether widget is locked" }
+                  }
                 },
               },
               required: ["id", "updates"],

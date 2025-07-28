@@ -163,11 +163,38 @@ export const groqChatHandler = async (req: Request, res: Response) => {
     console.log("Tool calls count:", assistantMessage.tool_calls?.length || 0);
     console.log("==========================");
 
-    // Handle tool calls if present
-    if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+    // Check if the AI outputted JSON tool calls in text content instead of using proper tool calling
+    let detectedToolCalls: any[] = [];
+    if (assistantMessage.content && !assistantMessage.tool_calls) {
+      const toolCallRegex = /\{"name":\s*"([^"]+)",\s*"arguments":\s*(\{[^}]*\})\}/g;
+      let match;
+      while ((match = toolCallRegex.exec(assistantMessage.content)) !== null) {
+        try {
+          const [fullMatch, toolName, argsString] = match;
+          const args = JSON.parse(argsString);
+          
+          detectedToolCalls.push({
+            id: `detected_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            type: "function",
+            function: {
+              name: toolName,
+              arguments: argsString
+            }
+          });
+          
+          console.log(`🔍 Detected raw JSON tool call: ${toolName}`);
+        } catch (error) {
+          console.log(`⚠️  Failed to parse detected tool call: ${match[0]}`);
+        }
+      }
+    }
+
+    // Handle tool calls if present (either from proper tool calling or detected in text)
+    const toolCallsToProcess = assistantMessage.tool_calls || detectedToolCalls;
+    if (toolCallsToProcess && toolCallsToProcess.length > 0) {
       // Process tool calls
       const toolResults = await processGroqToolCalls(
-        assistantMessage.tool_calls,
+        toolCallsToProcess,
       );
 
       // Create follow-up conversation with tool results
@@ -176,7 +203,7 @@ export const groqChatHandler = async (req: Request, res: Response) => {
         {
           role: "assistant" as const,
           content: assistantMessage.content,
-          tool_calls: assistantMessage.tool_calls,
+          tool_calls: toolCallsToProcess,
         },
         ...toolResults,
       ];
@@ -199,7 +226,7 @@ export const groqChatHandler = async (req: Request, res: Response) => {
         success: true,
         data: {
           message: finalMessage?.content || "Task completed successfully",
-          tool_calls: assistantMessage.tool_calls,
+          tool_calls: toolCallsToProcess,
           tool_results: toolResults,
         },
       });
