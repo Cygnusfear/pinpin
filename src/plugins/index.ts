@@ -5,6 +5,7 @@ import { documentPlugin } from "./document";
 import { imagePlugin } from "./image";
 import { notePlugin } from "./note";
 import { terminalPlugin } from "./terminal";
+import { timerWidgetPlugin } from "./timer";
 import { todoPlugin } from "./todo";
 import { urlPlugin } from "./url";
 import { youTubePlugin } from "./youtube";
@@ -17,6 +18,7 @@ export const plugins = [
   calculatorPlugin,
   chatPlugin,
   notePlugin,
+  timerWidgetPlugin,
   todoPlugin,
   imagePlugin,
   terminalPlugin,
@@ -100,6 +102,7 @@ export { DocumentFactory, DocumentRenderer, documentPlugin } from "./document";
 export { ImageFactory, ImageRenderer, imagePlugin } from "./image";
 export { NoteFactory, NoteRenderer, notePlugin } from "./note";
 export { TerminalFactory, TerminalRenderer, terminalPlugin } from "./terminal";
+export { TimerWidgetFactory, TimerWidgetRenderer, timerWidgetPlugin } from "./timer";
 export { TodoFactory, TodoRenderer, todoPlugin } from "./todo";
 export { UrlFactory, UrlRenderer, urlPlugin } from "./url";
 export { YouTubeFactory, YouTubeRenderer, youTubePlugin } from "./youtube";

@@ -1,6 +1,41 @@
 import { RuntimeContext } from '@mastra/core/runtime-context';
 import { getPinboardAgent } from '../index.js';
 
+/**
+ * Convert technical tool names to user-friendly descriptions
+ */
+const getFriendlyToolName = (toolName: string): string => {
+  const toolMap: Record<string, string> = {
+    // Pinboard tools
+    'viewAllPinboardWidgets': 'pinboard viewer',
+    'addPinboardWidget': 'widget creator',
+    'updateWidgetContent': 'content editor',
+    'updateWidgetProperties': 'widget configurator',
+    'removeWidget': 'widget remover',
+    'getPinboardUIState': 'UI state inspector',
+    
+    // Task workflow
+    'executeTaskWorkflow': 'task workflow system',
+    
+    // File editing tools (MCP)
+    'file-editor_edit_file_lines': 'file line editor',
+    'file-editor_approve_edit': 'edit approval system',
+    'file-editor_get_file_lines': 'file inspector',
+    'file-editor_search_file': 'file search',
+    
+    // Filesystem tools (MCP)
+    'filesystem_read_file': 'file reader',
+    'filesystem_write_file': 'file writer',
+    'filesystem_create_directory': 'directory creator',
+    'filesystem_list_directory': 'directory browser',
+    'filesystem_move_file': 'file mover',
+    'filesystem_search_files': 'file search engine',
+    'filesystem_get_file_info': 'file info inspector',
+  };
+  
+  return toolMap[toolName] || toolName.replace(/_/g, ' ').toLowerCase();
+};
+
 export interface MastraChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -78,6 +113,9 @@ export class MastraChatService {
         { role: 'user' as const, content: request.message }
       ];
 
+      // Track tool executions for user visibility
+      let toolExecutionMessages: string[] = [];
+
       // Generate response with memory management
       const response = await agent.generate(messages, {
         memory: {
@@ -92,11 +130,18 @@ export class MastraChatService {
           resource: request.userId,
         },
         runtimeContext,
-        maxSteps: request.maxSteps || 10,
+        maxSteps: request.maxSteps || 50,
         temperature: request.temperature || 0.7,
         onStepFinish: ({ text, toolCalls, toolResults }) => {
           if (toolCalls?.length) {
             console.log(`🔧 Mastra: Executed ${toolCalls.length} tools`);
+            
+            // Add user-friendly tool execution messages
+            toolCalls.forEach((toolCall: any) => {
+              const toolName = toolCall.toolName || 'unknown tool';
+              const friendlyName = getFriendlyToolName(toolName);
+              toolExecutionMessages.push(`🔧 Using ${friendlyName}...`);
+            });
           }
         },
       });
@@ -104,9 +149,14 @@ export class MastraChatService {
       // Determine which model was used
       const model = await agent.getModel({ runtimeContext });
       
+      // Combine tool execution messages with the agent's response
+      const finalMessage = toolExecutionMessages.length > 0 
+        ? `${toolExecutionMessages.join('\n')}\n\n${response.text}`
+        : response.text;
+
       return {
         success: true,
-        message: response.text,
+        message: finalMessage,
         toolCalls: response.toolCalls || [],
         metadata: {
           provider: 'mastra',
@@ -115,6 +165,7 @@ export class MastraChatService {
           conversationId: request.conversationId,
           userId: request.userId,
           steps: response.toolCalls?.length || 0,
+          toolExecutions: toolExecutionMessages,
         },
       };
 
@@ -155,6 +206,9 @@ export class MastraChatService {
         { role: 'user' as const, content: request.message }
       ];
 
+      // Track tool executions for user visibility (streaming)
+      let toolExecutionMessages: string[] = [];
+
       // Stream response with memory management
       const stream = await agent.stream(messages, {
         memory: {
@@ -169,11 +223,18 @@ export class MastraChatService {
           resource: request.userId,
         },
         runtimeContext,
-        maxSteps: request.maxSteps || 10,
+        maxSteps: request.maxSteps || 50,
         temperature: request.temperature || 0.7,
         onStepFinish: ({ text, toolCalls, toolResults }) => {
           if (toolCalls?.length) {
             console.log(`🔧 Mastra: Executed ${toolCalls.length} tools`);
+            
+            // Add user-friendly tool execution messages for streaming
+            toolCalls.forEach((toolCall: any) => {
+              const toolName = toolCall.toolName || 'unknown tool';
+              const friendlyName = getFriendlyToolName(toolName);
+              toolExecutionMessages.push(`🔧 Using ${friendlyName}...`);
+            });
           }
         },
         onFinish: ({ steps, text, finishReason, usage }) => {
@@ -193,6 +254,7 @@ export class MastraChatService {
           timestamp: new Date().toISOString(),
           conversationId: request.conversationId,
           userId: request.userId,
+          toolExecutions: toolExecutionMessages,
         },
       };
 

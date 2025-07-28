@@ -65,7 +65,7 @@ export const DocumentRenderer: React.FC<WidgetRendererProps> = ({
         window.open(contentData.previewUrl, "_blank");
       } else if (
         contentData?.content &&
-        contentData.mimeType.startsWith("text/")
+        contentData.mimeType?.startsWith("text/")
       ) {
         // Show text content in a modal or new window
         const newWindow = window.open("", "_blank");
@@ -152,14 +152,14 @@ export const DocumentRenderer: React.FC<WidgetRendererProps> = ({
         {/* Header with file icon and name */}
         <div className="flex items-center gap-3 border-gray-100 border-b p-3">
           <div className="flex-shrink-0 text-2xl">
-            {getFileIcon(data.fileType)}
+            {getFileIcon(data.fileType || 'unknown')}
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium text-gray-900">
               {data.fileName}
             </div>
             <div className="text-gray-500 text-xs">
-              {data.fileType.toUpperCase()} • {formatFileSize(data.fileSize)}
+              {data.fileType?.toUpperCase() || 'UNKNOWN'} • {formatFileSize(data.fileSize || 0)}
             </div>
           </div>
         </div>
@@ -179,7 +179,7 @@ export const DocumentRenderer: React.FC<WidgetRendererProps> = ({
             </div>
           )}
 
-          {data.content && data.mimeType.startsWith("text/") && (
+          {data.content && data.mimeType?.startsWith("text/") && (
             <div className="max-h-20 overflow-hidden rounded bg-gray-50 p-3 text-gray-700 text-sm">
               <div className="line-clamp-3">{data.content}</div>
             </div>
@@ -189,7 +189,7 @@ export const DocumentRenderer: React.FC<WidgetRendererProps> = ({
             <div className="flex h-full items-center justify-center text-gray-400">
               <div className="text-center">
                 <div className="mb-2 text-4xl">
-                  {getFileIcon(data.fileType)}
+                  {getFileIcon(data.fileType || 'unknown')}
                 </div>
                 <div className="text-sm">Document preview not available</div>
               </div>
@@ -201,7 +201,7 @@ export const DocumentRenderer: React.FC<WidgetRendererProps> = ({
         <div className="border-gray-100 border-t p-3">
           <div className="flex gap-2">
             {(data.previewUrl ||
-              (data.content && data.mimeType.startsWith("text/"))) && (
+              (data.content && data.mimeType?.startsWith("text/"))) && (
               <button
                 type="button"
                 onClick={handlePreview}
@@ -275,7 +275,7 @@ export const DocumentRenderer: React.FC<WidgetRendererProps> = ({
 
         {/* File type indicator */}
         <div className="absolute top-2 right-2 rounded bg-gray-800 px-2 py-1 text-white text-xs">
-          {data.fileType.toUpperCase()}
+          {data.fileType?.toUpperCase() || 'UNKNOWN'}
         </div>
       </div>
     </div>
