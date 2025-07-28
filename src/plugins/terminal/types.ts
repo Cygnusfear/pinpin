@@ -5,16 +5,14 @@
  */
 
 /**
- * Terminal content data structure
+ * Terminal content data structure - ONLY synchronizable configuration
+ * Session state (sessionId, isConnected, etc.) should be local-only
  */
 export interface TerminalContent {
-  sessionId: string | null;
   title: string;
   shell?: string;
   cwd?: string;
   env?: { [key: string]: string };
-  isConnected: boolean;
-  lastActivity: number;
   theme?: {
     background?: string;
     foreground?: string;
@@ -28,6 +26,15 @@ export interface TerminalContent {
     scrollback?: number;
     bellSound?: boolean;
   };
+}
+
+/**
+ * Terminal session state - LOCAL ONLY, not synchronized
+ */
+export interface TerminalSessionState {
+  sessionId: string | null;
+  isConnected: boolean;
+  lastActivity: number;
 }
 
 /**

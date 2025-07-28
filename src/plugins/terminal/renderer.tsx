@@ -2,11 +2,10 @@
  * Terminal Widget Renderer
  *
  * React component for rendering terminal widgets using xterm.js
- * Optimized to prevent re-renders and maintain persistent terminal connections
+ * Session state is kept local to avoid CRDT synchronization conflicts
  */
 
-import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import { WebLinksAddon } from "xterm-addon-web-links";
@@ -23,541 +22,462 @@ import type {
   TerminalContent,
   TerminalMessage,
   TerminalResponse,
+  TerminalSessionState,
 } from "./types";
 
 // Import xterm CSS
 import "xterm/css/xterm.css";
 
-export const TerminalRenderer: React.FC<WidgetRendererProps> = ({
-  widgetId,
-}) => {
-  // Selective subscriptions - only re-render when specific data changes
-  const contentData = useWidgetContent(widgetId, (content) => content?.data);
-  const widget = useWidget(widgetId);
-  const transformScale = useWidgetState(
-    widgetId,
-    (state) => state.transform.scale,
-  );
-  const { updateContent } = useWidgetActions(widgetId);
+/**
+ * Terminal Widget Renderer
+ * Session state is kept local to avoid CRDT synchronization conflicts
+ */
+export const TerminalRenderer: React.FC<WidgetRendererProps> = React.memo(
+  ({ widgetId }) => {
+    // Selective subscriptions - only re-render when specific data changes
+    const contentData = useWidgetContent(widgetId, (content) => content?.data);
+    const widget = useWidget(widgetId);
+    const transformScale = useWidgetState(
+      widgetId,
+      (state) => state.transform.scale,
+    );
+    const { updateContent } = useWidgetActions(widgetId);
 
-  // Get widget properties
-  const isContentLoaded = !!contentData;
-  const contentError = useWidgetContentError(widgetId);
-  const contentId = widget?.contentId;
+    // Get widget properties
+    const isContentLoaded = !!contentData;
+    const contentError = useWidgetContentError(widgetId);
+    const contentId = widget?.contentId;
 
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const xtermRef = useRef<Terminal | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const isInitializedRef = useRef(false);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const terminalRef = useRef<HTMLDivElement>(null);
+    const xtermRef = useRef<Terminal | null>(null);
+    const fitAddonRef = useRef<FitAddon | null>(null);
+    const wsRef = useRef<WebSocket | null>(null);
+    const isInitializedRef = useRef(false);
+    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Stable references that NEVER cause re-renders
-  const widgetIdRef = useRef(widgetId);
-  const contentIdRef = useRef(contentId);
-  const updateContentRef = useRef(updateContent);
-  const currentDataRef = useRef(contentData);
+    // Stable references that NEVER cause re-renders
+    const widgetIdRef = useRef(widgetId);
+    const contentIdRef = useRef(contentId);
+    const updateContentRef = useRef(updateContent);
+    const currentDataRef = useRef(contentData);
 
-  // Update refs without causing re-renders
-  useEffect(() => {
-    widgetIdRef.current = widgetId;
-    contentIdRef.current = contentId;
-    updateContentRef.current = updateContent;
-    currentDataRef.current = contentData;
-  });
-
-  const [connectionState, setConnectionState] =
-    useState<TerminalConnectionState>({
-      isConnecting: false,
-      isConnected: false,
-      error: null,
-      retryCount: 0,
-      lastConnected: null,
+    // Update refs without causing re-renders
+    useEffect(() => {
+      widgetIdRef.current = widgetId;
+      contentIdRef.current = contentId;
+      updateContentRef.current = updateContent;
+      currentDataRef.current = contentData;
     });
 
-  // Use ref to track connection state to avoid dependency loops
-  const connectionStateRef = useRef(connectionState);
-  connectionStateRef.current = connectionState;
+    // LOCAL session state - NOT synchronized via CRDT
+    const [sessionState, setSessionState] = useState<TerminalSessionState>({
+      sessionId: null,
+      isConnected: false,
+      lastActivity: Date.now(),
+    });
 
-  // Handle WebSocket messages - NO dependencies on widget data
-  const handleWebSocketMessage = useCallback((response: TerminalResponse) => {
-    const currentData = currentDataRef.current;
-    const updateContentFn = updateContentRef.current;
-    const contentId = contentIdRef.current;
+    const [connectionState, setConnectionState] =
+      useState<TerminalConnectionState>({
+        isConnecting: false,
+        isConnected: false,
+        error: null,
+        retryCount: 0,
+        lastConnected: null,
+      });
 
-    switch (response.type) {
-      case "created":
-        updateContentFn({
-          sessionId: response.sessionId,
-          isConnected: true,
-          lastActivity: Date.now(),
-        });
-        break;
+    // Use ref to track connection state to avoid dependency loops
+    const connectionStateRef = useRef(connectionState);
+    connectionStateRef.current = connectionState;
 
-      case "data":
-        if (xtermRef.current && response.data) {
-          xtermRef.current.write(response.data);
-          // Throttle activity updates
-          const now = Date.now();
-          if (now - (currentData.lastActivity || 0) > 5000) {
-            updateContentFn({
-              data: {
-                ...currentData,
-                lastActivity: now,
-              },
-            });
+    // Handle WebSocket messages - NO content store updates for session state
+    const handleWebSocketMessage = useCallback((response: TerminalResponse) => {
+      switch (response.type) {
+        case "created":
+          setSessionState((prev) => ({
+            ...prev,
+            sessionId: response.sessionId,
+            isConnected: true,
+            lastActivity: Date.now(),
+          }));
+          break;
+
+        case "data":
+          if (xtermRef.current && response.data) {
+            xtermRef.current.write(response.data);
+            // Update last activity timestamp locally only
+            setSessionState((prev) => ({
+              ...prev,
+              lastActivity: Date.now(),
+            }));
           }
-        }
-        break;
+          break;
 
-      case "exit":
-        console.log("Terminal session exited with code:", response.exitCode);
-        if (xtermRef.current) {
-          xtermRef.current.write(
-            `\r\n\x1b[31mSession exited with code ${response.exitCode}\x1b[0m\r\n`,
-          );
-        }
-        updateContentFn({
-          data: {
-            ...currentData,
+        case "exit":
+          console.log("Terminal session exited with code:", response.exitCode);
+          if (xtermRef.current) {
+            xtermRef.current.write(
+              `\r\n\x1b[31mSession exited with code ${response.exitCode}\x1b[0m\r\n`,
+            );
+          }
+          setSessionState((prev) => ({
+            ...prev,
             sessionId: null,
             isConnected: false,
-          },
-        });
-        break;
+          }));
+          break;
 
-      case "error":
-        console.error("Terminal error:", response.error);
-        if (xtermRef.current) {
-          xtermRef.current.write(
-            `\r\n\x1b[31mError: ${response.error}\x1b[0m\r\n`,
-          );
-        }
-        setConnectionState((prev) => ({
-          ...prev,
-          error: response.error || "Unknown error",
-        }));
-        break;
+        case "error":
+          console.error("Terminal error:", response.error);
+          if (xtermRef.current) {
+            xtermRef.current.write(
+              `\r\n\x1b[31mError: ${response.error}\x1b[0m\r\n`,
+            );
+          }
+          setConnectionState((prev) => ({
+            ...prev,
+            error: response.error || "Unknown error",
+          }));
+          break;
 
-      case "destroyed":
-        console.log("Terminal session destroyed");
-        updateContentFn({
-          data: {
-            ...currentData,
+        case "destroyed":
+          console.log("Terminal session destroyed");
+          setSessionState((prev) => ({
+            ...prev,
             sessionId: null,
             isConnected: false,
+          }));
+          break;
+      }
+    }, []);
+
+    // Initialize terminal - STABLE, no widget data dependencies
+    const initializeTerminal = useCallback((): Terminal | null => {
+      if (!terminalRef.current || xtermRef.current) return null;
+
+      const container = terminalRef.current;
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+        return null;
+      }
+
+      const data = currentDataRef.current;
+
+      try {
+        const terminal = new Terminal({
+          allowProposedApi: true,
+          theme: {
+            background: data.theme?.background || "#1a1a1a",
+            foreground: data.theme?.foreground || "#ffffff",
+            cursor: data.theme?.cursor || "#ffffff",
+            selectionBackground: data.theme?.selection || "#404040",
           },
+          fontSize: data.settings?.fontSize || 14,
+          fontFamily:
+            data.settings?.fontFamily ||
+            "Monaco, Menlo, 'Ubuntu Mono', monospace",
+          cursorBlink: data.settings?.cursorBlink ?? true,
+          scrollback: data.settings?.scrollback || 1000,
+          rows: 24,
+          cols: 80,
         });
-        break;
-    }
-  }, []); // NO dependencies
 
-  // Initialize terminal - STABLE, no widget data dependencies
-  const initializeTerminal = useCallback((): Terminal | null => {
-    if (!terminalRef.current || xtermRef.current) return null;
+        const fitAddon = new FitAddon();
+        const webLinksAddon = new WebLinksAddon();
 
-    const container = terminalRef.current;
-    if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-      return null;
-    }
+        terminal.loadAddon(fitAddon);
+        terminal.loadAddon(webLinksAddon);
 
-    const data = currentDataRef.current;
+        xtermRef.current = terminal;
+        fitAddonRef.current = fitAddon;
 
-    try {
-      const terminal = new Terminal({
-        allowProposedApi: true,
-        theme: {
-          background: data.theme?.background || "#1a1a1a",
-          foreground: data.theme?.foreground || "#ffffff",
-          cursor: data.theme?.cursor || "#ffffff",
-          selectionBackground: data.theme?.selection || "#404040",
-        },
-        fontSize: data.settings?.fontSize || 14,
-        fontFamily:
-          data.settings?.fontFamily ||
-          "Monaco, Menlo, 'Ubuntu Mono', monospace",
-        cursorBlink: data.settings?.cursorBlink ?? true,
-        scrollback: data.settings?.scrollback || 1000,
-        rows: 24,
-        cols: 80,
-      });
+        // Safe terminal opening
+        const openTerminal = () => {
+          if (!terminal || !container || terminal.element) return;
 
-      const fitAddon = new FitAddon();
-      const webLinksAddon = new WebLinksAddon();
+          if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+            setTimeout(openTerminal, 50);
+            return;
+          }
 
-      terminal.loadAddon(fitAddon);
-      terminal.loadAddon(webLinksAddon);
+          try {
+            terminal.open(container);
 
-      xtermRef.current = terminal;
-      fitAddonRef.current = fitAddon;
+            // Wait for viewport to be ready before fitting
+            const fitTerminal = () => {
+              if (!fitAddon || !terminal.element) return;
 
-      // Safe terminal opening
-      const openTerminal = () => {
-        if (!terminal || !container || terminal.element) return;
-
-        if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-          setTimeout(openTerminal, 50);
-          return;
-        }
-
-        try {
-          terminal.open(container);
-
-          // Wait for viewport to be ready before fitting
-          const fitTerminal = () => {
-            if (!fitAddon || !terminal.element) return;
-
-            const viewport = terminal.element.querySelector(".xterm-viewport");
-            if (viewport && container.offsetWidth > 0) {
-              try {
-                fitAddon.fit();
-              } catch (error) {
-                console.warn("Fit error:", error);
-                setTimeout(fitTerminal, 100);
+              const viewport =
+                terminal.element.querySelector(".xterm-viewport");
+              if (viewport && container.offsetWidth > 0) {
+                try {
+                  fitAddon.fit();
+                } catch (error) {
+                  console.warn("Fit error:", error);
+                  setTimeout(fitTerminal, 100);
+                }
+              } else {
+                setTimeout(fitTerminal, 50);
               }
-            } else {
-              setTimeout(fitTerminal, 50);
-            }
-          };
+            };
 
-          setTimeout(fitTerminal, 200);
-        } catch (error) {
-          console.error("Failed to open terminal:", error);
-          xtermRef.current = null;
-          fitAddonRef.current = null;
-        }
-      };
-
-      requestAnimationFrame(() => setTimeout(openTerminal, 50));
-
-      // Handle terminal events
-      terminal.onData((data) => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          const message: TerminalMessage = {
-            type: "data",
-            sessionId: currentDataRef.current.sessionId || "",
-            widgetId: widgetIdRef.current,
-            data,
-          };
-          wsRef.current.send(JSON.stringify(message));
-        }
-      });
-
-      terminal.onResize(({ cols, rows }) => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          const message: TerminalMessage = {
-            type: "resize",
-            sessionId: currentDataRef.current.sessionId || "",
-            widgetId: widgetIdRef.current,
-            cols,
-            rows,
-          };
-          wsRef.current.send(JSON.stringify(message));
-        }
-      });
-
-      return terminal;
-    } catch (error) {
-      console.error("Failed to initialize terminal:", error);
-      xtermRef.current = null;
-      fitAddonRef.current = null;
-      return null;
-    }
-  }, []); // NO dependencies
-
-  // Connect WebSocket - STABLE, no dependencies to prevent loops
-  const connectWebSocket = useCallback(() => {
-    if (wsRef.current) return;
-
-    // Use ref to check connection state to avoid dependency
-    const currentConnectionState = connectionStateRef.current;
-    if (currentConnectionState.isConnecting) return;
-
-    setConnectionState((prev) => ({
-      ...prev,
-      isConnecting: true,
-      error: null,
-    }));
-
-    const wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/api/terminal/${widgetIdRef.current}`;
-    console.log("Connecting to WebSocket:", wsUrl);
-
-    try {
-      const ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        console.log("Terminal WebSocket connected");
-        setConnectionState({
-          isConnecting: false,
-          isConnected: true,
-          error: null,
-          retryCount: 0,
-          lastConnected: Date.now(),
-        });
-
-        const data = currentDataRef.current;
-        const message: TerminalMessage = {
-          type: "create",
-          sessionId: "",
-          widgetId: widgetIdRef.current,
-          cols: xtermRef.current?.cols || 80,
-          rows: xtermRef.current?.rows || 24,
-          options: {
-            shell: data?.shell,
-            cwd: data?.cwd,
-            env: data?.env,
-          },
+            setTimeout(fitTerminal, 200);
+          } catch (error) {
+            console.error("Failed to open terminal:", error);
+            xtermRef.current = null;
+            fitAddonRef.current = null;
+          }
         };
-        ws.send(JSON.stringify(message));
-      };
 
-      ws.onmessage = (event) => {
-        try {
-          const response: TerminalResponse = JSON.parse(event.data);
-          handleWebSocketMessage(response);
-        } catch (error) {
-          console.error("Error parsing WebSocket message:", error);
-        }
-      };
+        requestAnimationFrame(() => setTimeout(openTerminal, 50));
 
-      ws.onclose = (event) => {
-        console.log(
-          "Terminal WebSocket disconnected",
-          event.code,
-          event.reason,
-        );
-        setConnectionState((prev) => ({
-          ...prev,
-          isConnecting: false,
-          isConnected: false,
-        }));
-        wsRef.current = null;
-
-        // Auto-reconnect with backoff (only for unexpected disconnects)
-        if (event.code !== 1000) {
-          const currentState = connectionStateRef.current;
-          if (currentState.retryCount < 3) {
-            const retryDelay = Math.min(
-              1000 * 2 ** currentState.retryCount,
-              10000,
-            );
-            console.log(
-              `Reconnecting in ${retryDelay}ms (attempt ${currentState.retryCount + 1})`,
-            );
-
-            reconnectTimeoutRef.current = setTimeout(() => {
-              if (!wsRef.current && terminalRef.current) {
-                setConnectionState((prev) => ({
-                  ...prev,
-                  retryCount: prev.retryCount + 1,
-                }));
-                connectWebSocket();
-              }
-            }, retryDelay);
+        // Handle terminal events
+        terminal.onData((data) => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            const currentSessionId = sessionState.sessionId;
+            const message: TerminalMessage = {
+              type: "data",
+              sessionId: currentSessionId || "",
+              widgetId: widgetIdRef.current,
+              data,
+            };
+            wsRef.current.send(JSON.stringify(message));
           }
-        }
-      };
+        });
 
-      ws.onerror = (error) => {
-        console.error("Terminal WebSocket error:", error);
-        setConnectionState((prev) => ({
-          ...prev,
-          isConnecting: false,
-          isConnected: false,
-          error: "WebSocket connection failed",
-        }));
-      };
+        // Handle terminal resize
+        terminal.onResize(({ cols, rows }) => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            const currentSessionId = sessionState.sessionId;
+            const message: TerminalMessage = {
+              type: "resize",
+              sessionId: currentSessionId || "",
+              widgetId: widgetIdRef.current,
+              cols,
+              rows,
+            };
+            wsRef.current.send(JSON.stringify(message));
+          }
+        });
 
-      wsRef.current = ws;
-    } catch (error) {
-      console.error("Failed to create WebSocket:", error);
+        return terminal;
+      } catch (error) {
+        console.error("Terminal initialization error:", error);
+        return null;
+      }
+    }, [sessionState.sessionId]);
+
+    // Connect to WebSocket - STABLE, minimal dependencies
+    const connectWebSocket = useCallback(() => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        return;
+      }
+
       setConnectionState((prev) => ({
         ...prev,
-        isConnecting: false,
-        error: "Failed to create connection",
+        isConnecting: true,
+        error: null,
       }));
-    }
-  }, [handleWebSocketMessage]); // Only handleWebSocketMessage as dependency
 
-  // Manual reconnect
-  const manualReconnect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+      try {
+        const wsUrl = `ws://localhost:6080/api/terminal/${widgetIdRef.current}`;
+        const ws = new WebSocket(wsUrl);
 
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
+        ws.onopen = () => {
+          console.log("Terminal WebSocket connected");
+          setConnectionState((prev) => ({
+            ...prev,
+            isConnecting: false,
+            isConnected: true,
+            error: null,
+            lastConnected: Date.now(),
+          }));
 
-    setConnectionState((prev) => ({
-      ...prev,
-      retryCount: 0,
-      error: null,
-    }));
+          // Create terminal session
+          const message: TerminalMessage = {
+            type: "create",
+            sessionId: "",
+            widgetId: widgetIdRef.current,
+            cols: 80,
+            rows: 24,
+            options: {
+              shell: currentDataRef.current.shell,
+              cwd: currentDataRef.current.cwd,
+              env: currentDataRef.current.env,
+            },
+          };
+          ws.send(JSON.stringify(message));
+        };
 
-    connectWebSocket();
-  }, [connectWebSocket]);
-
-  // Handle widget resize - only scale changes
-  useEffect(() => {
-    if (fitAddonRef.current && xtermRef.current && transformScale) {
-      const timeoutId = setTimeout(() => {
-        try {
-          if (fitAddonRef.current && terminalRef.current?.offsetHeight > 0) {
-            fitAddonRef.current.fit();
+        ws.onmessage = (event) => {
+          try {
+            const response: TerminalResponse = JSON.parse(event.data);
+            handleWebSocketMessage(response);
+          } catch (error) {
+            console.error("Failed to parse WebSocket message:", error);
           }
-        } catch (error) {
-          console.warn("Failed to fit terminal on resize:", error);
-        }
-      }, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [transformScale]);
+        };
 
-  // Initialize terminal ONCE on mount - NO widget data dependencies
-  useEffect(() => {
-    if (isInitializedRef.current) return;
+        ws.onclose = () => {
+          console.log("Terminal WebSocket disconnected");
+          setConnectionState((prev) => ({
+            ...prev,
+            isConnecting: false,
+            isConnected: false,
+          }));
+          setSessionState((prev) => ({
+            ...prev,
+            sessionId: null,
+            isConnected: false,
+          }));
+        };
 
-    const checkContainer = () => {
-      if (terminalRef.current && terminalRef.current.offsetWidth > 0) {
+        ws.onerror = (error) => {
+          console.error("Terminal WebSocket error:", error);
+          setConnectionState((prev) => ({
+            ...prev,
+            isConnecting: false,
+            isConnected: false,
+            error: "Connection failed",
+          }));
+        };
+
+        wsRef.current = ws;
+      } catch (error) {
+        console.error("Failed to create WebSocket:", error);
+        setConnectionState((prev) => ({
+          ...prev,
+          isConnecting: false,
+          error: "Failed to connect",
+        }));
+      }
+    }, [handleWebSocketMessage]);
+
+    // Initialize terminal and WebSocket connection
+    useEffect(() => {
+      if (!isContentLoaded || !contentData || isInitializedRef.current) return;
+
+      const initializeAsync = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
         const terminal = initializeTerminal();
         if (terminal) {
+          connectWebSocket();
           isInitializedRef.current = true;
-          setTimeout(connectWebSocket, 100);
-        } else {
-          setTimeout(checkContainer, 100);
         }
-      } else {
-        setTimeout(checkContainer, 50);
+      };
+
+      initializeAsync();
+    }, [isContentLoaded, contentData, initializeTerminal, connectWebSocket]);
+
+    // Handle scale changes
+    useEffect(() => {
+      if (xtermRef.current && fitAddonRef.current && transformScale !== 1) {
+        const timeoutId = setTimeout(() => {
+          try {
+            fitAddonRef.current?.fit();
+          } catch (error) {
+            console.warn("Fit error on scale change:", error);
+          }
+        }, 100);
+
+        return () => clearTimeout(timeoutId);
       }
-    };
+    }, [transformScale]);
 
-    checkContainer();
+    // Cleanup on unmount
+    useEffect(() => {
+      return () => {
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
 
-    return () => {
-      // Cleanup
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        try {
+        const currentSessionId = sessionState.sessionId;
+        if (currentSessionId && wsRef.current?.readyState === WebSocket.OPEN) {
           const message: TerminalMessage = {
             type: "destroy",
-            sessionId: currentDataRef.current.sessionId || "",
+            sessionId: currentSessionId,
             widgetId: widgetIdRef.current,
           };
           wsRef.current.send(JSON.stringify(message));
+        }
+
+        if (wsRef.current) {
           wsRef.current.close();
-        } catch (error) {
-          console.warn("Error during WebSocket cleanup:", error);
         }
-      }
-      wsRef.current = null;
 
-      if (xtermRef.current) {
-        try {
+        if (xtermRef.current) {
           xtermRef.current.dispose();
-        } catch (error) {
-          console.warn("Error disposing terminal:", error);
         }
-        xtermRef.current = null;
-      }
+      };
+    }, [sessionState.sessionId]);
 
-      fitAddonRef.current = null;
-      isInitializedRef.current = false;
-    };
-  }, [initializeTerminal, connectWebSocket]); // Only stable functions, NO widget data
-
-  // Loading state
-  if (!isContentLoaded) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-lg bg-gray-100 shadow">
-        <div className="text-gray-500">Loading terminal...</div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (contentError) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-lg bg-red-100 shadow">
-        <div className="text-red-500">Error: {contentError}</div>
-      </div>
-    );
-  }
-
-  const data = contentData;
-
-  if (!data) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-lg bg-gray-100 shadow">
-        <div className="text-gray-500">No terminal data available</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-300 bg-black shadow-md">
-      {/* Header */}
-      <div className="flex items-center justify-between border-gray-600 border-b bg-gray-800 px-3 py-2">
-        <div className="flex items-center space-x-2">
-          <span className="font-medium text-sm text-white">🖥️ {data.title}</span>
-          <div
-            className={`h-2 w-2 rounded-full ${
-              connectionState.isConnected
-                ? "bg-green-500"
-                : connectionState.isConnecting
-                  ? "bg-yellow-500"
-                  : "bg-red-500"
-            }`}
-          />
+    // Show loading state
+    if (!isContentLoaded) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <div className="text-gray-400">Loading terminal...</div>
         </div>
-        <div className="flex items-center space-x-2">
-          {connectionState.error && (
-            <span className="text-red-400 text-xs">
-              {connectionState.error}
+      );
+    }
+
+    // Show error state
+    if (contentError) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <div className="text-red-400">Error: {contentError}</div>
+        </div>
+      );
+    }
+
+    const data = contentData as TerminalContent;
+
+    return (
+      <div className="flex h-full flex-col rounded border border-gray-600 bg-gray-900">
+        {/* Header */}
+        <div className="border-gray-600 border-b bg-gray-800 px-3 py-2">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-white">{data.title}</h3>
+            <button
+              type="button"
+              onClick={connectWebSocket}
+              className="rounded bg-blue-600 px-2 py-1 text-white text-xs hover:bg-blue-700 disabled:opacity-50"
+              disabled={connectionState.isConnecting}
+            >
+              {connectionState.isConnecting ? "Connecting..." : "Reconnect"}
+            </button>
+          </div>
+        </div>
+
+        {/* Terminal */}
+        <div
+          ref={terminalRef}
+          className="flex-1 overflow-hidden"
+          style={{
+            backgroundColor: data.theme?.background || "#1a1a1a",
+          }}
+        />
+
+        {/* Status bar */}
+        <div className="border-gray-600 border-t bg-gray-800 px-3 py-1">
+          <div className="flex items-center justify-between text-gray-400 text-xs">
+            <span>
+              {sessionState.sessionId
+                ? `Session: ${sessionState.sessionId.slice(-8)}`
+                : "No session"}
             </span>
-          )}
-          <button
-            type="button"
-            onClick={manualReconnect}
-            className="text-gray-400 text-xs hover:text-white"
-            disabled={connectionState.isConnecting}
-          >
-            {connectionState.isConnecting ? "Connecting..." : "Reconnect"}
-          </button>
+            <span>
+              {data.shell || "default shell"} | {data.cwd || "~"}
+            </span>
+          </div>
         </div>
       </div>
-
-      {/* Terminal */}
-      <div
-        ref={terminalRef}
-        className="flex-1 overflow-hidden"
-        style={{
-          backgroundColor: data.theme?.background || "#1a1a1a",
-        }}
-      />
-
-      {/* Status bar */}
-      <div className="border-gray-600 border-t bg-gray-800 px-3 py-1">
-        <div className="flex items-center justify-between text-gray-400 text-xs">
-          <span>
-            {data.sessionId
-              ? `Session: ${data.sessionId.slice(-8)}`
-              : "No session"}
-          </span>
-          <span>
-            {data.shell || "default shell"} | {data.cwd || "~"}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-};
+    );
+  },
+);
 
 // Backward compatibility flag
 (TerminalRenderer as any).selectiveReactivity = true;
+;
+;
+
+
+  ;
