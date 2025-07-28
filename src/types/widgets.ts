@@ -270,6 +270,7 @@ export interface WidgetTypeDefinition {
   supportedExtensions?: string[];
   autoCreateOnly?: boolean;
   allowOverflow?: boolean;
+  allowSelection?: boolean;
 }
 
 /**

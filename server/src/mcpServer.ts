@@ -20,6 +20,7 @@ import WebSocket from "ws";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { DOCUMENT_IDS } from "./config/documentIds.js";
+import { pluginDevelopmentTools } from "./tools/pluginDevelopmentTools.js";
 
 // Polyfill WebSocket for Node.js environment
 global.WebSocket = WebSocket as any;
@@ -46,6 +47,22 @@ interface ContentStoreData {
 class KeepsyncMCPServer {
   private server: Server;
   private syncEngineInitialized = false;
+
+  /**
+   * Helper function to remove undefined values recursively
+   */
+  private removeUndefined(obj: any): any {
+    if (obj === null || typeof obj !== "object") return obj;
+    if (Array.isArray(obj)) return obj.map(this.removeUndefined.bind(this));
+    
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = this.removeUndefined(value);
+      }
+    }
+    return cleaned;
+  }
 
   constructor() {
     this.server = new Server(
@@ -159,15 +176,15 @@ class KeepsyncMCPServer {
       zIndex: widgetStore.widgets.length,
       locked: false,
       selected: false,
-      contentId: args.content ? `content_${Date.now()}` : undefined,
+      contentId: `content_${Date.now()}`, // Always create contentId for all widgets
       metadata: {},
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
 
     // Create completely clean objects with deep serialization to avoid Automerge reference issues
-    const cleanWidget = JSON.parse(JSON.stringify(newWidget));
-    const existingWidgets = JSON.parse(JSON.stringify(widgetStore.widgets || []));
+    const cleanWidget = this.removeUndefined(JSON.parse(JSON.stringify(newWidget)));
+    const existingWidgets = this.removeUndefined(JSON.parse(JSON.stringify(widgetStore.widgets || [])));
     
     const updatedWidgetStore = {
       widgets: [...existingWidgets, cleanWidget],
@@ -175,24 +192,112 @@ class KeepsyncMCPServer {
     };
 
     // Ensure the entire store is clean
-    const cleanStore = JSON.parse(JSON.stringify(updatedWidgetStore));
+    const cleanStore = this.removeUndefined(JSON.parse(JSON.stringify(updatedWidgetStore)));
     
     // Save updated store
     await writeDoc(DOCUMENT_IDS.WIDGETS, cleanStore);
 
-    // If content provided, save it too
-    if (args.content) {
+    // Always create content if contentId exists, even if args.content is empty
+    if (newWidget.contentId) {
+      console.log(`🔍 Creating content for widget ${newWidget.id} with contentId ${newWidget.contentId}`);
+      console.log(`🔍 args.content:`, args.content);
+      
       const contentStore: ContentStoreData = (await readDoc(
         DOCUMENT_IDS.CONTENT,
       )) as ContentStoreData || {
         content: {},
         lastModified: 0,
       };
-      // Structure content to match frontend WidgetContent interface
-      // Ensure content is JSON-serializable and safe for Automerge
-      const contentData = JSON.parse(JSON.stringify(args.content || {}));
+      
+      // Ensure content is always created with proper defaults based on widget type
+      let contentData;
+      const widgetType = args.type as string;
+      
+      if (args.content && typeof args.content === 'object') {
+        const providedContent = JSON.parse(JSON.stringify(args.content));
+        
+        // Apply field name mapping based on widget type to match frontend expectations
+        switch (widgetType) {
+          case 'note':
+            contentData = {
+              content: providedContent.text || providedContent.content || '', // Map 'text' to 'content'
+              backgroundColor: providedContent.backgroundColor || '#fef3c7',
+              textColor: providedContent.textColor || '#1f2937',
+              fontSize: providedContent.fontSize || 14,
+              fontFamily: providedContent.fontFamily || 'system-ui, sans-serif',
+              textAlign: providedContent.textAlign || 'left',
+              formatting: providedContent.formatting || { bold: false, italic: false, underline: false }
+            };
+            break;
+          case 'todo':
+            contentData = {
+              title: providedContent.title || 'New Todo List', // Ensure title always exists
+              items: providedContent.items || []
+            };
+            break;
+          case 'chat':
+            contentData = {
+              messages: providedContent.messages || [],
+              isTyping: providedContent.isTyping || false,
+              settings: providedContent.settings || {
+                maxMessages: 100,
+                autoScroll: true,
+                markdownRendering: { enabled: true, showThinkTags: true, expandThinkTagsByDefault: false, enableSyntaxHighlighting: true }
+              }
+            };
+            break;
+          case 'calculator':
+            contentData = {
+              display: providedContent.display || '0',
+              history: providedContent.history || []
+            };
+            break;
+          default:
+            contentData = providedContent; // Use as-is for unknown types
+        }
+      } else {
+        // Create appropriate default content based on widget type
+        switch (widgetType) {
+          case 'note':
+            contentData = {
+              content: '',
+              backgroundColor: '#fef3c7',
+              textColor: '#1f2937',
+              fontSize: 14,
+              fontFamily: 'system-ui, sans-serif',
+              textAlign: 'left',
+              formatting: { bold: false, italic: false, underline: false }
+            };
+            break;
+          case 'todo':
+            contentData = {
+              title: 'New Todo List',
+              items: []
+            };
+            break;
+          case 'chat':
+            contentData = {
+              messages: [],
+              isTyping: false,
+              settings: {
+                maxMessages: 100,
+                autoScroll: true,
+                markdownRendering: { enabled: true, showThinkTags: true, expandThinkTagsByDefault: false, enableSyntaxHighlighting: true }
+              }
+            };
+            break;
+          case 'calculator':
+            contentData = { display: '0', history: [] };
+            break;
+          default:
+            contentData = {}; // Fallback for unknown types
+        }
+      }
+        
+      console.log(`🔍 Processed contentData:`, contentData);
+      
       const contentEntry = {
-        id: newWidget.contentId!,
+        id: newWidget.contentId,
         type: args.type as string,
         data: contentData, // Wrap content in data field to match frontend
         lastModified: Date.now(),
@@ -200,8 +305,8 @@ class KeepsyncMCPServer {
       };
       
       // Create completely clean objects to avoid Automerge reference issues
-      const existingContent = JSON.parse(JSON.stringify(contentStore.content || {}));
-      const cleanContentEntry = JSON.parse(JSON.stringify(contentEntry));
+      const existingContent = this.removeUndefined(JSON.parse(JSON.stringify(contentStore.content || {})));
+      const cleanContentEntry = this.removeUndefined(JSON.parse(JSON.stringify(contentEntry)));
       
       const updatedContentStore = {
         content: {
@@ -212,7 +317,7 @@ class KeepsyncMCPServer {
       };
       
       // Ensure the entire content store is clean
-      const cleanContentStore = JSON.parse(JSON.stringify(updatedContentStore));
+      const cleanContentStore = this.removeUndefined(JSON.parse(JSON.stringify(updatedContentStore)));
       
       await writeDoc(DOCUMENT_IDS.CONTENT, cleanContentStore);
     }
@@ -274,7 +379,7 @@ The widget has been added to the pinboard${contentInfo} and is now available for
     };
 
     // Ensure the entire store is clean
-    const cleanStore = JSON.parse(JSON.stringify(updatedWidgetStore));
+    const cleanStore = this.removeUndefined(JSON.parse(JSON.stringify(updatedWidgetStore)));
     
     // Save updated store
     await writeDoc(DOCUMENT_IDS.WIDGETS, cleanStore);
@@ -290,7 +395,7 @@ The widget has been added to the pinboard${contentInfo} and is now available for
   }
 
   private async handleUpdateWidgetContent(args: Record<string, unknown>) {
-    const contentId = args.contentId as string;
+    let contentId = args.contentId as string;
     const updates = args.updates as Record<string, unknown>;
 
     // Read current content store
@@ -300,6 +405,27 @@ The widget has been added to the pinboard${contentInfo} and is now available for
       content: {},
       lastModified: 0,
     };
+
+    // Auto-correct if widget ID was passed instead of content ID
+    if (contentId.startsWith('widget_')) {
+      console.log(`⚠️  Widget ID passed instead of content ID: ${contentId}`);
+      
+      // Read widget store to find the correct content ID
+      const widgetStore: WidgetStoreData = (await readDoc(
+        DOCUMENT_IDS.WIDGETS,
+      )) as WidgetStoreData || {
+        widgets: [],
+        lastModified: 0,
+      };
+      const widget = widgetStore.widgets.find((w: any) => w.id === contentId);
+      
+      if (widget && widget.contentId) {
+        console.log(`🔄 Auto-correcting to content ID: ${widget.contentId}`);
+        contentId = widget.contentId;
+      } else {
+        throw new Error(`Widget not found or has no content: ${contentId}`);
+      }
+    }
 
     // Check if content exists
     if (!contentStore.content[contentId]) {
@@ -318,12 +444,40 @@ The widget has been added to the pinboard${contentInfo} and is now available for
       delete mappedUpdates.text;
     }
     
-    existingContent[contentId] = {
-      ...existingContent[contentId],
-      data: {
+    // Enhanced smart merge: handle deeply nested structures from AI models
+    let mergedData;
+    
+    // Detect and flatten recursive nesting (Kimi model tends to do this)
+    const flattenNestedData = (data: any): any => {
+      // If data contains another data object, recursively flatten
+      if (data && typeof data === 'object' && data.data && typeof data.data === 'object') {
+        console.log('🔄 Detected recursive nesting, flattening...');
+        return flattenNestedData(data.data);
+      }
+      return data;
+    };
+    
+    if (mappedUpdates.data && typeof mappedUpdates.data === 'object') {
+      // AI passed a nested data structure, flatten and merge at data level
+      const flattenedData = flattenNestedData(mappedUpdates.data);
+      mergedData = {
+        ...existingContent[contentId].data,
+        ...flattenedData,
+      };
+    } else {
+      // AI passed flat updates, merge directly into data
+      mergedData = {
         ...existingContent[contentId].data,
         ...mappedUpdates,
-      },
+      };
+    }
+    
+    // Additional safety check: if the final merged data contains recursive nesting, flatten it
+    mergedData = flattenNestedData(mergedData);
+    
+    existingContent[contentId] = {
+      ...existingContent[contentId],
+      data: mergedData,
       lastModified: Date.now(),
     };
     
@@ -881,6 +1035,117 @@ The widget content has been updated and changes should be visible on the pinboar
               },
             },
           },
+          // Plugin Development Tools
+          {
+            name: "analyze_existing_plugins",
+            description: "Analyze existing plugins to understand patterns and structures for generating new plugins",
+            inputSchema: {
+              type: "object",
+              properties: {
+                category: {
+                  type: "string",
+                  description: "Plugin category to focus analysis on",
+                  enum: ["text", "media", "document", "web", "app", "layout", "other"],
+                },
+              },
+            },
+          },
+          {
+            name: "scaffold_plugin",
+            description: "Generate complete plugin directory structure and base files",
+            inputSchema: {
+              type: "object",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "Plugin name (e.g., 'weather', 'countdown-timer')",
+                },
+                description: {
+                  type: "string",
+                  description: "What the plugin does",
+                },
+                category: {
+                  type: "string",
+                  description: "Plugin category",
+                  enum: ["text", "media", "document", "web", "app", "layout", "other"],
+                },
+                features: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "List of features the plugin should have",
+                },
+              },
+              required: ["name", "description", "category"],
+            },
+          },
+          {
+            name: "generate_plugin_code",
+            description: "Generate TypeScript code for plugin factory, renderer, and types",
+            inputSchema: {
+              type: "object",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "Plugin name",
+                },
+                description: {
+                  type: "string",
+                  description: "Plugin description",
+                },
+                category: {
+                  type: "string",
+                  description: "Plugin category",
+                },
+                features: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Plugin features",
+                },
+                apiIntegrations: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "External APIs to integrate",
+                },
+              },
+              required: ["name", "description", "category"],
+            },
+          },
+          {
+            name: "update_plugin_index",
+            description: "Update the main plugin index file to register the new plugin",
+            inputSchema: {
+              type: "object",
+              properties: {
+                pluginName: {
+                  type: "string",
+                  description: "Name of the plugin to register",
+                },
+              },
+              required: ["pluginName"],
+            },
+          },
+          {
+            name: "validate_plugin_code",
+            description: "Validate generated plugin code for TypeScript errors and best practices",
+            inputSchema: {
+              type: "object",
+              properties: {
+                pluginPath: {
+                  type: "string",
+                  description: "Path to the plugin directory to validate",
+                },
+              },
+              required: ["pluginPath"],
+            },
+          },
+          {
+            name: "trigger_hmr_reload",
+            description: "Trigger Hot Module Replacement to reload the application with new plugin",
+            inputSchema: {
+              type: "object",
+              properties: {},
+            },
+          },
         ],
       };
     });
@@ -1025,6 +1290,31 @@ The widget content has been updated and changes should be visible on the pinboar
 
           case "list_directory": {
             return await this.handleListDirectory(args);
+          }
+
+          // Plugin Development Tools
+          case "analyze_existing_plugins": {
+            return await pluginDevelopmentTools.analyzeExistingPlugins(args);
+          }
+
+          case "scaffold_plugin": {
+            return await pluginDevelopmentTools.scaffoldPlugin(args);
+          }
+
+          case "generate_plugin_code": {
+            return await pluginDevelopmentTools.generatePluginCode(args);
+          }
+
+          case "update_plugin_index": {
+            return await pluginDevelopmentTools.updatePluginIndex(args);
+          }
+
+          case "validate_plugin_code": {
+            return await pluginDevelopmentTools.validatePluginCode(args);
+          }
+
+          case "trigger_hmr_reload": {
+            return await pluginDevelopmentTools.triggerHmrReload(args);
           }
 
           default:
