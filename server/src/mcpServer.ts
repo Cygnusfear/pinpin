@@ -47,6 +47,8 @@ interface ContentStoreData {
 class KeepsyncMCPServer {
   private server: Server;
   private syncEngineInitialized = false;
+  private widgetWriteLock = false;
+  private contentWriteLock = false;
 
   /**
    * Helper function to remove undefined values recursively
@@ -152,9 +154,8 @@ class KeepsyncMCPServer {
 
   private async handleAddWidget(args: Record<string, unknown>) {
     // Read current widget store
-    const widgetStore: WidgetStoreData = (await readDoc(
-      DOCUMENT_IDS.WIDGETS,
-    )) as WidgetStoreData || {
+    const widgetStoreRaw = await readDoc(DOCUMENT_IDS.WIDGETS);
+    const widgetStore: WidgetStoreData = (widgetStoreRaw as WidgetStoreData) || {
       widgets: [],
       lastModified: 0,
     };
@@ -202,9 +203,8 @@ class KeepsyncMCPServer {
       console.log(`🔍 Creating content for widget ${newWidget.id} with contentId ${newWidget.contentId}`);
       console.log(`🔍 args.content:`, args.content);
       
-      const contentStore: ContentStoreData = (await readDoc(
-        DOCUMENT_IDS.CONTENT,
-      )) as ContentStoreData || {
+      const contentStoreRaw = await readDoc(DOCUMENT_IDS.CONTENT);
+      const contentStore: ContentStoreData = (contentStoreRaw as ContentStoreData) || {
         content: {},
         lastModified: 0,
       };
@@ -347,9 +347,8 @@ The widget has been added to the pinboard${contentInfo} and is now available for
 
   private async handleUpdateWidget(args: Record<string, unknown>) {
     // Read current widget store
-    const widgetStore: WidgetStoreData = (await readDoc(
-      DOCUMENT_IDS.WIDGETS,
-    )) as WidgetStoreData || {
+    const widgetStoreRaw = await readDoc(DOCUMENT_IDS.WIDGETS);
+    const widgetStore: WidgetStoreData = (widgetStoreRaw as WidgetStoreData) || {
       widgets: [],
       lastModified: 0,
     };
@@ -399,9 +398,8 @@ The widget has been added to the pinboard${contentInfo} and is now available for
     const updates = args.updates as Record<string, unknown>;
 
     // Read current content store
-    const contentStore: ContentStoreData = (await readDoc(
-      DOCUMENT_IDS.CONTENT,
-    )) as ContentStoreData || {
+    const contentStoreRaw = await readDoc(DOCUMENT_IDS.CONTENT);
+    const contentStore: ContentStoreData = (contentStoreRaw as ContentStoreData) || {
       content: {},
       lastModified: 0,
     };
@@ -411,9 +409,8 @@ The widget has been added to the pinboard${contentInfo} and is now available for
       console.log(`⚠️  Widget ID passed instead of content ID: ${contentId}`);
       
       // Read widget store to find the correct content ID
-      const widgetStore: WidgetStoreData = (await readDoc(
-        DOCUMENT_IDS.WIDGETS,
-      )) as WidgetStoreData || {
+      const widgetStoreRaw = await readDoc(DOCUMENT_IDS.WIDGETS);
+      const widgetStore: WidgetStoreData = (widgetStoreRaw as WidgetStoreData) || {
         widgets: [],
         lastModified: 0,
       };
@@ -509,9 +506,8 @@ The widget content has been updated and changes should be visible on the pinboar
 
   private async handleRemoveWidget(args: Record<string, unknown>) {
     // Read current widget store
-    const widgetStore: WidgetStoreData = (await readDoc(
-      DOCUMENT_IDS.WIDGETS,
-    )) as WidgetStoreData || {
+    const widgetStoreRaw = await readDoc(DOCUMENT_IDS.WIDGETS);
+    const widgetStore: WidgetStoreData = (widgetStoreRaw as WidgetStoreData) || {
       widgets: [],
       lastModified: 0,
     };
@@ -533,9 +529,8 @@ The widget content has been updated and changes should be visible on the pinboar
 
     // Also remove content if it exists
     if (removedWidget.contentId) {
-      const contentStore: ContentStoreData = (await readDoc(
-        DOCUMENT_IDS.CONTENT,
-      )) as ContentStoreData || {
+      const contentStoreRaw = await readDoc(DOCUMENT_IDS.CONTENT);
+      const contentStore: ContentStoreData = (contentStoreRaw as ContentStoreData) || {
         content: {},
         lastModified: 0,
       };
