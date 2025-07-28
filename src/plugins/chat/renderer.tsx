@@ -1,6 +1,6 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { sendChatMessage } from "../../services/claudeService";
+import { sendAIMessage } from "../../services/aiServiceManager";
 import {
   useWidgetActions,
   useWidgetContent,
@@ -17,6 +17,10 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   const isTyping = useWidgetContent(
     widgetId,
     (content) => content.data.isTyping || false,
+  );
+  const settings = useWidgetContent(
+    widgetId,
+    (content) => content.data.settings || {},
   );
 
   // Get update actions
@@ -71,8 +75,8 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     setTimeout(scrollToBottom, 100);
 
     try {
-      // Send to Claude API with simple context
-      const response = await sendChatMessage(
+      // Send to Groq AI service with MCP tool support
+      const response = await sendAIMessage(
         updatedMessages.map((msg) => ({
           role: msg.role,
           content: msg.content,
@@ -86,6 +90,12 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
           role: "assistant",
           content: response.data.message,
           timestamp: Date.now(),
+          provider: response.provider,
+          toolCalls: response.data.tool_calls,
+          metadata: {
+            toolResults: response.data.tool_results,
+            timestamp: response.timestamp,
+          },
         };
 
         const finalMessages = [...updatedMessages, assistantMessage];
@@ -97,7 +107,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
         // Scroll to bottom after adding assistant message
         setTimeout(scrollToBottom, 100);
       } else {
-        throw new Error("Invalid response from Claude API");
+        throw new Error("Invalid response from Groq API");
       }
     } catch (err) {
       console.error("Chat error:", err);
@@ -148,7 +158,14 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     <div className="flex h-full flex-col rounded-lg border border-blue-200 bg-white shadow-md">
       {/* Header */}
       <div className="flex items-center justify-between border-gray-200 border-b p-3">
-        <h3 className="font-medium text-gray-800">💬 Chat with Tonk</h3>
+        <div className="flex items-center space-x-2">
+          <h3 className="font-medium text-gray-800">💬 AI Chat</h3>
+          <div className="flex items-center space-x-1">
+            <span className="text-gray-500 text-xs">•</span>
+            <span className="text-gray-600 text-xs">⚡ GROQ</span>
+            <span className="text-gray-500 text-xs">with MCP tools</span>
+          </div>
+        </div>
         <button
           type="button"
           onClick={() => setShowClearDialog(true)}
@@ -162,11 +179,22 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
       {/* Messages */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 space-y-3 overflow-auto p-3"
+        className="flex-1 space-y-3 overflow-y-auto p-3"
+        data-scrollable="true"
+        style={{
+          // Force a minimum height of 0 to allow flex shrinking
+          minHeight: 0,
+          // Ensure we can scroll when content overflows
+          overflowY: "auto",
+          overflowX: "hidden",
+        }}
       >
         {messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-gray-400 text-sm">
-            Start a conversation with Claude...
+          <div className="flex h-full flex-col items-center justify-center space-y-2 text-gray-400 text-sm">
+            <div>Start a conversation with Groq...</div>
+            <div className="text-xs">
+              MCP tools enabled: widgets, files, system
+            </div>
           </div>
         ) : (
           <>
@@ -188,13 +216,25 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                     {message.content}
                   </div>
                   <div
-                    className={`mt-1 text-xs ${
+                    className={`mt-1 flex items-center justify-between text-xs ${
                       message.role === "user"
                         ? "text-blue-100"
                         : "text-gray-500"
                     }`}
                   >
-                    {new Date(message.timestamp).toLocaleTimeString()}
+                    <span>
+                      {new Date(message.timestamp).toLocaleTimeString()}
+                    </span>
+                    {message.role === "assistant" &&
+                      message.toolCalls &&
+                      message.toolCalls.length > 0 && (
+                        <span
+                          className="ml-2"
+                          title={`Used ${message.toolCalls.length} MCP tools`}
+                        >
+                          🔧 {message.toolCalls.length}
+                        </span>
+                      )}
                   </div>
                 </div>
               </div>
@@ -217,7 +257,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                       />
                     </div>
                     <span className="ml-2 text-gray-500 text-xs">
-                      Tonk is typing...
+                      Groq is typing...
                     </span>
                   </div>
                 </div>

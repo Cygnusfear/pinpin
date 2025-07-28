@@ -453,6 +453,9 @@ export class InteractionController {
     // Only prevent default if we're not over scrollable content OR the state machine explicitly requests it
     if (result.preventDefault && !shouldAllowScrolling) {
       event.preventDefault();
+    } else {
+      // Allow natural scroll if not over scrollable content or state machine allows it
+      // The state machine handles the actual scrolling if it's not over scrollable content
     }
     if (result.stopPropagation) {
       event.stopPropagation();
@@ -478,14 +481,52 @@ export class InteractionController {
         foundWidget = true;
       }
 
-      // If we're inside a widget, check for scrollable elements
-      if (foundWidget && this.isElementScrollable(element)) {
-        if (this.canElementScrollInDirection(element, event)) {
+      // Check for scrollable elements throughout the traversal
+      // (not just after finding widget container)
+      if (this.isElementScrollableInWidget(element, event)) {
+        // Only allow scrolling if we're inside a widget
+        if (foundWidget || this.isWithinWidget(element)) {
           return true;
         }
       }
 
       element = element.parentElement;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if an element is within a widget by looking for widget container in its ancestors
+   */
+  private isWithinWidget(element: HTMLElement): boolean {
+    let current = element.parentElement;
+    while (current && current !== this.canvasElement) {
+      if (current.hasAttribute("data-widget-id")) {
+        return true;
+      }
+      current = current.parentElement;
+    }
+    return false;
+  }
+
+  /**
+   * Check if an element within a widget is scrollable
+   */
+  private isElementScrollableInWidget(
+    element: HTMLElement,
+    event: WheelEvent,
+  ): boolean {
+    // Check for explicit scrollable markers (like our chat widget)
+    if (element.hasAttribute("data-scrollable")) {
+      return true;
+    }
+
+    // Check if element is naturally scrollable
+    if (this.isElementScrollable(element)) {
+      if (this.canElementScrollInDirection(element, event)) {
+        return true;
+      }
     }
 
     return false;

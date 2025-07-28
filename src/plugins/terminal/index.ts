@@ -28,7 +28,7 @@ export const terminalTypeDefinition: WidgetTypeDefinition[] = [
     resizable: true,
     rotatable: false, // Terminals work better without rotation
     configurable: true,
-    autoCreateOnly: false,
+    autoCreateOnly: true,
   },
 ];
 

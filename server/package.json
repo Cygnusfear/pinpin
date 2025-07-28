@@ -6,7 +6,7 @@
   "main": "src/index.ts",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "./node_modules/.bin/dotenvx run -f ../.env -- tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "mcp": "tsx src/mcp-standalone.ts"
@@ -22,11 +22,13 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-ws": "^5.0.2",
+    "groq-sdk": "^0.29.0",
     "http-proxy-middleware": "^3.0.0",
     "node-pty": "^1.0.0",
     "ws": "^8.16.0"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.48.3",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/express-ws": "^3.0.5",

@@ -10,11 +10,14 @@ import type { Request, Response } from "express";
 // Import Claude tools
 import {
   chatNarrativeTool,
-  listDirectoryTool,
   locationGenerationTool,
-  readFileTool,
-  writeFileTool,
 } from "../claude/tools.js";
+// Import unified tool manager
+import {
+  unifiedToolManager,
+  executeUnifiedTool,
+  getFormattedToolsForProvider
+} from "../tools/unifiedTools.js";
 // Import context generation functions
 import {
   createChatSystemMessage,
@@ -34,108 +37,91 @@ import {
   validateLocationResponse,
 } from "../validation/chatValidation.js";
 import { validateChatResponse } from "../validation/responseValidation.js";
+import ENV from "../env.js";
 
 /**
- * Handle filesystem operations by calling the appropriate internal API
+ * Handle filesystem and MCP operations using unified tool manager
  */
-async function handleFilesystemOperation(
+async function handleUnifiedToolOperation(
   toolName: string,
   input: any,
 ): Promise<any> {
-  const baseUrl =
-    process.env.NODE_ENV === "production"
-      ? "https://your-domain.com" // Replace with your actual domain
-      : "http://localhost:6080";
-
   try {
-    switch (toolName) {
-      case "listDirectory": {
-        const { path } = input;
-        const response = await fetch(
-          `${baseUrl}/api/fs/list?path=${encodeURIComponent(path)}`,
-        );
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to list directory");
-        }
-        return await response.json();
-      }
+    console.log(`=== Executing Unified Tool via Claude: ${toolName} ===`);
+    
+    const result = await executeUnifiedTool(
+      toolName,
+      input,
+      { provider: "claude" }
+    );
 
-      case "readFile": {
-        const { path, encoding = "utf8" } = input;
-        const url = `${baseUrl}/api/fs/read?path=${encodeURIComponent(path)}&encoding=${encoding}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to read file");
-        }
-        return await response.json();
-      }
-
-      case "writeFile": {
-        const { path, content, encoding = "utf8" } = input;
-        const response = await fetch(`${baseUrl}/api/fs/write`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ path, content, encoding }),
-        });
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to write file");
-        }
-        return await response.json();
-      }
-
-      default:
-        throw new Error(`Unknown filesystem operation: ${toolName}`);
+    if (!result.success) {
+      throw new Error(result.error || "Tool execution failed");
     }
+
+    // Parse JSON content if it looks like structured data
+    let parsedContent = result.content;
+    try {
+      if (result.content.startsWith('{') || result.content.startsWith('[')) {
+        parsedContent = JSON.parse(result.content);
+      }
+    } catch {
+      // Keep as string if not valid JSON
+    }
+
+    return {
+      success: true,
+      content: parsedContent,
+      metadata: result.metadata,
+    };
   } catch (error: any) {
-    console.error(`Filesystem operation error (${toolName}):`, error.message);
+    console.error(`Unified tool operation error (${toolName}):`, error.message);
     throw error;
   }
 }
 
 /**
- * Format filesystem operation results into user-friendly messages
+ * Format unified tool operation results into user-friendly messages
  */
-function formatFilesystemResponse(toolName: string, result: any): string {
-  switch (toolName) {
-    case "listDirectory":
-      if (result.items && Array.isArray(result.items)) {
-        const fileCount = result.items.filter(
+function formatUnifiedToolResponse(toolName: string, result: any): string {
+  // If the result is already formatted (contains markdown), use it directly
+  if (typeof result.content === "string" && result.content.includes("##")) {
+    return result.content;
+  }
+
+  // Legacy formatting for filesystem tools
+  if (toolName === "list_directory" && result.content) {
+    try {
+      const parsed = typeof result.content === "string"
+        ? JSON.parse(result.content)
+        : result.content;
+      
+      if (parsed.items && Array.isArray(parsed.items)) {
+        const fileCount = parsed.items.filter(
           (item: any) => item.type === "file",
         ).length;
-        const dirCount = result.items.filter(
+        const dirCount = parsed.items.filter(
           (item: any) => item.type === "directory",
         ).length;
-        const itemsList = result.items
+        const itemsList = parsed.items
           .map(
             (item: any) =>
               `${item.type === "directory" ? "📁" : "📄"} ${item.name}`,
           )
           .join("\n");
-        return `Directory listing for "${result.currentPath}":\n\nFound ${fileCount} files and ${dirCount} directories:\n\n${itemsList}`;
+        return `Directory listing for "${parsed.currentPath}":\n\nFound ${fileCount} files and ${dirCount} directories:\n\n${itemsList}`;
       }
-      return `Listed directory: ${JSON.stringify(result)}`;
-
-    case "readFile":
-      if (result.content) {
-        const preview =
-          result.content.length > 500
-            ? `${result.content.substring(0, 500)}...\n\n[Content truncated]`
-            : result.content;
-        return `File content (${result.size} bytes, ${result.encoding} encoding):\n\n\`\`\`\n${preview}\n\`\`\``;
-      }
-      return `Read file: ${JSON.stringify(result)}`;
-
-    case "writeFile":
-      return `Successfully wrote ${result.size} bytes to "${result.path}"`;
-
-    default:
-      return `Filesystem operation completed: ${JSON.stringify(result)}`;
+    } catch {
+      // Fall through to default formatting
+    }
   }
+
+  // Default formatting
+  if (typeof result.content === "string") {
+    return result.content;
+  }
+
+  return `Tool operation completed: ${JSON.stringify(result.content)}`;
 }
 
 /**
@@ -178,28 +164,24 @@ async function processToolResponse(toolUse: any, res: Response): Promise<void> {
       success: true,
       data: structuredResponse,
     });
-  } else if (
-    ["listDirectory", "readFile", "writeFile"].includes(toolUse.name)
-  ) {
-    // Handle filesystem operations
-    const result = await handleFilesystemOperation(
+  } else {
+    // Handle all other tools via unified tool manager
+    const result = await handleUnifiedToolOperation(
       toolUse.name,
       toolUse.input as any,
     );
 
-    // Format filesystem response to match expected client structure
-    const formattedMessage = formatFilesystemResponse(toolUse.name, result);
+    // Format tool response to match expected client structure
+    const formattedMessage = formatUnifiedToolResponse(toolUse.name, result);
 
     res.json({
       success: true,
       data: {
         message: formattedMessage,
         tool: toolUse.name,
-        filesystem_result: result,
+        tool_result: result,
       },
     });
-  } else {
-    throw new Error(`Unknown tool: ${toolUse.name}`);
   }
 }
 
@@ -208,20 +190,8 @@ let anthropic: Anthropic | null = null;
 
 const getAnthropicClient = (): Anthropic => {
   if (!anthropic) {
-    console.log("=== Anthropic Client Debug ===");
-    console.log("API Key exists:", !!process.env.VITE_ANTHROPIC_API_KEY);
-    console.log(
-      "API Key length:",
-      process.env.VITE_ANTHROPIC_API_KEY?.length || 0,
-    );
-    console.log("============================");
-
-    if (!process.env.VITE_ANTHROPIC_API_KEY) {
-      throw new Error("VITE_ANTHROPIC_API_KEY environment variable is not set");
-    }
-
     anthropic = new Anthropic({
-      apiKey: process.env.VITE_ANTHROPIC_API_KEY,
+      apiKey: ENV.VITE_ANTHROPIC_API_KEY,
     });
   }
   return anthropic;
@@ -291,6 +261,22 @@ export const claudeChatHandler = async (req: Request, res: Response) => {
     console.log("Using tool use for chat response");
     console.log("===============================");
 
+    // Get available unified tools for Claude
+    await unifiedToolManager.initialize();
+    const unifiedTools = await getFormattedToolsForProvider("claude");
+    
+    // Combine D&D narrative tool with unified MCP tools
+    const allTools = [
+      chatNarrativeTool, // Primary tool for conversation and D&D
+      ...unifiedTools,   // All available MCP tools
+    ];
+
+    console.log("=== Claude Tool Debug ===");
+    console.log("D&D tools: 1");
+    console.log("Unified MCP tools:", unifiedTools.length);
+    console.log("Total tools:", allTools.length);
+    console.log("========================");
+
     // Make request to Claude with tool use
     const response = await getAnthropicClient().messages.create({
       model: "claude-sonnet-4-20250514",
@@ -298,12 +284,7 @@ export const claudeChatHandler = async (req: Request, res: Response) => {
       temperature: 0.3,
       system: systemMessage,
       messages: claudeMessages,
-      tools: [
-        chatNarrativeTool, // Primary tool for conversation and D&D
-        listDirectoryTool,
-        readFileTool,
-        writeFileTool,
-      ],
+      tools: allTools,
       tool_choice: { type: "any" },
     });
 
@@ -492,6 +473,6 @@ export const healthHandler = (_req: Request, res: Response) => {
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
-    anthropic_configured: !!process.env.VITE_ANTHROPIC_API_KEY,
+    anthropic_configured: !!ENV.VITE_ANTHROPIC_API_KEY,
   });
 };

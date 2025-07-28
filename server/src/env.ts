@@ -1,6 +1,6 @@
 import { cleanEnv, str } from "envalid";
 
-const ENV = cleanEnv(import.meta.env, {
+const ENV = cleanEnv(process.env, {
   VITE_PINATA_JWT: str(),
   VITE_PINATA_KEY: str(),
   VITE_PINATA_SECRET: str(),

@@ -17,15 +17,19 @@ import {
   writeDoc,
 } from "@tonk/keepsync";
 import WebSocket from "ws";
+import * as fs from "fs/promises";
+import * as path from "path";
+import { DOCUMENT_IDS } from "./config/documentIds.js";
 
 // Polyfill WebSocket for Node.js environment
 global.WebSocket = WebSocket as any;
 
 /**
- * MCP Server for Keepsync Store Access
+ * MCP Server for Keepsync Store Access & Filesystem Operations
  *
- * Provides Claude with access to read and write zustand/keepsync stores
- * Used by the pinboard application for collaborative state management.
+ * Provides Claude/Groq with access to read and write zustand/keepsync stores
+ * as well as filesystem operations. Used by the pinboard application for 
+ * collaborative state management and file operations.
  */
 
 // Type definitions for keepsync documents
@@ -93,27 +97,8 @@ class KeepsyncMCPServer {
     }
   }
 
-  private async handleToolCall(name: string, args: any) {
-    switch (name) {
-      case "read_keepsync_doc":
-        return await this.handleReadDoc(args);
-      case "write_keepsync_doc":
-        return await this.handleWriteDoc(args);
-      case "list_keepsync_docs":
-        return await this.handleListDocs(args);
-      case "add_widget":
-        return await this.handleAddWidget(args);
-      case "update_widget":
-        return await this.handleUpdateWidget(args);
-      case "remove_widget":
-        return await this.handleRemoveWidget(args);
-      default:
-        throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
-    }
-  }
-
-  private async handleReadDoc(args: any) {
-    const doc = await readDoc(args.path);
+  private async handleReadDoc(args: Record<string, unknown>) {
+    const doc = await readDoc(args.path as string);
     return {
       content: [
         {
@@ -124,8 +109,8 @@ class KeepsyncMCPServer {
     };
   }
 
-  private async handleWriteDoc(args: any) {
-    await writeDoc(args.path, args.content);
+  private async handleWriteDoc(args: Record<string, unknown>) {
+    await writeDoc(args.path as string, args.content);
     return {
       content: [
         {
@@ -136,8 +121,8 @@ class KeepsyncMCPServer {
     };
   }
 
-  private async handleListDocs(args: any) {
-    const docs = await ls(args.path || "/");
+  private async handleListDocs(args: Record<string, unknown>) {
+    const docs = await ls((args.path as string) || "/");
     return {
       content: [
         {
@@ -148,70 +133,118 @@ class KeepsyncMCPServer {
     };
   }
 
-  private async handleAddWidget(args: any) {
+  private async handleAddWidget(args: Record<string, unknown>) {
     // Read current widget store
     const widgetStore: WidgetStoreData = (await readDoc(
-      "pinboard-widgets",
-    )) || {
+      DOCUMENT_IDS.WIDGETS,
+    )) as WidgetStoreData || {
       widgets: [],
       lastModified: 0,
     };
 
-    // Generate new widget
+    // Extract position and size from args to match frontend Widget structure
+    const position = args.position as { x: number; y: number };
+    const size = args.size as { width: number; height: number };
+    
+    // Generate new widget matching frontend Widget interface
     const newWidget = {
       id: `widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      type: args.type,
-      position: args.position,
-      size: args.size,
-      transform: {
-        rotation: 0,
-        scale: 1,
-      },
+      type: args.type as string,
+      // Frontend expects flat structure, not nested position/size objects
+      x: position.x,
+      y: position.y,
+      width: size.width,
+      height: size.height,
+      rotation: 0,
       zIndex: widgetStore.widgets.length,
+      locked: false,
       selected: false,
       contentId: args.content ? `content_${Date.now()}` : undefined,
+      metadata: {},
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
 
-    // Add widget to store
-    widgetStore.widgets.push(newWidget);
-    widgetStore.lastModified = Date.now();
+    // Create completely clean objects with deep serialization to avoid Automerge reference issues
+    const cleanWidget = JSON.parse(JSON.stringify(newWidget));
+    const existingWidgets = JSON.parse(JSON.stringify(widgetStore.widgets || []));
+    
+    const updatedWidgetStore = {
+      widgets: [...existingWidgets, cleanWidget],
+      lastModified: Date.now(),
+    };
 
+    // Ensure the entire store is clean
+    const cleanStore = JSON.parse(JSON.stringify(updatedWidgetStore));
+    
     // Save updated store
-    await writeDoc("pinboard-widgets", widgetStore);
+    await writeDoc(DOCUMENT_IDS.WIDGETS, cleanStore);
 
     // If content provided, save it too
     if (args.content) {
       const contentStore: ContentStoreData = (await readDoc(
-        "pinboard-content",
-      )) || {
+        DOCUMENT_IDS.CONTENT,
+      )) as ContentStoreData || {
         content: {},
         lastModified: 0,
       };
-      contentStore.content[newWidget.contentId!] = {
+      // Structure content to match frontend WidgetContent interface
+      // Ensure content is JSON-serializable and safe for Automerge
+      const contentData = JSON.parse(JSON.stringify(args.content || {}));
+      const contentEntry = {
         id: newWidget.contentId!,
-        type: args.type,
-        ...args.content,
+        type: args.type as string,
+        data: contentData, // Wrap content in data field to match frontend
+        lastModified: Date.now(),
+        size: JSON.stringify(contentData).length, // Calculate approximate size
+      };
+      
+      // Create completely clean objects to avoid Automerge reference issues
+      const existingContent = JSON.parse(JSON.stringify(contentStore.content || {}));
+      const cleanContentEntry = JSON.parse(JSON.stringify(contentEntry));
+      
+      const updatedContentStore = {
+        content: {
+          ...existingContent,
+          [newWidget.contentId!]: cleanContentEntry
+        },
         lastModified: Date.now(),
       };
-      contentStore.lastModified = Date.now();
-      await writeDoc("pinboard-content", contentStore);
+      
+      // Ensure the entire content store is clean
+      const cleanContentStore = JSON.parse(JSON.stringify(updatedContentStore));
+      
+      await writeDoc(DOCUMENT_IDS.CONTENT, cleanContentStore);
     }
+
+    const contentInfo = args.content ? " with content" : "";
+    const summary = `## ✅ Widget Added Successfully
+
+**Widget Details:**
+- Type: **${newWidget.type}**
+- ID: \`${newWidget.id}\`
+- Position: (${newWidget.x}, ${newWidget.y})
+- Size: ${newWidget.width} × ${newWidget.height}
+- Z-Index: ${newWidget.zIndex}
+- Has Content: ${newWidget.contentId ? 'Yes' : 'No'}
+
+The widget has been added to the pinboard${contentInfo} and is now available for interaction.`;
 
     return {
       content: [
         {
           type: "text",
-          text: `Successfully added widget: ${JSON.stringify(newWidget, null, 2)}`,
+          text: `${summary}\n\n**Technical Data:**\n\`\`\`json\n${JSON.stringify(newWidget, null, 2)}\n\`\`\``,
         },
       ],
     };
   }
 
-  private async handleUpdateWidget(args: any) {
+  private async handleUpdateWidget(args: Record<string, unknown>) {
     // Read current widget store
     const widgetStore: WidgetStoreData = (await readDoc(
-      "pinboard-widgets",
-    )) || {
+      DOCUMENT_IDS.WIDGETS,
+    )) as WidgetStoreData || {
       widgets: [],
       lastModified: 0,
     };
@@ -224,16 +257,27 @@ class KeepsyncMCPServer {
       throw new Error(`Widget not found: ${args.id}`);
     }
 
-    // Update widget
-    widgetStore.widgets[widgetIndex] = {
-      ...widgetStore.widgets[widgetIndex],
-      ...args.updates,
+    // Create completely clean objects to avoid Automerge reference issues
+    const existingWidgets = JSON.parse(JSON.stringify(widgetStore.widgets || []));
+    const updates = JSON.parse(JSON.stringify(args.updates || {}));
+    
+    // Update the specific widget with clean data
+    existingWidgets[widgetIndex] = {
+      ...existingWidgets[widgetIndex],
+      ...updates,
+      updatedAt: Date.now(),
+    };
+    
+    const updatedWidgetStore = {
+      widgets: existingWidgets,
       lastModified: Date.now(),
     };
-    widgetStore.lastModified = Date.now();
 
+    // Ensure the entire store is clean
+    const cleanStore = JSON.parse(JSON.stringify(updatedWidgetStore));
+    
     // Save updated store
-    await writeDoc("pinboard-widgets", widgetStore);
+    await writeDoc(DOCUMENT_IDS.WIDGETS, cleanStore);
 
     return {
       content: [
@@ -245,11 +289,68 @@ class KeepsyncMCPServer {
     };
   }
 
-  private async handleRemoveWidget(args: any) {
+  private async handleUpdateWidgetContent(args: Record<string, unknown>) {
+    const contentId = args.contentId as string;
+    const updates = args.updates as Record<string, unknown>;
+
+    // Read current content store
+    const contentStore: ContentStoreData = (await readDoc(
+      DOCUMENT_IDS.CONTENT,
+    )) as ContentStoreData || {
+      content: {},
+      lastModified: 0,
+    };
+
+    // Check if content exists
+    if (!contentStore.content[contentId]) {
+      throw new Error(`Content not found: ${contentId}`);
+    }
+
+    // Create completely clean objects to avoid Automerge reference issues
+    const existingContent = JSON.parse(JSON.stringify(contentStore.content || {}));
+    const cleanUpdates = JSON.parse(JSON.stringify(updates));
+    
+    // Update the specific content with clean data
+    existingContent[contentId] = {
+      ...existingContent[contentId],
+      data: {
+        ...existingContent[contentId].data,
+        ...cleanUpdates,
+      },
+      lastModified: Date.now(),
+    };
+    
+    const updatedContentStore = {
+      content: existingContent,
+      lastModified: Date.now(),
+    };
+
+    // Ensure the entire store is clean
+    const cleanStore = JSON.parse(JSON.stringify(updatedContentStore));
+    
+    // Save updated content store
+    await writeDoc(DOCUMENT_IDS.CONTENT, cleanStore);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `## ✅ Widget Content Updated Successfully
+
+**Content ID:** \`${contentId}\`
+**Updated fields:** ${Object.keys(cleanUpdates).join(', ')}
+
+The widget content has been updated and changes should be visible on the pinboard.`,
+        },
+      ],
+    };
+  }
+
+  private async handleRemoveWidget(args: Record<string, unknown>) {
     // Read current widget store
     const widgetStore: WidgetStoreData = (await readDoc(
-      "pinboard-widgets",
-    )) || {
+      DOCUMENT_IDS.WIDGETS,
+    )) as WidgetStoreData || {
       widgets: [],
       lastModified: 0,
     };
@@ -267,19 +368,19 @@ class KeepsyncMCPServer {
     widgetStore.lastModified = Date.now();
 
     // Save updated store
-    await writeDoc("pinboard-widgets", widgetStore);
+    await writeDoc(DOCUMENT_IDS.WIDGETS, widgetStore);
 
     // Also remove content if it exists
     if (removedWidget.contentId) {
       const contentStore: ContentStoreData = (await readDoc(
-        "pinboard-content",
-      )) || {
+        DOCUMENT_IDS.CONTENT,
+      )) as ContentStoreData || {
         content: {},
         lastModified: 0,
       };
       delete contentStore.content[removedWidget.contentId];
       contentStore.lastModified = Date.now();
-      await writeDoc("pinboard-content", contentStore);
+      await writeDoc(DOCUMENT_IDS.CONTENT, contentStore);
     }
 
     return {
@@ -290,6 +391,154 @@ class KeepsyncMCPServer {
         },
       ],
     };
+  }
+
+  private async handleReadFile(args: Record<string, unknown>) {
+    try {
+      const filePath = args.path as string;
+      const encoding = (args.encoding as string) || "utf8";
+      
+      if (!filePath) {
+        throw new Error("Path is required");
+      }
+      
+      // Security: Prevent path traversal attacks
+      const normalizedPath = path.normalize(filePath);
+      if (normalizedPath.includes("..")) {
+        throw new Error("Path traversal not allowed");
+      }
+
+      // Get absolute path from project root
+      const projectRoot = process.cwd();
+      const absolutePath = path.resolve(projectRoot, normalizedPath);
+      
+      // Ensure path is within project directory
+      if (!absolutePath.startsWith(projectRoot)) {
+        throw new Error("Access outside project directory not allowed");
+      }
+
+      const content = await fs.readFile(absolutePath, encoding as BufferEncoding);
+      const stats = await fs.stat(absolutePath);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              path: filePath,
+              content,
+              size: stats.size,
+              encoding,
+              lastModified: stats.mtime.toISOString(),
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      throw new McpError(
+        ErrorCode.InternalError,
+        `Failed to read file: ${error.message}`,
+      );
+    }
+  }
+
+  private async handleWriteFile(args: Record<string, unknown>) {
+    try {
+      const filePath = args.path as string;
+      const content = args.content as string;
+      const encoding = (args.encoding as string) || "utf8";
+      
+      if (!filePath || content === undefined) {
+        throw new Error("Path and content are required");
+      }
+      
+      // Security: Prevent path traversal attacks
+      const normalizedPath = path.normalize(filePath);
+      if (normalizedPath.includes("..")) {
+        throw new Error("Path traversal not allowed");
+      }
+
+      // Get absolute path from project root
+      const projectRoot = process.cwd();
+      const absolutePath = path.resolve(projectRoot, normalizedPath);
+      
+      // Ensure path is within project directory
+      if (!absolutePath.startsWith(projectRoot)) {
+        throw new Error("Access outside project directory not allowed");
+      }
+
+      // Ensure directory exists
+      const dir = path.dirname(absolutePath);
+      await fs.mkdir(dir, { recursive: true });
+
+      await fs.writeFile(absolutePath, content, encoding as BufferEncoding);
+      const stats = await fs.stat(absolutePath);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              path: filePath,
+              size: stats.size,
+              encoding,
+              lastModified: stats.mtime.toISOString(),
+              message: `Successfully wrote ${stats.size} bytes to ${filePath}`,
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      throw new McpError(
+        ErrorCode.InternalError,
+        `Failed to write file: ${error.message}`,
+      );
+    }
+  }
+
+  private async handleListDirectory(args: Record<string, unknown>) {
+    try {
+      const dirPath = (args.path as string) || ".";
+      
+      // Security: Prevent path traversal attacks
+      const normalizedPath = path.normalize(dirPath);
+      if (normalizedPath.includes("..")) {
+        throw new Error("Path traversal not allowed");
+      }
+
+      // Get absolute path from project root
+      const projectRoot = process.cwd();
+      const absolutePath = path.resolve(projectRoot, normalizedPath);
+      
+      // Ensure path is within project directory
+      if (!absolutePath.startsWith(projectRoot)) {
+        throw new Error("Access outside project directory not allowed");
+      }
+
+      const items = await fs.readdir(absolutePath, { withFileTypes: true });
+      const result = {
+        currentPath: dirPath,
+        items: items.map((item) => ({
+          name: item.name,
+          type: item.isDirectory() ? "directory" : "file",
+          isSymlink: item.isSymbolicLink(),
+        })),
+      };
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      throw new McpError(
+        ErrorCode.InternalError,
+        `Failed to list directory: ${error.message}`,
+      );
+    }
   }
 
   private setupHandlers() {
@@ -341,7 +590,7 @@ class KeepsyncMCPServer {
 
         try {
           if (uri === "pinboard://widgets") {
-            const widgetData = await readDoc("pinboard-widgets");
+            const widgetData = await readDoc(DOCUMENT_IDS.WIDGETS);
             return {
               contents: [
                 {
@@ -358,7 +607,7 @@ class KeepsyncMCPServer {
           }
 
           if (uri === "pinboard://content") {
-            const contentData = await readDoc("pinboard-content");
+            const contentData = await readDoc(DOCUMENT_IDS.CONTENT);
             return {
               contents: [
                 {
@@ -375,7 +624,7 @@ class KeepsyncMCPServer {
           }
 
           if (uri === "pinboard://ui-state") {
-            const uiData = await readDoc("pinboard-ui");
+            const uiData = await readDoc(DOCUMENT_IDS.UI_STATE);
             return {
               contents: [
                 {
@@ -512,7 +761,7 @@ class KeepsyncMCPServer {
           {
             name: "update_pinboard_widget",
             description:
-              "Update an existing widget on the pinboard (move it, resize it, or change its content)",
+              "Update widget properties like position, size, rotation, z-index (NOT content - use update_widget_content for that)",
             inputSchema: {
               type: "object",
               properties: {
@@ -522,7 +771,7 @@ class KeepsyncMCPServer {
                 },
                 updates: {
                   type: "object",
-                  description: "Properties to update on the widget",
+                  description: "Widget properties to update (x, y, width, height, rotation, zIndex, locked, etc.)",
                 },
               },
               required: ["id", "updates"],
@@ -542,6 +791,79 @@ class KeepsyncMCPServer {
               required: ["id"],
             },
           },
+          {
+            name: "update_widget_content",
+            description: "Update the content/text inside a widget (separate from widget properties like position/size)",
+            inputSchema: {
+              type: "object",
+              properties: {
+                contentId: {
+                  type: "string",
+                  description: "Content ID of the widget content to update",
+                },
+                updates: {
+                  type: "object",
+                  description: "Content data to update (e.g., text, items, settings)",
+                },
+              },
+              required: ["contentId", "updates"],
+            },
+          },
+          {
+            name: "read_file",
+            description: "Read contents of a file in the project",
+            inputSchema: {
+              type: "object",
+              properties: {
+                path: {
+                  type: "string",
+                  description: "File path relative to project root",
+                },
+                encoding: {
+                  type: "string",
+                  description: "File encoding (default: utf8)",
+                  enum: ["utf8", "ascii", "base64", "hex"],
+                },
+              },
+              required: ["path"],
+            },
+          },
+          {
+            name: "write_file",
+            description: "Write content to a file in the project",
+            inputSchema: {
+              type: "object",
+              properties: {
+                path: {
+                  type: "string",
+                  description: "File path relative to project root",
+                },
+                content: {
+                  type: "string",
+                  description: "Content to write to the file",
+                },
+                encoding: {
+                  type: "string",
+                  description: "File encoding (default: utf8)",
+                  enum: ["utf8", "ascii", "base64", "hex"],
+                },
+              },
+              required: ["path", "content"],
+            },
+          },
+          {
+            name: "list_directory",
+            description: "List contents of a directory in the project",
+            inputSchema: {
+              type: "object",
+              properties: {
+                path: {
+                  type: "string",
+                  description: "Directory path relative to project root (default: current directory)",
+                },
+              },
+            },
+          },
         ],
       };
     });
@@ -552,176 +874,139 @@ class KeepsyncMCPServer {
 
       const { name, arguments: args } = request.params;
 
+      if (!args) {
+        throw new McpError(ErrorCode.InvalidParams, "Missing arguments");
+      }
+
       try {
         switch (name) {
           case "view_all_pinboard_widgets": {
-            const widgets = await readDoc("pinboard-widgets");
+            const widgetData = await readDoc(DOCUMENT_IDS.WIDGETS) as any;
+            const contentData = await readDoc(DOCUMENT_IDS.CONTENT) as any;
+            
+            const safeWidgetData = widgetData || { widgets: [], lastModified: 0 };
+            const safeContentData = contentData || { content: {}, lastModified: 0 };
+            
+            const summary = safeWidgetData.widgets.length > 0 
+              ? `Found ${safeWidgetData.widgets.length} widgets on the pinboard:`
+              : "The pinboard is currently empty.";
+              
+            const widgetList = safeWidgetData.widgets.map((w: any, idx: number) => {
+              // Look up actual content from content store if contentId exists
+              const hasContentId = w.contentId && w.contentId !== undefined;
+              const actualContent = hasContentId ? safeContentData.content[w.contentId] : null;
+              const contentStatus = actualContent 
+                ? `Yes - ${actualContent.type} content` 
+                : hasContentId 
+                ? `Missing (contentId: ${w.contentId})` 
+                : 'No';
+              
+              let contentPreview = '';
+              if (actualContent) {
+                // Show a preview of the content based on type
+                if (actualContent.data) {
+                  const contentKeys = Object.keys(actualContent.data);
+                  contentPreview = `\n   - Content preview: ${contentKeys.slice(0, 3).join(', ')}${contentKeys.length > 3 ? '...' : ''}`;
+                }
+              }
+              
+              return `${idx + 1}. **${w.type}** widget (ID: ${w.id})
+   - Position: (${w.x}, ${w.y})
+   - Size: ${w.width} × ${w.height}
+   - Created: ${new Date(w.createdAt || 0).toLocaleString()}
+   - Content status: ${contentStatus}${contentPreview}`;
+            }).join('\n\n');
+            
             return {
               content: [
                 {
                   type: "text",
-                  text: `## 📌 Pinboard Widgets\n\n${JSON.stringify(widgets || { widgets: [], lastModified: 0 }, null, 2)}`,
+                  text: `## 📌 Pinboard Widgets Overview\n\n${summary}\n\n${widgetList}\n\n**Widget Store Data:**\n\`\`\`json\n${JSON.stringify(safeWidgetData, null, 2)}\n\`\`\`\n\n**Content Store Data:**\n\`\`\`json\n${JSON.stringify(safeContentData, null, 2)}\n\`\`\``,
                 },
               ],
             };
           }
 
           case "view_widget_content": {
-            const content = await readDoc("pinboard-content");
+            const contentData = await readDoc(DOCUMENT_IDS.CONTENT) as any;
+            const safeData = contentData || { content: {}, lastModified: 0 };
+            const contentEntries = Object.entries(safeData.content || {});
+            
+            const summary = contentEntries.length > 0 
+              ? `Found content for ${contentEntries.length} widgets:`
+              : "No widget content stored yet.";
+              
+            const contentList = contentEntries.map(([contentId, content]: [string, any], idx: number) => 
+              `${idx + 1}. **${content.type}** content (ID: ${contentId})
+   - Type: ${content.type}
+   - Last modified: ${new Date(content.lastModified || 0).toLocaleString()}
+   - Data keys: ${Object.keys(content.data || content).filter(k => k !== 'id' && k !== 'type' && k !== 'lastModified').join(', ') || 'None'}`
+            ).join('\n\n');
+            
             return {
               content: [
                 {
                   type: "text",
-                  text: `## 📝 Widget Content\n\n${JSON.stringify(content || { content: {}, lastModified: 0 }, null, 2)}`,
+                  text: `## 📝 Widget Content Overview\n\n${summary}\n\n${contentList}\n\n**Technical Data:**\n\`\`\`json\n${JSON.stringify(safeData, null, 2)}\n\`\`\``,
                 },
               ],
             };
           }
 
           case "view_pinboard_ui_state": {
-            const uiState = await readDoc("pinboard-ui");
+            const uiStateData = await readDoc(DOCUMENT_IDS.UI_STATE) as any;
+            const safeData = uiStateData || { selection: [], canvasTransform: { x: 0, y: 0, scale: 1 } };
+            
+            const transform = safeData.canvasTransform || { x: 0, y: 0, scale: 1 };
+            const selection = safeData.selection || [];
+            
+            const summary = `## 🖱️ Pinboard UI State Overview
+
+**Canvas View:**
+- Position: (${transform.x}, ${transform.y})
+- Zoom level: ${transform.scale}x
+
+**Selection:**
+- Selected widgets: ${selection.length > 0 ? selection.join(', ') : 'None'}
+
+**Current Mode:** ${safeData.mode || 'Default'}`;
+
             return {
               content: [
                 {
                   type: "text",
-                  text: `## 🖱️ Pinboard UI State\n\n${JSON.stringify(uiState || { selection: [], canvasTransform: { x: 0, y: 0, scale: 1 } }, null, 2)}`,
+                  text: `${summary}\n\n**Technical Data:**\n\`\`\`json\n${JSON.stringify(safeData, null, 2)}\n\`\`\``,
                 },
               ],
             };
           }
 
           case "add_pinboard_widget": {
-            // Read current widget store
-            const widgetStore = (await readDoc("pinboard-widgets")) || {
-              widgets: [],
-              lastModified: 0,
-            };
-
-            // Generate new widget
-            const newWidget = {
-              id: `widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              type: args.type,
-              position: args.position,
-              size: args.size,
-              transform: {
-                rotation: 0,
-                scale: 1,
-              },
-              zIndex: widgetStore.widgets.length,
-              selected: false,
-              contentId: args.content ? `content_${Date.now()}` : undefined,
-            };
-
-            // Add widget to store
-            widgetStore.widgets.push(newWidget);
-            widgetStore.lastModified = Date.now();
-
-            // Save updated store
-            await writeDoc("pinboard-widgets", widgetStore);
-
-            // If content provided, save it too
-            if (args.content) {
-              const contentStore = (await readDoc("pinboard-content")) || {
-                content: {},
-                lastModified: 0,
-              };
-              contentStore.content[newWidget.contentId!] = {
-                id: newWidget.contentId!,
-                type: args.type,
-                ...args.content,
-                lastModified: Date.now(),
-              };
-              contentStore.lastModified = Date.now();
-              await writeDoc("pinboard-content", contentStore);
-            }
-
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `Successfully added widget: ${JSON.stringify(newWidget, null, 2)}`,
-                },
-              ],
-            };
+            return await this.handleAddWidget(args);
           }
 
           case "update_pinboard_widget": {
-            // Read current widget store
-            const widgetStore = (await readDoc("pinboard-widgets")) || {
-              widgets: [],
-              lastModified: 0,
-            };
-
-            // Find and update widget
-            const widgetIndex = widgetStore.widgets.findIndex(
-              (w: any) => w.id === args.id,
-            );
-            if (widgetIndex === -1) {
-              throw new Error(`Widget not found: ${args.id}`);
-            }
-
-            // Update widget
-            widgetStore.widgets[widgetIndex] = {
-              ...widgetStore.widgets[widgetIndex],
-              ...args.updates,
-              lastModified: Date.now(),
-            };
-            widgetStore.lastModified = Date.now();
-
-            // Save updated store
-            await writeDoc("pinboard-widgets", widgetStore);
-
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `Successfully updated widget: ${args.id}`,
-                },
-              ],
-            };
+            return await this.handleUpdateWidget(args);
           }
 
           case "remove_pinboard_widget": {
-            // Read current widget store
-            const widgetStore = (await readDoc("pinboard-widgets")) || {
-              widgets: [],
-              lastModified: 0,
-            };
+            return await this.handleRemoveWidget(args);
+          }
 
-            // Find widget
-            const widgetIndex = widgetStore.widgets.findIndex(
-              (w: any) => w.id === args.id,
-            );
-            if (widgetIndex === -1) {
-              throw new Error(`Widget not found: ${args.id}`);
-            }
+          case "update_widget_content": {
+            return await this.handleUpdateWidgetContent(args);
+          }
 
-            // Remove widget
-            const removedWidget = widgetStore.widgets.splice(widgetIndex, 1)[0];
-            widgetStore.lastModified = Date.now();
+          case "read_file": {
+            return await this.handleReadFile(args);
+          }
 
-            // Save updated store
-            await writeDoc("pinboard-widgets", widgetStore);
+          case "write_file": {
+            return await this.handleWriteFile(args);
+          }
 
-            // Also remove content if it exists
-            if (removedWidget.contentId) {
-              const contentStore = (await readDoc("pinboard-content")) || {
-                content: {},
-                lastModified: 0,
-              };
-              delete contentStore.content[removedWidget.contentId];
-              contentStore.lastModified = Date.now();
-              await writeDoc("pinboard-content", contentStore);
-            }
-
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `Successfully removed widget: ${args.id}`,
-                },
-              ],
-            };
+          case "list_directory": {
+            return await this.handleListDirectory(args);
           }
 
           default:

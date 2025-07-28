@@ -36,6 +36,12 @@ import {
   claudeLocationHandler,
   healthHandler,
 } from "./routes/chatHandlers.js";
+import {
+  groqChatHandler,
+  groqToolsHandler,
+  groqResourcesHandler,
+  groqHealthHandler,
+} from "./routes/groqHandlers.js";
 import { terminalSessionManager } from "./terminal/terminalSessionManager.js";
 // Import terminal WebSocket setup
 import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
@@ -44,6 +50,12 @@ import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
 app.post("/api/claude/chat", claudeChatHandler);
 app.post("/api/claude/generate-starting-location", claudeLocationHandler);
 app.get("/api/health", healthHandler);
+
+// Groq AI chat endpoints
+app.post("/api/groq/chat", groqChatHandler);
+app.get("/api/groq/tools", groqToolsHandler);
+app.get("/api/groq/resources", groqResourcesHandler);
+app.get("/api/groq/health", groqHealthHandler);
 
 // Terminal test endpoint for debugging
 app.post("/api/terminal/test", (req: any, res: any) => {

@@ -11,7 +11,7 @@ export const initializeSyncEngine = async () => {
 
   const url =
     window.location.host.indexOf("localhost") === 0
-      ? "http://localhost:3000"
+      ? "http://localhost:3000"  // Use vite proxy
       : `${window.location.protocol}//${window.location.host}`;
 
   try {
