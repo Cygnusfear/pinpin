@@ -212,56 +212,30 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Loading state
   if (!messages) {
     return (
-      <div className="flex h-full items-center justify-center rounded-lg bg-blue-100 shadow">
-        <div className="text-gray-500">Loading chat...</div>
+      <div className="rounded-full border border-gray-300 bg-gray-100 p-3 shadow">
+        <div className="text-gray-500 text-sm text-center">Loading chat...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col rounded-lg border border-blue-200 bg-white shadow-md">
-      {/* Header */}
-      <div className="flex items-center justify-between border-gray-200 border-b p-3">
-        <div className="flex items-center space-x-2">
-          <h3 className="font-medium text-gray-800">💬 AI Chat</h3>
-          <div className="flex items-center space-x-1">
-            <span className="text-gray-500 text-xs">•</span>
-            <span className="text-gray-600 text-xs">⚡ GROQ</span>
-            <span className="text-gray-500 text-xs">with MCP tools</span>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowClearDialog(true)}
-          className="text-gray-500 text-xs hover:text-red-500"
-          disabled={messages.length === 0}
+    <div className="relative">
+      {/* Floating Chat Bubbles - positioned above widget */}
+      {messages.length > 0 && (
+        <div 
+          className="absolute bottom-full left-0 right-0 mb-3 max-h-96 overflow-hidden"
+          style={{ zIndex: 1000 }}
         >
-          Clear
-        </button>
-      </div>
-
-      {/* Messages */}
-      <div
-        ref={messagesContainerRef}
-        className="flex-1 space-y-3 overflow-y-auto p-3"
-        data-scrollable="true"
-        style={{
-          // Force a minimum height of 0 to allow flex shrinking
-          minHeight: 0,
-          // Ensure we can scroll when content overflows
-          overflowY: "auto",
-          overflowX: "hidden",
-        }}
-      >
-        {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center space-y-2 text-gray-400 text-sm">
-            <div>Start a conversation with Groq...</div>
-            <div className="text-xs">
-              MCP tools enabled: widgets, files, system
-            </div>
-          </div>
-        ) : (
-          <>
+          <div
+            ref={messagesContainerRef}
+            className="flex flex-col space-y-2 overflow-y-auto p-2 max-h-96"
+            style={{
+              scrollBehavior: "smooth",
+              // Add a subtle gradient at the top to indicate scrollable content
+              maskImage: "linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)",
+              WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)",
+            }}
+          >
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -271,11 +245,14 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                 }`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                  className={`max-w-[85%] rounded-2xl px-4 py-2 shadow-lg backdrop-blur-md ${
                     message.role === "user"
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-800"
+                      ? "bg-blue-500 text-white rounded-br-md"
+                      : "bg-white/90 text-gray-800 rounded-bl-md border border-gray-200"
                   }`}
+                  style={{
+                    backdropFilter: "blur(10px)",
+                  }}
                 >
                   {message.role === "assistant" ? (
                     <MarkdownRenderer
@@ -286,30 +263,35 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                       enableSyntaxHighlighting={true}
                     />
                   ) : (
-                    <div className="whitespace-pre-wrap break-words">
+                    <div className="whitespace-pre-wrap break-words text-sm">
                       {message.content}
                     </div>
                   )}
                   <div
-                    className={`mt-1 flex items-center justify-between text-xs ${
+                    className={`mt-1 text-xs ${
                       message.role === "user"
                         ? "text-blue-100"
                         : "text-gray-500"
                     }`}
                   >
-                    <span>
-                      {new Date(message.timestamp).toLocaleTimeString()}
-                    </span>
-                    {message.role === "assistant" &&
-                      message.toolCalls &&
-                      message.toolCalls.length > 0 && (
-                        <span
-                          className="ml-2"
-                          title={`Used ${message.toolCalls.length} MCP tools`}
-                        >
-                          🔧 {message.toolCalls.length}
-                        </span>
-                      )}
+                    <div className="flex items-center justify-between">
+                      <span>
+                        {new Date(message.timestamp).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                      {message.role === "assistant" &&
+                        message.toolCalls &&
+                        message.toolCalls.length > 0 && (
+                          <span
+                            className="ml-2"
+                            title={`Used ${message.toolCalls.length} MCP tools`}
+                          >
+                            🔧 {message.toolCalls.length}
+                          </span>
+                        )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -318,8 +300,8 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
             {/* Typing indicator */}
             {isTyping && (
               <div className="flex justify-start">
-                <div className="rounded-lg bg-gray-100 px-3 py-2 text-gray-800 text-sm">
-                  <div className="flex items-center space-x-1">
+                <div className="rounded-2xl rounded-bl-md bg-white/90 backdrop-blur-md border border-gray-200 px-4 py-3 shadow-lg">
+                  <div className="flex items-center space-x-2">
                     <div className="flex space-x-1">
                       <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400" />
                       <div
@@ -331,8 +313,8 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                         style={{ animationDelay: "0.2s" }}
                       />
                     </div>
-                    <span className="ml-2 text-gray-500 text-xs">
-                      Groq is typing...
+                    <span className="text-gray-500 text-xs">
+                      AI is thinking...
                     </span>
                   </div>
                 </div>
@@ -340,13 +322,71 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
             )}
 
             <div ref={messagesEndRef} />
-          </>
-        )}
+          </div>
+        </div>
+      )}
+
+      {/* Compact Input Bar Widget */}
+      <div className="rounded-full border border-gray-300 bg-white shadow-lg p-2">
+        <div className="flex items-center space-x-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Message AI..."
+            className="flex-1 rounded-full bg-gray-50 px-4 py-2 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          />
+          <button
+            type="button"
+            onClick={handleSendMessage}
+            disabled={!inputValue.trim()}
+            className="rounded-full bg-blue-500 p-2 text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300 transition-colors"
+            title="Send message"
+          >
+            <svg 
+              className="h-4 w-4" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" 
+              />
+            </svg>
+          </button>
+          {messages.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowClearDialog(true)}
+              className="rounded-full p-2 text-gray-400 hover:text-red-500 transition-colors"
+              title="Clear conversation"
+            >
+              <svg 
+                className="h-4 w-4" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
+                />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Error display */}
       {error && (
-        <div className="border-gray-200 border-t bg-red-50 p-2">
+        <div className="absolute bottom-full left-0 right-0 mb-2 rounded-lg bg-red-50 border border-red-200 p-2 shadow-lg">
           <div className="text-red-600 text-xs">{error}</div>
           <button
             type="button"
@@ -358,52 +398,32 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
         </div>
       )}
 
-      {/* Input */}
-      <div className="border-gray-200 border-t p-3">
-        <div className="flex space-x-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message..."
-            className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={handleSendMessage}
-            disabled={!inputValue.trim()}
-            className="rounded bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
-            Send
-          </button>
-        </div>
-      </div>
-
       {/* Clear confirmation dialog */}
       {showClearDialog && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black bg-opacity-50">
-          <div className="max-w-sm rounded-lg bg-white p-4 shadow-lg">
-            <h4 className="mb-2 font-medium text-gray-800">
+        <div 
+          className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          style={{ zIndex: 9999 }}
+        >
+          <div className="max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <h4 className="mb-3 font-medium text-gray-800">
               Clear Conversation?
             </h4>
             <p className="mb-4 text-gray-600 text-sm">
               This will delete all messages in this chat. This action cannot be
               undone.
             </p>
-            <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-3">
               <button
                 type="button"
                 onClick={() => setShowClearDialog(false)}
-                className="px-3 py-1 text-gray-600 text-sm hover:text-gray-800"
+                className="px-4 py-2 text-gray-600 text-sm hover:text-gray-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleClearConversation}
-                className="rounded bg-red-500 px-3 py-1 text-sm text-white hover:bg-red-600"
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600 transition-colors"
               >
                 Clear
               </button>

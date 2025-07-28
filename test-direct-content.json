@@ -1,0 +1,8 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Use update_widget_content with contentId 'content_ck2act_1753701830519' and updates that has 'content' field (not text field) set to 'DIRECT FIX - This should appear on frontend now!'"
+    }
+  ]
+}
