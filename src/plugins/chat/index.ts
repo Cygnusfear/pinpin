@@ -6,17 +6,18 @@ export const chatTypeDefinition: WidgetTypeDefinition[] = [
   {
     type: "chat",
     name: "AI Chat",
-    description: "Chat with Claude AI assistant",
+    description: "WhatsApp-style floating chat interface",
     icon: "💬",
     category: "app",
-    defaultSize: { width: 400, height: 500 },
-    minSize: { width: 300, height: 400 },
-    maxSize: { width: 800, height: 800 },
+    defaultSize: { width: 320, height: 50 },
+    minSize: { width: 250, height: 40 },
+    maxSize: { width: 500, height: 70 },
     aspectRatioLocked: false,
     resizable: true,
     rotatable: false,
     configurable: true,
     autoCreateOnly: false,
+    allowOverflow: true,
   },
 ];
 

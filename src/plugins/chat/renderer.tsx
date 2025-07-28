@@ -212,28 +212,30 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Loading state
   if (!messages) {
     return (
-      <div className="rounded-full border border-gray-300 bg-gray-100 p-3 shadow">
+      <div className="flex h-full w-full items-center justify-center rounded-full border border-gray-300 bg-gray-100 p-3 shadow">
         <div className="text-gray-500 text-sm text-center">Loading chat...</div>
       </div>
     );
   }
 
   return (
-    <div className="relative">
-      {/* Floating Chat Bubbles - positioned above widget */}
+    <div className="relative h-full w-full">
+      {/* Floating Chat Bubbles - positioned above input bar */}
       {messages.length > 0 && (
-        <div 
-          className="absolute bottom-full left-0 right-0 mb-3 max-h-96 overflow-hidden"
-          style={{ zIndex: 1000 }}
+        <div
+          className="absolute left-0 right-0 bg-white/90 backdrop-blur-sm rounded-lg border border-gray-200 shadow-lg"
+          style={{
+            bottom: '100%',
+            marginBottom: '8px',
+            height: '384px',
+            zIndex: 1000
+          }}
         >
           <div
             ref={messagesContainerRef}
-            className="flex flex-col space-y-2 overflow-y-auto p-2 max-h-96"
+            className="flex flex-col space-y-2 overflow-y-auto p-2 h-full"
             style={{
               scrollBehavior: "smooth",
-              // Add a subtle gradient at the top to indicate scrollable content
-              maskImage: "linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)",
-              WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)",
             }}
           >
             {messages.map((message, index) => (
@@ -248,7 +250,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                   className={`max-w-[85%] rounded-2xl px-4 py-2 shadow-lg backdrop-blur-md ${
                     message.role === "user"
                       ? "bg-blue-500 text-white rounded-br-md"
-                      : "bg-white/90 text-gray-800 rounded-bl-md border border-gray-200"
+                      : "bg-white/95 text-gray-800 rounded-bl-md border border-gray-200"
                   }`}
                   style={{
                     backdropFilter: "blur(10px)",
@@ -300,7 +302,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
             {/* Typing indicator */}
             {isTyping && (
               <div className="flex justify-start">
-                <div className="rounded-2xl rounded-bl-md bg-white/90 backdrop-blur-md border border-gray-200 px-4 py-3 shadow-lg">
+                <div className="rounded-2xl rounded-bl-md bg-white/95 backdrop-blur-md border border-gray-200 px-4 py-3 shadow-lg">
                   <div className="flex items-center space-x-2">
                     <div className="flex space-x-1">
                       <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400" />
@@ -325,64 +327,6 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
           </div>
         </div>
       )}
-
-      {/* Compact Input Bar Widget */}
-      <div className="rounded-full border border-gray-300 bg-white shadow-lg p-2">
-        <div className="flex items-center space-x-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Message AI..."
-            className="flex-1 rounded-full bg-gray-50 px-4 py-2 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-          />
-          <button
-            type="button"
-            onClick={handleSendMessage}
-            disabled={!inputValue.trim()}
-            className="rounded-full bg-blue-500 p-2 text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300 transition-colors"
-            title="Send message"
-          >
-            <svg 
-              className="h-4 w-4" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" 
-              />
-            </svg>
-          </button>
-          {messages.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowClearDialog(true)}
-              className="rounded-full p-2 text-gray-400 hover:text-red-500 transition-colors"
-              title="Clear conversation"
-            >
-              <svg 
-                className="h-4 w-4" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
-                />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* Error display */}
       {error && (
@@ -431,6 +375,64 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
           </div>
         </div>
       )}
+
+      {/* Compact Input Bar */}
+      <div className="rounded-full border border-gray-300 bg-white shadow-lg p-2 h-full w-full min-h-[40px] flex items-center">
+        <div className="flex items-center space-x-2 w-full">
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Message AI..."
+            className="flex-1 rounded-full bg-gray-50 px-3 py-1.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all min-w-0"
+          />
+          <button
+            type="button"
+            onClick={handleSendMessage}
+            disabled={!inputValue.trim()}
+            className="rounded-full bg-blue-500 p-1.5 text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300 transition-colors flex-shrink-0"
+            title="Send message"
+          >
+            <svg 
+              className="h-3.5 w-3.5" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" 
+              />
+            </svg>
+          </button>
+          {messages.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowClearDialog(true)}
+              className="rounded-full p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+              title="Clear conversation"
+            >
+              <svg 
+                className="h-3.5 w-3.5" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

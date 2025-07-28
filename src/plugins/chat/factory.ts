@@ -57,8 +57,8 @@ export class ChatFactory implements WidgetFactory<ChatContent> {
       type: this.type,
       x: position.x,
       y: position.y,
-      width: 400,
-      height: 500,
+      width: 320,
+      height: 50,
       content,
     };
   }
@@ -67,7 +67,7 @@ export class ChatFactory implements WidgetFactory<ChatContent> {
    * Get default size for the chat widget
    */
   getDefaultSize(): { width: number; height: number } {
-    return { width: 400, height: 500 };
+    return { width: 320, height: 50 };
   }
 
   /**

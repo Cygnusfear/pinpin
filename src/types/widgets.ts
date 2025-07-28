@@ -269,6 +269,7 @@ export interface WidgetTypeDefinition {
   supportedMimeTypes?: string[];
   supportedExtensions?: string[];
   autoCreateOnly?: boolean;
+  allowOverflow?: boolean;
 }
 
 /**

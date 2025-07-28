@@ -21,6 +21,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 }) => {
   const registry = getWidgetRegistry();
   const renderer = registry.getRenderer(widget.type);
+  const widgetTypeDefinition = registry.getType(widget.type);
 
   // Render widget content using plugin renderer or fallback
   const renderWidgetContent = useMemo(() => {
@@ -203,7 +204,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
           border: state.isSelected
             ? "2px solid #3b82f6"
             : "2px solid transparent",
-          overflow: "hidden",
+          overflow: widgetTypeDefinition?.allowOverflow ? "visible" : "hidden",
         }}
       >
         {renderWidgetContent}
