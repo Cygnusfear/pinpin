@@ -12,12 +12,20 @@
     "mcp": "tsx src/mcp-standalone.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "latest",
+    "@ai-sdk/groq": "^1.2.9",
+    "@ai-sdk/openai": "latest",
     "@anthropic-ai/sdk": "^0.57.0",
     "@automerge/automerge": "^2.2.8",
     "@automerge/automerge-repo": "^1.2.1",
     "@automerge/automerge-repo-network-websocket": "^1.2.1",
+    "@mastra/core": "latest",
+    "@mastra/libsql": "latest",
+    "@mastra/mcp": "latest",
+    "@mastra/memory": "latest",
     "@modelcontextprotocol/sdk": "^1.17.0",
     "@tonk/keepsync": "^0.5.1",
+    "ai": "latest",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
@@ -25,7 +33,8 @@
     "groq-sdk": "^0.29.0",
     "http-proxy-middleware": "^3.0.0",
     "node-pty": "^1.0.0",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.48.3",

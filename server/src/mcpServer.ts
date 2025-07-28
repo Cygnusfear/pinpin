@@ -393,8 +393,13 @@ The widget has been added to the pinboard${contentInfo} and is now available for
   }
 
   private async handleUpdateWidgetContent(args: Record<string, unknown>) {
-    let contentId = args.contentId as string;
+    // Handle common parameter name mistakes
+    let contentId = (args.contentId || args.id) as string;
     const updates = args.updates as Record<string, unknown>;
+    
+    if (args.id && !args.contentId) {
+      console.log(`⚠️  AI used 'id' instead of 'contentId', auto-correcting: ${args.id}`);
+    }
 
     // Read current content store
     const contentStoreRaw = await readDoc(DOCUMENT_IDS.CONTENT);

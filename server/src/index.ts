@@ -42,6 +42,14 @@ import {
   groqResourcesHandler,
   groqHealthHandler,
 } from "./routes/groqHandlers.js";
+import {
+  mastraAgentChatHandler,
+  mastraConversationHistoryHandler,
+  mastraClearHistoryHandler,
+  mastraAgentStatusHandler,
+  mastraAgentCapabilitiesHandler,
+  mastraAgentHealthHandler,
+} from "./routes/mastraHandlers.js";
 import { terminalSessionManager } from "./terminal/terminalSessionManager.js";
 // Import terminal WebSocket setup
 import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
@@ -56,6 +64,14 @@ app.post("/api/groq/chat", groqChatHandler);
 app.get("/api/groq/tools", groqToolsHandler);
 app.get("/api/groq/resources", groqResourcesHandler);
 app.get("/api/groq/health", groqHealthHandler);
+
+// Mastra AI agent endpoints
+app.post("/api/agent/chat", mastraAgentChatHandler);
+app.get("/api/agent/history", mastraConversationHistoryHandler);
+app.delete("/api/agent/history", mastraClearHistoryHandler);
+app.get("/api/agent/status", mastraAgentStatusHandler);
+app.get("/api/agent/capabilities", mastraAgentCapabilitiesHandler);
+app.get("/api/agent/health", mastraAgentHealthHandler);
 
 // Terminal test endpoint for debugging
 app.post("/api/terminal/test", (req: any, res: any) => {

@@ -41,6 +41,8 @@ type ChatResponse = {
 
 // Initialize Groq client (lazy initialization to ensure env vars are loaded)
 let groq: Groq | null = null;
+const modelName = "moonshotai/kimi-k2-instruct";
+// const modelName = "qwen/qwen3-32b";
 
 const getGroqClient = (): Groq => {
   if (!groq) {
@@ -144,7 +146,7 @@ export const groqChatHandler = async (req: Request, res: Response) => {
 
     // Make initial request to Groq with tool support
     const completion = await getGroqClient().chat.completions.create({
-      model: "qwen/qwen3-32b", // Fast, capable model
+      model: modelName, // Fast, capable model
       messages: groqMessages,
       tools: tools.length > 0 ? tools : undefined,
       tool_choice: tools.length > 0 ? "auto" : undefined,
@@ -161,125 +163,159 @@ export const groqChatHandler = async (req: Request, res: Response) => {
     console.log("Has content:", !!assistantMessage.content);
     console.log("Has tool calls:", !!assistantMessage.tool_calls);
     console.log("Tool calls count:", assistantMessage.tool_calls?.length || 0);
-    
+
     // Debug: Show actual tool calls from AI
     if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
       console.log("🔍 AI's raw tool calls:");
       assistantMessage.tool_calls.forEach((call, index) => {
         console.log(`  ${index + 1}. ${call.function?.name} (ID: ${call.id})`);
-        console.log(`     Args: ${call.function?.arguments?.substring(0, 100)}...`);
+        console.log(
+          `     Args: ${call.function?.arguments?.substring(0, 100)}...`,
+        );
       });
     }
-    
+
     // Debug: Show content sample if no tool calls
     if (assistantMessage.content && !assistantMessage.tool_calls) {
-      console.log("🔍 AI content sample:", assistantMessage.content.substring(0, 200));
+      console.log(
+        "🔍 AI content sample:",
+        assistantMessage.content.substring(0, 200),
+      );
     }
     console.log("==========================");
 
     // Check if the AI outputted JSON tool calls in text content instead of using proper tool calling
-    let detectedToolCalls: any[] = [];
+    const detectedToolCalls: any[] = [];
     if (assistantMessage.content && !assistantMessage.tool_calls) {
-      console.log("🔍 Analyzing content for tool calls:", assistantMessage.content.substring(0, 300));
-      
+      console.log(
+        "🔍 Analyzing content for tool calls:",
+        assistantMessage.content.substring(0, 300),
+      );
+
       // Method 1: Detect standard JSON format {"name": "tool", "arguments": {...}}
       // Updated regex to handle nested JSON in arguments
-      const toolCallRegex = /\{"name":\s*"([^"]+)",\s*"arguments":\s*(\{.*?\})\}/g;
+      const toolCallRegex =
+        /\{"name":\s*"([^"]+)",\s*"arguments":\s*(\{.*?\})\}/g;
       let match;
       let matchCount = 0;
       const maxMatches = 10; // Safety limit to prevent infinite loops
-      
-      while ((match = toolCallRegex.exec(assistantMessage.content)) !== null && matchCount < maxMatches) {
+
+      while (
+        (match = toolCallRegex.exec(assistantMessage.content)) !== null &&
+        matchCount < maxMatches
+      ) {
         matchCount++;
         try {
           const [fullMatch, toolName, argsString] = match;
           const args = JSON.parse(argsString);
-          
+
           detectedToolCalls.push({
             id: `detected_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             type: "function",
             function: {
               name: toolName,
-              arguments: argsString
-            }
+              arguments: argsString,
+            },
           });
-          
-          console.log(`🔍 Detected raw JSON tool call: ${toolName} (match ${matchCount})`);
+
+          console.log(
+            `🔍 Detected raw JSON tool call: ${toolName} (match ${matchCount})`,
+          );
         } catch (error) {
           console.log(`⚠️  Failed to parse detected tool call: ${match[0]}`);
         }
-        
+
         // Safety check: if regex didn't advance, break to prevent infinite loop
         if (toolCallRegex.lastIndex <= match.index) {
-          console.log("⚠️  Regex not advancing, breaking to prevent infinite loop");
+          console.log(
+            "⚠️  Regex not advancing, breaking to prevent infinite loop",
+          );
           break;
         }
       }
-      
+
       // Method 2: Detect <tool_call> XML-style format
-      const xmlToolCallRegex = /<tool_call>\s*\n?\s*(\{[\s\S]*?\})\s*\n?\s*<\/tool_call>/g;
+      const xmlToolCallRegex =
+        /<tool_call>\s*\n?\s*(\{[\s\S]*?\})\s*\n?\s*<\/tool_call>/g;
       let xmlMatch;
       let xmlMatchCount = 0;
-      while ((xmlMatch = xmlToolCallRegex.exec(assistantMessage.content)) !== null && xmlMatchCount < maxMatches) {
+      while (
+        (xmlMatch = xmlToolCallRegex.exec(assistantMessage.content)) !== null &&
+        xmlMatchCount < maxMatches
+      ) {
         xmlMatchCount++;
         try {
           const [fullMatch, jsonString] = xmlMatch;
           const toolCall = JSON.parse(jsonString);
-          
+
           if (toolCall.name && toolCall.arguments) {
             detectedToolCalls.push({
               id: `xml_detected_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               type: "function",
               function: {
                 name: toolCall.name,
-                arguments: typeof toolCall.arguments === 'string' ? toolCall.arguments : JSON.stringify(toolCall.arguments)
-              }
+                arguments:
+                  typeof toolCall.arguments === "string"
+                    ? toolCall.arguments
+                    : JSON.stringify(toolCall.arguments),
+              },
             });
-            
-            console.log(`🔍 Detected XML tool call: ${toolCall.name} (XML match ${xmlMatchCount})`);
+
+            console.log(
+              `🔍 Detected XML tool call: ${toolCall.name} (XML match ${xmlMatchCount})`,
+            );
           }
         } catch (error) {
-          console.log(`⚠️  Failed to parse XML tool call: ${xmlMatch[0]}`, error);
+          console.log(
+            `⚠️  Failed to parse XML tool call: ${xmlMatch[0]}`,
+            error,
+          );
         }
       }
-      
+
       if (matchCount >= maxMatches) {
-        console.log(`⚠️  Hit safety limit of ${maxMatches} standard tool call matches`);
+        console.log(
+          `⚠️  Hit safety limit of ${maxMatches} standard tool call matches`,
+        );
       }
       if (xmlMatchCount >= maxMatches) {
-        console.log(`⚠️  Hit safety limit of ${maxMatches} XML tool call matches`);
+        console.log(
+          `⚠️  Hit safety limit of ${maxMatches} XML tool call matches`,
+        );
       }
     }
 
     // Handle tool calls if present (either from proper tool calling or detected in text)
     let toolCallsToProcess = assistantMessage.tool_calls || detectedToolCalls;
-    
+
     // Deduplicate identical tool calls (same function name + arguments)
     if (toolCallsToProcess && toolCallsToProcess.length > 1) {
       const seen = new Set<string>();
       const deduplicated = [];
-      
+
       for (const call of toolCallsToProcess) {
         const signature = `${call.function?.name}:${call.function?.arguments}`;
         if (!seen.has(signature)) {
           seen.add(signature);
           deduplicated.push(call);
         } else {
-          console.log(`🔄 Skipping duplicate tool call: ${call.function?.name} (ID: ${call.id})`);
+          console.log(
+            `🔄 Skipping duplicate tool call: ${call.function?.name} (ID: ${call.id})`,
+          );
         }
       }
-      
+
       if (deduplicated.length < toolCallsToProcess.length) {
-        console.log(`🔧 Deduplicated ${toolCallsToProcess.length} tool calls down to ${deduplicated.length}`);
+        console.log(
+          `🔧 Deduplicated ${toolCallsToProcess.length} tool calls down to ${deduplicated.length}`,
+        );
         toolCallsToProcess = deduplicated;
       }
     }
-    
+
     if (toolCallsToProcess && toolCallsToProcess.length > 0) {
       // Process tool calls
-      const toolResults = await processGroqToolCalls(
-        toolCallsToProcess,
-      );
+      const toolResults = await processGroqToolCalls(toolCallsToProcess);
 
       // Create follow-up conversation with tool results
       const followUpMessages = [
@@ -294,7 +330,7 @@ export const groqChatHandler = async (req: Request, res: Response) => {
 
       // Get final response from Groq after tool execution (no tools to prevent additional calls)
       const finalCompletion = await getGroqClient().chat.completions.create({
-        model: "qwen/qwen3-32b",
+        model: modelName,
         messages: followUpMessages,
         max_tokens: 4000,
         temperature: 0.7,
@@ -307,56 +343,72 @@ export const groqChatHandler = async (req: Request, res: Response) => {
 
       console.log("=== Groq Final Response Debug ===");
       console.log("Final message length:", finalMessage?.content?.length || 0);
-      
+
       // Check if the final response ALSO contains tool calls (some AIs do this)
-      let finalDetectedToolCalls: any[] = [];
+      const finalDetectedToolCalls: any[] = [];
       if (finalMessage?.content && !finalMessage.tool_calls) {
         console.log("🔍 Checking final response for additional tool calls");
-        console.log("🔍 Final content sample:", finalMessage.content.substring(0, 200));
-        
+        console.log(
+          "🔍 Final content sample:",
+          finalMessage.content.substring(0, 200),
+        );
+
         // Use the same detection logic as before
-        const finalToolCallRegex = /\{"name":\s*"([^"]+)",\s*"arguments":\s*(\{.*?\})\}/g;
+        const finalToolCallRegex =
+          /\{"name":\s*"([^"]+)",\s*"arguments":\s*(\{.*?\})\}/g;
         let finalMatch;
-        while ((finalMatch = finalToolCallRegex.exec(finalMessage.content)) !== null) {
+        while (
+          (finalMatch = finalToolCallRegex.exec(finalMessage.content)) !== null
+        ) {
           try {
             const [fullMatch, toolName, argsString] = finalMatch;
             const args = JSON.parse(argsString);
-            
+
             finalDetectedToolCalls.push({
               id: `final_detected_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               type: "function",
               function: {
                 name: toolName,
-                arguments: argsString
-              }
+                arguments: argsString,
+              },
             });
-            
+
             console.log(`🔍 Detected tool call in FINAL response: ${toolName}`);
           } catch (error) {
             console.log(`⚠️  Failed to parse final tool call: ${finalMatch[0]}`);
           }
         }
-        
+
         // Execute any tool calls found in the final response
         if (finalDetectedToolCalls.length > 0) {
-          console.log(`⚠️  Found ${finalDetectedToolCalls.length} tool calls in final response - executing them`);
-          const finalToolResults = await processGroqToolCalls(finalDetectedToolCalls);
+          console.log(
+            `⚠️  Found ${finalDetectedToolCalls.length} tool calls in final response - executing them`,
+          );
+          const finalToolResults = await processGroqToolCalls(
+            finalDetectedToolCalls,
+          );
           console.log("✅ Final tool calls executed");
         }
       }
-      
+
       // Clean up the final message content by removing detected tool call JSON
       let cleanedFinalContent = finalMessage?.content;
       if (finalDetectedToolCalls.length > 0 && cleanedFinalContent) {
         // Remove JSON tool call patterns from final response
-        cleanedFinalContent = cleanedFinalContent.replace(/\{"name":\s*"([^"]+)",\s*"arguments":\s*(\{.*?\})\}/g, '');
+        cleanedFinalContent = cleanedFinalContent.replace(
+          /\{"name":\s*"([^"]+)",\s*"arguments":\s*(\{.*?\})\}/g,
+          "",
+        );
         // Remove XML tool call patterns too
-        cleanedFinalContent = cleanedFinalContent.replace(/<tool_call>\s*\n?\s*(\{[\s\S]*?\})\s*\n?\s*<\/tool_call>/g, '');
+        cleanedFinalContent = cleanedFinalContent.replace(
+          /<tool_call>\s*\n?\s*(\{[\s\S]*?\})\s*\n?\s*<\/tool_call>/g,
+          "",
+        );
         // Clean up extra whitespace
-        cleanedFinalContent = cleanedFinalContent.replace(/\s+/g, ' ').trim();
+        cleanedFinalContent = cleanedFinalContent.replace(/\s+/g, " ").trim();
         console.log("🧹 Cleaned tool calls from final response");
       }
-      
+
       console.log("===============================");
 
       res.json({

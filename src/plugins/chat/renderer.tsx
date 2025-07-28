@@ -1,6 +1,6 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { sendAIMessage } from "../../services/aiServiceManager";
+import { sendMastraMessage } from "../../services/mastraService";
 import {
   useWidgetActions,
   useWidgetContent,
@@ -31,6 +31,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [conversationId, setConversationId] = useState<string>(() => `chat-${widgetId}-${Date.now()}`);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -115,14 +116,14 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     setTimeout(scrollToBottom, 100);
 
     try {
-      // Send to Groq AI service with MCP tool support
-      const response = await sendAIMessage(
+      // Send to Mastra agent with MCP tool support and persistent memory
+      const response = await sendMastraMessage(
         updatedMessages.map((msg) => ({
           role: msg.role,
           content: msg.content,
         })),
-        [], // Empty locations array for simple chat
-        [], // Empty characters array for simple chat
+        conversationId,
+        "chat-user" // Static user ID for chat widget
       );
 
       if (response.success && response.data?.message) {
@@ -130,11 +131,13 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
           role: "assistant",
           content: response.data.message,
           timestamp: Date.now(),
-          provider: response.provider,
+          provider: "mastra",
           toolCalls: response.data.tool_calls,
           metadata: {
             toolResults: response.data.tool_results,
             timestamp: response.timestamp,
+            conversationId: response.data.conversationId,
+            ...response.data.metadata,
           },
         };
 
@@ -144,10 +147,15 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
           isTyping: false,
         });
 
+        // Update conversationId if changed
+        if (response.data.conversationId !== conversationId) {
+          setConversationId(response.data.conversationId);
+        }
+
         // Scroll to bottom after adding assistant message
         setTimeout(scrollToBottom, 100);
       } else {
-        throw new Error("Invalid response from Groq API");
+        throw new Error("Invalid response from Mastra agent");
       }
     } catch (err) {
       console.error("Chat error:", err);
@@ -161,7 +169,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, messages, updateContent, scrollToBottom]);
+  }, [inputValue, messages, updateContent, scrollToBottom, conversationId]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -207,6 +215,8 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
 
     setShowClearDialog(false);
     setError(null);
+    // Reset conversation ID when clearing
+    setConversationId(`chat-${widgetId}-${Date.now()}`);
   }, [messages, updateContent]);
 
   // Loading state
