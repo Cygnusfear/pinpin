@@ -20,7 +20,6 @@ import WebSocket from "ws";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { DOCUMENT_IDS } from "./config/documentIds.js";
-import { pluginDevelopmentTools } from "./tools/pluginDevelopmentTools.js";
 
 // Polyfill WebSocket for Node.js environment
 global.WebSocket = WebSocket as any;
@@ -1285,31 +1284,6 @@ The widget content has been updated and changes should be visible on the pinboar
 
           case "list_directory": {
             return await this.handleListDirectory(args);
-          }
-
-          // Plugin Development Tools
-          case "analyze_existing_plugins": {
-            return await pluginDevelopmentTools.analyzeExistingPlugins(args);
-          }
-
-          case "scaffold_plugin": {
-            return await pluginDevelopmentTools.scaffoldPlugin(args);
-          }
-
-          case "generate_plugin_code": {
-            return await pluginDevelopmentTools.generatePluginCode(args);
-          }
-
-          case "update_plugin_index": {
-            return await pluginDevelopmentTools.updatePluginIndex(args);
-          }
-
-          case "validate_plugin_code": {
-            return await pluginDevelopmentTools.validatePluginCode(args);
-          }
-
-          case "trigger_hmr_reload": {
-            return await pluginDevelopmentTools.triggerHmrReload(args);
           }
 
           default:

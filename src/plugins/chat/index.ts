@@ -18,6 +18,7 @@ export const chatTypeDefinition: WidgetTypeDefinition[] = [
     configurable: true,
     autoCreateOnly: false,
     allowOverflow: false,
+    allowSelection: true
   },
 ];
 
