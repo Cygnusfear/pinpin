@@ -6,26 +6,26 @@ export const chatTypeDefinition: WidgetTypeDefinition[] = [
   {
     type: "chat",
     name: "AI Chat",
-    description: "WhatsApp-style floating chat interface",
+    description: "WhatsApp-style chat interface",
     icon: "💬",
     category: "app",
-    defaultSize: { width: 320, height: 50 },
-    minSize: { width: 250, height: 40 },
-    maxSize: { width: 500, height: 70 },
+    defaultSize: { width: 400, height: 600 },
+    minSize: { width: 300, height: 600 },
+    maxSize: { width: 800, height: 800 },
     aspectRatioLocked: false,
     resizable: true,
     rotatable: false,
     configurable: true,
     autoCreateOnly: false,
-    allowOverflow: true,
+    allowOverflow: false,
   },
 ];
 
 export class ChatPlugin implements WidgetPlugin {
-  id = "chat";
-  name = "AI Chat";
+  id = chatTypeDefinition[0].type;
+  name = chatTypeDefinition[0].name;
   version = "1.0.0";
-  description = "Interactive chat widget for conversing with Claude AI";
+  description = chatTypeDefinition[0].description;
   author = "Pinboard Team";
 
   types: WidgetTypeDefinition[] = chatTypeDefinition;

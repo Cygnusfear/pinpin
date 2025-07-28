@@ -73,7 +73,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               >
                 <span className="flex items-center">
                   <span className="mr-2">🤔</span>
-                  <span>AI Thinking Process</span>
+                  <span>Thought process</span>
                 </span>
                 <span className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
                   ▼

@@ -1,3 +1,4 @@
+import { chatTypeDefinition } from ".";
 import type {
   CreateWidgetInput,
   HydratedWidget,
@@ -57,8 +58,8 @@ export class ChatFactory implements WidgetFactory<ChatContent> {
       type: this.type,
       x: position.x,
       y: position.y,
-      width: 320,
-      height: 50,
+      width: this.getDefaultSize().width,
+      height: this.getDefaultSize().height,
       content,
     };
   }
@@ -67,7 +68,7 @@ export class ChatFactory implements WidgetFactory<ChatContent> {
    * Get default size for the chat widget
    */
   getDefaultSize(): { width: number; height: number } {
-    return { width: 320, height: 50 };
+    return chatTypeDefinition[0].defaultSize;
   }
 
   /**
