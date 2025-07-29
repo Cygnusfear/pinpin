@@ -587,29 +587,114 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
 };
 ```
 
-### Step 5: Register Plugin in `src/plugins/index.ts`
+### Step 5: Register Plugin in `src/plugins/safePluginLoader.ts`
+
+⚠️ **IMPORTANT**: The plugin system now uses **safe loading** to prevent individual plugin failures from crashing the entire application.
 
 ```typescript
-// Add import at top
-import { yourPlugin } from "./your-plugin";
-
-// Add to plugins array (ORDER MATTERS for data handling priority)
-export const plugins = [
-  calculatorPlugin,
-  chatPlugin,
-  notePlugin,
-  todoPlugin,
-  imagePlugin,
-  terminalPlugin,
-  youTubePlugin,
-  urlPlugin,
-  yourPlugin,        // Add your plugin here
-  documentPlugin,
+// Add your plugin to the CORE_PLUGINS array in safePluginLoader.ts
+const CORE_PLUGINS = [
+  { name: 'calculator', path: './calculator' },
+  { name: 'chat', path: './chat' },
+  { name: 'note', path: './note' },
+  { name: 'todo', path: './todo' },
+  { name: 'image', path: './image' },
+  { name: 'terminal', path: './terminal' },
+  { name: 'youtube', path: './youtube' },
+  { name: 'url', path: './url' },
+  { name: 'document', path: './document' },
+  { name: 'your-plugin', path: './your-plugin' },  // Add your plugin here
 ];
-
-// Add to exports at bottom
-export { YourPluginFactory, YourPluginRenderer, yourPlugin } from "./your-plugin";
 ```
+
+**Plugin Export Requirements**:
+- Your plugin must be exported as `yourPluginNamePlugin` (camelCase)
+- For multi-word names, use camelCase: `myAwesomePlugin`
+- Special case: YouTube uses `youTubePlugin` (capital T)
+
+**Example Plugin Exports**:
+```typescript
+// ✅ CORRECT - Standard naming
+export const calculatorPlugin = new CalculatorPlugin();
+export const notePlugin = new NotePlugin();
+
+// ✅ CORRECT - Multi-word naming  
+export const awesomeToolPlugin = new AwesomeToolPlugin();
+
+// ✅ CORRECT - Special case (YouTube)
+export const youTubePlugin = new YouTubePlugin();
+
+// ❌ INCORRECT - Wrong naming
+export const calculator = new CalculatorPlugin();        // Missing "Plugin"
+export const Calculator = new CalculatorPlugin();        // Wrong case
+export const calculator_plugin = new CalculatorPlugin(); // Underscore
+```
+
+## 🛡️ Plugin Error Handling & Recovery
+
+The plugin system includes **automatic error recovery** to ensure broken plugins don't crash the entire application.
+
+### Error Boundaries & Safe Loading
+
+**What Happens When a Plugin Fails**:
+1. 🔄 Plugin loading fails gracefully 
+2. ⚠️ Error is logged to console with details
+3. 🔄 Application continues with other plugins
+4. 🎨 Broken widgets show fallback UI with retry options
+
+**Error Recovery Features**:
+- **Individual isolation**: One broken plugin won't affect others
+- **Fallback UI**: Broken widgets show helpful error messages  
+- **Retry mechanisms**: Users can attempt to reload failed plugins
+- **Debug information**: Detailed error reporting for developers
+- **HMR support**: Hot module replacement works without page reloads
+
+### Plugin Loading Status
+
+Check plugin loading in browser console:
+```
+🔌 Loading plugin: calculator
+✅ Successfully loaded plugin: calculator
+❌ Failed to load plugin youtube: Plugin export "youtubePlugin" not found
+📊 Plugin loading completed: 8/9 successful
+⚠️ 1 plugins failed to load, but application will continue
+```
+
+### Debugging Failed Plugins
+
+**Common Plugin Errors**:
+
+1. **Export Name Mismatch**:
+   ```
+   ❌ Plugin export "myPlugin" not found. Available exports: MyPlugin, MyPluginFactory
+   ```
+   **Fix**: Ensure your export matches the expected pattern (`myPlugin`)
+
+2. **Missing Install Method**:
+   ```
+   ❌ Plugin "calculator" missing install method
+   ```
+   **Fix**: Implement the `install` method in your plugin class
+
+3. **Import Errors**:
+   ```
+   ❌ Failed to load plugin: Cannot resolve module './missing-dependency'
+   ```
+   **Fix**: Check your imports and dependencies
+
+### Widget Error Recovery
+
+**Broken Widget UI**: When a widget fails to render, users see:
+- 🔧 Error icon and description
+- 🔄 "Reload Plugin" button (attempts recovery without page reload)
+- 📋 "Debug" button (copies error info to clipboard)
+- Widget ID for debugging
+
+**Error Boundary Features**:
+- Catches React rendering errors
+- Prevents widget crashes from affecting other widgets
+- Provides user-friendly recovery options
+- Maintains application stability
 
 ## 🔧 Advanced Patterns and Features
 
@@ -948,6 +1033,21 @@ export interface YourPluginContent {
 
 ## ✅ Testing Your Plugin
 
+### Development Workflow
+
+**Hot Module Replacement (HMR)**: 
+- ✅ Plugin changes reload automatically without page refresh
+- ✅ Individual plugin failures don't break HMR
+- ✅ Error recovery works during development
+- ⚠️ If plugin loading fails completely, check console for export name issues
+
+**Development Tips**:
+1. Keep browser console open to monitor plugin loading
+2. Look for "Successfully loaded plugin: your-plugin" message
+3. If plugin fails to load, check export naming conventions
+4. Use error boundary fallback UI to test error recovery
+5. Test with broken imports to verify error handling works
+
 ### Manual Testing Checklist
 
 1. **Creation**: Can your plugin be created from appropriate data?
@@ -956,6 +1056,8 @@ export interface YourPluginContent {
 4. **Persistence**: Does data save and load correctly?
 5. **Performance**: No lag when typing or interacting?
 6. **Edge Cases**: Empty data, very long text, special characters?
+7. **Error Recovery**: Does plugin handle errors gracefully?
+8. **HMR**: Do changes reload without page refresh?
 
 ### Test Data Examples
 
@@ -983,16 +1085,28 @@ testCases.forEach(testCase => {
 
 Before considering your plugin complete:
 
+### Core Requirements
 - [ ] All 4 required files created (`index.ts`, `factory.ts`, `renderer.tsx`, `types.ts`)
-- [ ] Plugin registered in `src/plugins/index.ts`
+- [ ] Plugin added to `CORE_PLUGINS` array in `src/plugins/safePluginLoader.ts`
+- [ ] Plugin export uses correct naming convention (`yourPluginNamePlugin`)
 - [ ] `canHandle()` method is specific and doesn't conflict with other plugins
 - [ ] Widget renders correctly at different sizes
 - [ ] Content updates work properly
-- [ ] No TypeScript errors
-- [ ] No console errors
-- [ ] Performance is acceptable
-- [ ] Edge cases handled gracefully
+
+### Error Handling & Recovery
+- [ ] Plugin loads without errors (check console for "✅ Successfully loaded plugin")
+- [ ] Error boundary shows proper fallback UI when plugin crashes
+- [ ] Plugin recovery works (test by breaking renderer temporarily)
+- [ ] All edge cases handled gracefully (null data, empty objects, etc.)
+- [ ] Validation method implemented and working
+
+### Development & Performance  
+- [ ] No TypeScript errors or warnings
+- [ ] No console errors during normal operation
+- [ ] HMR works without page reloads
+- [ ] Performance is acceptable (no lag during interactions)
 - [ ] Plugin follows category conventions
+- [ ] Selective subscriptions used for performance
 
 ## 📚 Reference: Existing Plugin Examples
 
