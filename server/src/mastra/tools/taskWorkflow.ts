@@ -7,6 +7,7 @@
  */
 
 import { createTool } from '@mastra/core/tools';
+import { RuntimeContext } from '@mastra/core/runtime-context';
 import { z } from 'zod';
 import { Agent } from "@mastra/core/agent";
 import { createGroq } from "@ai-sdk/groq";
@@ -42,16 +43,16 @@ const TaskExecutionResultSchema = z.object({
 // Task execution state manager
 class TaskExecutionEngine {
   private tasks: Map<string, z.infer<typeof TaskSchema>> = new Map();
-  private tools: typeof pinboardTools;
+  private tools: any; // Use any to avoid circular type issues
   private executionLog: string[] = [];
 
-  constructor(tools: typeof pinboardTools) {
+  constructor(tools: any) {
     this.tools = tools;
   }
 
-  addTasks(tasks: z.infer<typeof TaskSchema>[]) {
+  addTasks(tasks: Omit<z.infer<typeof TaskSchema>, 'status' | 'result' | 'error'>[]) {
     tasks.forEach(task => {
-      this.tasks.set(task.id, { ...task, status: "pending" });
+      this.tasks.set(task.id, { ...task, status: "pending" as const });
     });
     this.log(`📋 Added ${tasks.length} tasks to execution queue`);
   }
@@ -127,7 +128,10 @@ class TaskExecutionEngine {
     
     try {
       const toolFunction = this.tools[tool as keyof typeof this.tools] as any;
-      const result = await toolFunction.execute({ context: parameters || {} });
+      const result = await toolFunction.execute({ 
+        context: parameters || {},
+        runtimeContext: new RuntimeContext()
+      });
       
       if (result.success === false) {
         throw new Error(result.message || 'Tool execution failed');
@@ -144,7 +148,10 @@ class TaskExecutionEngine {
     
     // For analysis tasks, we might need to examine current pinboard state
     try {
-      const widgets = await this.tools.viewAllPinboardWidgets.execute({ context: {} });
+      const widgets = await this.tools.viewAllPinboardWidgets.execute({ 
+        context: {},
+        runtimeContext: new RuntimeContext()
+      });
       const analysisResult = `Analysis completed: Found ${widgets.widgetCount} widgets. ${task.description}`;
       return analysisResult;
     } catch (error) {
@@ -208,7 +215,7 @@ class TaskExecutionEngine {
 }
 
 // Create the task execution workflow tool
-const executeTaskWorkflow = createTool({
+export const executeTaskWorkflow = createTool({
   id: 'executeTaskWorkflow',
   description: `Execute a structured task workflow when users request complex actions.
 
@@ -242,7 +249,7 @@ const executeTaskWorkflow = createTool({
 
   outputSchema: TaskExecutionResultSchema,
 
-  execute: async ({ context: { userRequest, context: additionalContext } }, options) => {
+  execute: async ({ context: { userRequest, context: additionalContext } }, options): Promise<z.infer<typeof TaskExecutionResultSchema>> => {
     console.log(`🎯 Starting task workflow execution for: "${userRequest}"`);
     
     // Progress tracking for user visibility
@@ -288,7 +295,7 @@ const executeTaskWorkflow = createTool({
     });
 
     // Generate task breakdown with better error handling
-    let plannedTasks: z.infer<typeof TaskSchema>[] = [];
+    let plannedTasks: Omit<z.infer<typeof TaskSchema>, 'status' | 'result' | 'error'>[] = [];
     
     try {
       const taskPlanResponse = await taskPlannerAgent.generate([
@@ -398,7 +405,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}
     reportProgress(`🏃 Starting execution of ${plannedTasks.length} tasks...`);
 
     // Step 2: Execute tasks systematically
-    const engine = new TaskExecutionEngine(pinboardTools);
+    const engine: TaskExecutionEngine = new TaskExecutionEngine(pinboardTools);
     engine.addTasks(plannedTasks);
 
     const maxIterations = plannedTasks.length * 2; // Safety limit
@@ -428,13 +435,13 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}
     }
 
     // Step 3: Generate final results
-    const finalResults = engine.getProgress();
+    const finalResults: z.infer<typeof TaskExecutionResultSchema> = engine.getProgress();
     reportProgress(`🎉 Workflow completed: ${finalResults.completedTasks}/${finalResults.totalTasks} tasks successful`);
     
     console.log(`✅ Task workflow completed: ${finalResults.completedTasks}/${finalResults.totalTasks} tasks successful`);
     
     // Include progress messages in the execution summary for user visibility
-    const enhancedResults = {
+    const enhancedResults: z.infer<typeof TaskExecutionResultSchema> = {
       ...finalResults,
       executionSummary: progressMessages.join('\n') + '\n\n' + finalResults.executionSummary,
       results: [...progressMessages, ...finalResults.results]
@@ -443,6 +450,3 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}
     return enhancedResults;
   }
 });
-
-// Export the task workflow tool
-export { executeTaskWorkflow };

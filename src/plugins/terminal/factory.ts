@@ -164,7 +164,7 @@ export class TerminalFactory implements WidgetFactory<TerminalContent> {
       canEdit: false, // Terminal content is interactive, not editable
       canConfigure: true,
       canGroup: true,
-      canDuplicate: true,
+      canDuplicate: false,
       canExport: false, // Terminal sessions are not exportable
       hasContextMenu: true,
       hasToolbar: true,

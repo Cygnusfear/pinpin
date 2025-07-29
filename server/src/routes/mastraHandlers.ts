@@ -67,6 +67,9 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
       stream
     }: AgentChatRequest = req.body;
 
+    // Default to 100 steps for autonomous task execution
+    const effectiveMaxSteps = maxSteps || 100;
+
     // Validate required fields
     if (!message || !conversationId || !userId) {
       return res.status(400).json({
@@ -86,6 +89,23 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
 
     // Handle streaming responses
     if (stream) {
+      // Set up Server-Sent Events for streaming BEFORE calling streamResponse
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control'
+      });
+
+      // Progress callback to send real-time updates to user
+      const sendProgress = (message: string) => {
+        res.write(`data: ${JSON.stringify({
+          type: 'progress',
+          data: message
+        })}\n\n`);
+      };
+
       const streamResult = await mastraChatService.streamResponse({
         message,
         messages,
@@ -95,26 +115,18 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
         userName,
         taskComplexity,
         userTier,
-        maxSteps,
+        maxSteps: effectiveMaxSteps,
         temperature
-      });
+      }, sendProgress);
 
       if (!streamResult.success) {
-        return res.status(500).json({
-          success: false,
-          error: streamResult.error,
-          metadata: streamResult.metadata,
-        });
+        res.write(`data: ${JSON.stringify({
+          type: 'error',
+          data: { error: streamResult.error }
+        })}\n\n`);
+        res.end();
+        return;
       }
-
-      // Set up Server-Sent Events for streaming
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Cache-Control'
-      });
 
       // Send initial metadata
       res.write(`data: ${JSON.stringify({
@@ -161,7 +173,7 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
       userName,
       taskComplexity,
       userTier,
-      maxSteps,
+      maxSteps: effectiveMaxSteps,
       temperature
     });
 

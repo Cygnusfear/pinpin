@@ -79,7 +79,7 @@ export class NoteFactory implements WidgetFactory<NoteContent> {
       canEdit: true,
       canConfigure: true,
       canGroup: true,
-      canDuplicate: true,
+      canDuplicate: false,
       canExport: true,
       hasContextMenu: true,
       hasToolbar: true,

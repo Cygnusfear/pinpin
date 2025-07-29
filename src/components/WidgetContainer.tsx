@@ -24,6 +24,74 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   const renderer = registry.getRenderer(widget.type);
   const widgetTypeDefinition = registry.getType(widget.type);
 
+  // Enhanced retry handler for failed plugins
+  const handleRetryPlugin = useCallback(async () => {
+    console.log(`🔄 Retrying to load plugin for widget type: ${widget.type}`);
+    
+    try {
+      // Try to reload just this plugin by re-importing and re-registering
+      const registry = getWidgetRegistry();
+      
+      // Clear existing registration for this type
+      registry.unregisterType(widget.type);
+      registry.unregisterFactory(widget.type);
+      registry.unregisterRenderer(widget.type);
+      
+      // Try to re-import and register the plugin
+      let pluginModule;
+      switch (widget.type) {
+        case 'calculator':
+          pluginModule = await import('../plugins/calculator');
+          break;
+        case 'chat':
+          pluginModule = await import('../plugins/chat');
+          break;
+        case 'note':
+          pluginModule = await import('../plugins/note');
+          break;
+        case 'todo':
+          pluginModule = await import('../plugins/todo');
+          break;
+        case 'image':
+          pluginModule = await import('../plugins/image');
+          break;
+        case 'terminal':
+          pluginModule = await import('../plugins/terminal');
+          break;
+        case 'youtube':
+          pluginModule = await import('../plugins/youtube');
+          break;
+        case 'url':
+          pluginModule = await import('../plugins/url');
+          break;
+        case 'document':
+          pluginModule = await import('../plugins/document');
+          break;
+        default:
+          throw new Error(`Unknown plugin type: ${widget.type}`);
+      }
+      
+      // Get the plugin with correct naming
+      let plugin;
+      if (widget.type === 'youtube') {
+        plugin = pluginModule.youTubePlugin || pluginModule.YouTubePlugin;
+      } else {
+        plugin = pluginModule[`${widget.type}Plugin`];
+      }
+      
+      if (plugin && plugin.install) {
+        await plugin.install(registry);
+        console.log(`✅ Plugin ${widget.type} reloaded successfully without page refresh`);
+        
+        // Force re-render by updating a parent component or triggering a state change
+        // This is a clean way to refresh just this widget
+        window.dispatchEvent(new CustomEvent('pluginReloaded', { detail: { type: widget.type } }));
+      }
+    } catch (error) {
+      console.error(`❌ Error retrying plugin ${widget.type}:`, error);
+    }
+  }, [widget.type]);
+
   // Render widget content using plugin renderer or fallback
   const renderWidgetContent = useMemo(() => {
     if (widget.type === "loading") {
@@ -57,7 +125,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       );
     }
 
-    // Only render the actual widget renderer if content is properly loaded
+    // Check if renderer exists and is available
     if (renderer?.component) {
       // Check if content is actually available before rendering
       if (!widget.isContentLoaded || !widget.content) {
@@ -79,21 +147,72 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         <WidgetErrorBoundary
           widgetId={widget.id}
           widgetType={widget.type}
+          fallback={
+            <div className="flex h-full flex-col items-center justify-center p-4 text-center bg-orange-50 border border-orange-200 rounded">
+              <div className="mb-3 text-3xl">🔧</div>
+              <div className="mb-2 font-semibold text-orange-700 text-sm">
+                Plugin Error
+              </div>
+              <div className="mb-2 text-gray-600 text-xs">
+                The "{widget.type}" plugin encountered an error
+              </div>
+              <button
+                onClick={handleRetryPlugin}
+                className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 transition-colors"
+              >
+                🔄 Reload Plugin
+              </button>
+              <div className="mt-2 text-gray-400 text-xs">
+                Widget will retry automatically
+              </div>
+            </div>
+          }
         >
           <RendererComponent key={widget.id} widgetId={widget.id} />
         </WidgetErrorBoundary>
       );
     }
 
-    // Fallback renderer for unknown widget types
+    // Enhanced fallback renderer for unknown/failed widget types
     return (
-      <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+      <div className="flex h-full flex-col items-center justify-center p-4 text-center bg-gray-50 border border-gray-200 rounded">
         <div className="mb-2 text-2xl">📦</div>
         <div className="mb-1 font-medium text-sm">{widget.type}</div>
-        <div className="text-gray-500 text-xs">No renderer available</div>
+        <div className="mb-2 text-gray-500 text-xs">Plugin not available</div>
+        
+        <div className="flex gap-2">
+          <button
+            onClick={handleRetryPlugin}
+            className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+          >
+            🔄 Retry Load
+          </button>
+          
+          <button
+            onClick={() => {
+              // Copy widget info for debugging
+              const debugInfo = {
+                widgetId: widget.id,
+                widgetType: widget.type,
+                hasRenderer: !!renderer,
+                isContentLoaded: widget.isContentLoaded,
+                timestamp: new Date().toISOString()
+              };
+              navigator.clipboard.writeText(JSON.stringify(debugInfo, null, 2));
+              alert('Widget debug info copied to clipboard');
+            }}
+            className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+          >
+            📋 Debug
+          </button>
+        </div>
+        
+        <div className="mt-2 text-gray-400 text-xs">
+          ID: {widget.id.slice(-8)}
+        </div>
       </div>
     );
-  }, [widget, state, events, renderer?.component]);
+  }, [widget, state, events, renderer?.component, handleRetryPlugin]);
 
   // Handle widget container clicks with interactive content detection
   const handleWidgetClick = useCallback(

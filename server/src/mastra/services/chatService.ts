@@ -69,6 +69,7 @@ export interface MastraChatResponse {
     userId: string;
     tokensUsed?: number;
     steps?: number;
+    toolExecutions?: string[];
   };
 }
 
@@ -82,7 +83,10 @@ export interface MastraChatStreamResponse {
     timestamp: string;
     conversationId: string;
     userId: string;
+    toolExecutions?: string[];
   };
+  // Add progress callback for real-time updates
+  onProgress?: (message: string) => void;
 }
 
 /**
@@ -130,18 +134,31 @@ export class MastraChatService {
           resource: request.userId,
         },
         runtimeContext,
-        maxSteps: request.maxSteps || 50,
+        maxSteps: request.maxSteps || 100,  // Increased for comprehensive autonomous execution
         temperature: request.temperature || 0.7,
         onStepFinish: ({ text, toolCalls, toolResults }) => {
           if (toolCalls?.length) {
-            console.log(`🔧 Mastra: Executed ${toolCalls.length} tools`);
+            console.log(`🔧 Mastra: Executed ${toolCalls.length} tools (Step ${toolExecutionMessages.length + 1})`);
             
-            // Add user-friendly tool execution messages
-            toolCalls.forEach((toolCall: any) => {
+            // Add detailed tool execution messages with step numbers
+            toolCalls.forEach((toolCall: any, index: number) => {
               const toolName = toolCall.toolName || 'unknown tool';
               const friendlyName = getFriendlyToolName(toolName);
-              toolExecutionMessages.push(`🔧 Using ${friendlyName}...`);
+              const stepNumber = toolExecutionMessages.length + 1;
+              
+              // Include tool parameters for workflow visibility
+              const params = toolCall.args ? 
+                (toolCall.args.userRequest || toolCall.args.type || 'executing') : 'processing';
+              
+              toolExecutionMessages.push(`🔧 Step ${stepNumber}: Using ${friendlyName} (${params.toString().slice(0, 50)}...)`);
             });
+            
+            // Log tool results for debugging
+            if (toolResults?.length) {
+              toolResults.forEach((result: any, index: number) => {
+                console.log(`📊 Tool ${index + 1} result:`, result.success ? '✅ Success' : '❌ Failed');
+              });
+            }
           }
         },
       });
@@ -187,9 +204,9 @@ export class MastraChatService {
   }
 
   /**
-   * Stream a response from the Mastra agent
+   * Stream a response from the Mastra agent with real-time progress updates
    */
-  async streamResponse(request: MastraChatRequest): Promise<MastraChatStreamResponse> {
+  async streamResponse(request: MastraChatRequest, progressCallback?: (message: string) => void): Promise<MastraChatStreamResponse> {
     try {
       const agent = getPinboardAgent();
       
@@ -223,18 +240,45 @@ export class MastraChatService {
           resource: request.userId,
         },
         runtimeContext,
-        maxSteps: request.maxSteps || 50,
+        maxSteps: request.maxSteps || 100,  // Increased for comprehensive autonomous execution
         temperature: request.temperature || 0.7,
         onStepFinish: ({ text, toolCalls, toolResults }) => {
           if (toolCalls?.length) {
-            console.log(`🔧 Mastra: Executed ${toolCalls.length} tools`);
+            console.log(`🔧 Mastra: Executed ${toolCalls.length} tools (Step ${toolExecutionMessages.length + 1}) [STREAM]`);
             
-            // Add user-friendly tool execution messages for streaming
-            toolCalls.forEach((toolCall: any) => {
+            // Add detailed tool execution messages for streaming with step numbers
+            toolCalls.forEach((toolCall: any, index: number) => {
               const toolName = toolCall.toolName || 'unknown tool';
               const friendlyName = getFriendlyToolName(toolName);
-              toolExecutionMessages.push(`🔧 Using ${friendlyName}...`);
+              const stepNumber = toolExecutionMessages.length + 1;
+              
+              // Include tool parameters for workflow visibility
+              const params = toolCall.args ? 
+                (toolCall.args.userRequest || toolCall.args.type || 'executing') : 'processing';
+              
+              const progressMessage = `🔧 Step ${stepNumber}: Using ${friendlyName} (${params.toString().slice(0, 50)}...)`;
+              toolExecutionMessages.push(progressMessage);
+              
+              // Send real-time progress update to user via callback
+              if (progressCallback) {
+                progressCallback(progressMessage);
+              }
             });
+            
+            // Log tool results for debugging and send progress updates
+            if (toolResults?.length) {
+              toolResults.forEach((result: any, index: number) => {
+                const success = result.success !== false; // Default to true if not explicitly false
+                const resultMessage = `${success ? '✅' : '❌'} Tool ${index + 1} ${success ? 'completed successfully' : 'failed'}`;
+                
+                console.log(`📊 [STREAM] Tool ${index + 1} result:`, success ? '✅ Success' : '❌ Failed');
+                
+                // Send tool result as progress update
+                if (progressCallback) {
+                  progressCallback(resultMessage);
+                }
+              });
+            }
           }
         },
         onFinish: ({ steps, text, finishReason, usage }) => {

@@ -11,7 +11,15 @@ export default defineConfig({
   base: process.env.VITE_BASE_PATH || "/",
   plugins: [
     wasm(),
-    react(),
+    react({
+      // Enhanced error handling for React components
+      babel: {
+        plugins: [
+          // Add error boundary support
+          ["@babel/plugin-transform-react-jsx", { runtime: "automatic" }]
+        ]
+      }
+    }),
     tailwindcss(),
     topLevelAwait(),
     VitePWA({

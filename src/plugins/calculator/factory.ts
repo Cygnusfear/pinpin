@@ -82,7 +82,7 @@ export class CalculatorFactory implements WidgetFactory<CalculatorContent> {
       canEdit: false,
       canConfigure: true,
       canGroup: true,
-      canDuplicate: true,
+      canDuplicate: false,
       canExport: true,
       hasContextMenu: true,
       hasToolbar: false,

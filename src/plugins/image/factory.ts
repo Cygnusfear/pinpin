@@ -169,7 +169,7 @@ export class ImageFactory implements WidgetFactory<ImageContent> {
       canEdit: false,
       canConfigure: true,
       canGroup: true,
-      canDuplicate: true,
+      canDuplicate: false,
       canExport: true,
       hasContextMenu: true,
       hasToolbar: false,

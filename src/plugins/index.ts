@@ -1,53 +1,40 @@
 import { getWidgetRegistry } from "../core/WidgetRegistry";
-import { calculatorPlugin } from "./calculator";
-import { chatPlugin } from "./chat";
-import { documentPlugin } from "./document";
-import { imagePlugin } from "./image";
-import { notePlugin } from "./note";
-import { terminalPlugin } from "./terminal";
-import { todoPlugin } from "./todo";
-import { urlPlugin } from "./url";
-import { youTubePlugin } from "./youtube";
+import { loadAllPluginsSafely, getPluginLoadingStatus } from "./safePluginLoader";
 
 // ============================================================================
-// PLUGIN REGISTRY - CLEAN IMPLEMENTATION
+// SAFE PLUGIN LOADING - RELIABLE IMPLEMENTATION
 // ============================================================================
-
-export const plugins = [
-  calculatorPlugin,
-  chatPlugin,
-  notePlugin,
-  todoPlugin,
-  imagePlugin,
-  terminalPlugin,
-  youTubePlugin, // YouTube plugin before URL plugin for priority
-  urlPlugin,
-  documentPlugin,
-  // Add more plugins here
-];
 
 /**
- * Register all plugins with the widget registry
+ * Register all plugins with the widget registry using safe loading
+ * This prevents individual plugin failures from crashing the entire application
  */
 export async function registerAllPlugins(): Promise<void> {
-  const registry = getWidgetRegistry();
-
-  console.log("🔌 Registering all plugins...");
+  console.log("🔌 Registering all plugins with safe loading...");
 
   try {
-    // Register core plugins in logical order
-    for (const plugin of plugins) {
-      await plugin.install(registry);
+    // Use safe loader that handles individual plugin failures gracefully
+    const results = await loadAllPluginsSafely();
+
+    // Report final status
+    if (results.successCount === 0) {
+      console.error("❌ No plugins loaded successfully! Application may have limited functionality.");
+    } else if (results.failed.length > 0) {
+      console.warn(`⚠️ ${results.failed.length} plugins failed to load, but application will continue`);
+      console.log(`✅ Successfully loaded ${results.successCount}/${results.total} plugins`);
+    } else {
+      console.log(`✅ All ${results.total} plugins loaded successfully!`);
     }
 
-    console.log("✅ All plugins registered successfully");
+    // Log final registry state
+    const status = getPluginLoadingStatus();
+    console.log("📊 Final plugin status:", status);
 
-    // Log registry stats
-    const stats = registry.getStats();
-    console.log("📊 Registry stats:", stats);
   } catch (error) {
-    console.error("❌ Failed to register plugins:", error);
-    throw error;
+    console.error("❌ Critical error in plugin loading system:", error);
+    
+    // Don't throw - allow app to continue with whatever plugins loaded successfully
+    console.warn("🔄 Application continuing with available plugins...");
   }
 }
 
@@ -60,16 +47,24 @@ export async function unregisterAllPlugins(): Promise<void> {
   console.log("🔌 Unregistering all plugins...");
 
   try {
-    // Unregister in reverse order
-    for (const plugin of plugins.reverse()) {
-      await plugin.uninstall(registry);
-    }
+    // Clear the entire registry (simpler approach for dynamic loading)
+    registry.clear();
 
     console.log("❌ All plugins unregistered");
   } catch (error) {
     console.error("❌ Failed to unregister plugins:", error);
     throw error;
   }
+}
+
+/**
+ * Get detailed plugin loading statistics
+ */
+export function getPluginStats() {
+  return {
+    loading: getPluginLoadingStatus(),
+    registry: getWidgetRegistry().getStats()
+  };
 }
 
 /**
@@ -88,18 +83,19 @@ export function getWidgetTypesByCategory(category: string) {
   return registry.getTypesByCategory(category);
 }
 
-// Export individual plugins for direct access
-// Export plugin components for flexibility
-export {
-  CalculatorFactory,
-  CalculatorRenderer,
-  calculatorPlugin,
-} from "./calculator";
-export { ChatFactory, ChatRenderer, chatPlugin } from "./chat";
-export { DocumentFactory, DocumentRenderer, documentPlugin } from "./document";
-export { ImageFactory, ImageRenderer, imagePlugin } from "./image";
-export { NoteFactory, NoteRenderer, notePlugin } from "./note";
-export { TerminalFactory, TerminalRenderer, terminalPlugin } from "./terminal";
-export { TodoFactory, TodoRenderer, todoPlugin } from "./todo";
-export { UrlFactory, UrlRenderer, urlPlugin } from "./url";
-export { YouTubeFactory, YouTubeRenderer, youTubePlugin } from "./youtube";
+// ============================================================================
+// DEVELOPMENT UTILITIES
+// ============================================================================
+
+/**
+ * Development utilities for plugin management
+ * These are exposed for debugging and development purposes
+ */
+export const PluginDevUtils = {
+  getPluginStats,
+  getPluginLoadingStatus,
+  getWidgetRegistry
+};
+
+// Note: Individual plugin exports are no longer directly available to prevent 
+// static import errors. Use the registry to access loaded plugins.

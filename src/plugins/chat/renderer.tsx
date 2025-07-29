@@ -1,6 +1,6 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { sendMastraMessage } from "../../services/mastraService";
+import { sendMastraMessage, streamMastraMessage } from "../../services/mastraService";
 import {
   useWidgetActions,
   useWidgetContent,
@@ -116,54 +116,79 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     setTimeout(scrollToBottom, 100);
 
     try {
-      // Send to Mastra agent with MCP tool support and persistent memory
-      const response = await sendMastraMessage(
+      // Create a temporary array to track progress messages
+      let currentMessages = [...updatedMessages];
+      
+      // Stream Mastra agent response with real-time progress updates
+      const response = await streamMastraMessage(
         updatedMessages.map((msg) => ({
           role: msg.role,
           content: msg.content,
         })),
         conversationId,
-        "chat-user" // Static user ID for chat widget
+        "chat-user", // Static user ID for chat widget
+        (progressMessage: string) => {
+          // Add progress message as a temporary assistant message
+          const progressMsg: ChatMessage = {
+            role: "assistant",
+            content: progressMessage,
+            timestamp: Date.now(),
+            provider: "mastra",
+            metadata: {
+              isProgress: true, // Mark as progress message
+              temporary: true,
+            },
+          };
+
+          currentMessages = [...currentMessages, progressMsg];
+          updateContent({
+            messages: currentMessages,
+            isTyping: true, // Keep typing indicator during progress
+          });
+
+          // Scroll to show progress
+          setTimeout(scrollToBottom, 100);
+        }
       );
 
-      if (response.success && response.data?.message) {
+      if (response.success && response.message) {
+        // Remove all progress messages and add final response
+        const finalMessages = updatedMessages.filter(msg => !msg.metadata?.isProgress);
+        
         const assistantMessage: ChatMessage = {
           role: "assistant",
-          content: response.data.message,
+          content: response.message,
           timestamp: Date.now(),
           provider: "mastra",
-          toolCalls: response.data.tool_calls,
           metadata: {
-            toolResults: response.data.tool_results,
-            timestamp: response.timestamp,
-            conversationId: response.data.conversationId,
-            ...response.data.metadata,
+            conversationId: response.conversationId,
           },
         };
 
-        const finalMessages = [...updatedMessages, assistantMessage];
+        const completedMessages = [...finalMessages, assistantMessage];
         updateContent({
-          messages: finalMessages,
+          messages: completedMessages,
           isTyping: false,
         });
 
         // Update conversationId if changed
-        if (response.data.conversationId !== conversationId) {
-          setConversationId(response.data.conversationId);
+        if (response.conversationId && response.conversationId !== conversationId) {
+          setConversationId(response.conversationId);
         }
 
         // Scroll to bottom after adding assistant message
         setTimeout(scrollToBottom, 100);
       } else {
-        throw new Error("Invalid response from Mastra agent");
+        throw new Error(response.error || "Invalid response from Mastra agent");
       }
     } catch (err) {
       console.error("Chat error:", err);
       setError(err instanceof Error ? err.message : "Failed to send message");
 
-      // Remove typing indicator on error
+      // Remove typing indicator and any progress messages on error
+      const cleanMessages = updatedMessages.filter(msg => !msg.metadata?.isProgress);
       updateContent({
-        messages: updatedMessages,
+        messages: cleanMessages,
         isTyping: false,
       });
     } finally {
@@ -258,17 +283,28 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                   className={`max-w-[85%] rounded-2xl px-4 py-2 shadow-sm ${
                     message.role === "user"
                       ? "bg-blue-500 text-white rounded-br-md"
-                      : "bg-white text-gray-800 rounded-bl-md border border-gray-200"
+                      : message.metadata?.isProgress
+                        ? "bg-orange-50 text-orange-800 rounded-bl-md border border-orange-200 opacity-90"
+                        : "bg-white text-gray-800 rounded-bl-md border border-gray-200"
                   }`}
                 >
                   {message.role === "assistant" ? (
-                    <MarkdownRenderer
-                      content={message.content}
-                      className="prose prose-sm max-w-none"
-                      showThinkTags={true}
-                      expandThinkTagsByDefault={false}
-                      enableSyntaxHighlighting={true}
-                    />
+                    message.metadata?.isProgress ? (
+                      // Progress message - simpler rendering
+                      <div className="whitespace-pre-wrap break-words text-sm flex items-center gap-2">
+                        <div className="flex-shrink-0 w-3 h-3 bg-orange-400 rounded-full animate-pulse"></div>
+                        {message.content}
+                      </div>
+                    ) : (
+                      // Regular assistant message - full markdown
+                      <MarkdownRenderer
+                        content={message.content}
+                        className="prose prose-sm max-w-none"
+                        showThinkTags={true}
+                        expandThinkTagsByDefault={false}
+                        enableSyntaxHighlighting={true}
+                      />
+                    )
                   ) : (
                     <div className="whitespace-pre-wrap break-words text-sm">
                       {message.content}

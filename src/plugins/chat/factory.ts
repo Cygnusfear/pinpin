@@ -81,7 +81,7 @@ export class ChatFactory implements WidgetFactory<ChatContent> {
       canEdit: false,
       canConfigure: true,
       canGroup: true,
-      canDuplicate: true,
+      canDuplicate: false,
       canExport: true,
       hasContextMenu: true,
       hasToolbar: false,

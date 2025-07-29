@@ -200,7 +200,7 @@ export class DocumentFactory implements WidgetFactory<DocumentContent> {
       canEdit: true,
       canConfigure: true,
       canGroup: true,
-      canDuplicate: true,
+      canDuplicate: false,
       canExport: true,
       hasContextMenu: true,
       hasToolbar: false,

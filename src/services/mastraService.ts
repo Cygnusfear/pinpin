@@ -145,6 +145,125 @@ export const sendMastraMessage = async (
 };
 
 /**
+ * Stream Mastra message with real-time progress updates
+ */
+export const streamMastraMessage = async (
+  messages: MastraMessage[],
+  conversationId?: string,
+  userId?: string,
+  onProgress?: (message: string) => void
+): Promise<{
+  success: boolean;
+  message?: string;
+  conversationId?: string;
+  error?: string;
+}> => {
+  try {
+    // Get the latest user message
+    const userMessages = messages.filter(msg => msg.role === "user");
+    const latestMessage = userMessages[userMessages.length - 1];
+    
+    if (!latestMessage) {
+      throw new Error("No user message found");
+    }
+
+    const request = {
+      message: latestMessage.content,
+      conversationId: conversationId || `chat-${Date.now()}`,
+      userId: userId || "default-user",
+      stream: true // Enable streaming
+    };
+
+    const response = await fetch('/api/agent/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    // Handle Server-Sent Events streaming
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("Failed to get response reader");
+    }
+
+    const decoder = new TextDecoder();
+    let finalMessage = '';
+    let finalConversationId = request.conversationId;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              switch (data.type) {
+                case 'progress':
+                  // Send real-time progress updates to callback
+                  if (onProgress) {
+                    onProgress(data.data);
+                  }
+                  break;
+                case 'content':
+                  // Accumulate the final response content
+                  finalMessage += data.data;
+                  break;
+                case 'metadata':
+                  // Update conversation ID from metadata
+                  if (data.data?.conversationId) {
+                    finalConversationId = data.data.conversationId;
+                  }
+                  break;
+                case 'done':
+                  // Stream completed successfully
+                  return {
+                    success: true,
+                    message: finalMessage,
+                    conversationId: finalConversationId
+                  };
+                case 'error':
+                  throw new Error(data.data?.error || 'Stream error');
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse SSE data:', line);
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        message: finalMessage,
+        conversationId: finalConversationId
+      };
+
+    } finally {
+      reader.releaseLock();
+    }
+
+  } catch (error) {
+    console.error('Mastra streaming error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown streaming error'
+    };
+  }
+};
+
+/**
  * Check Mastra agent health
  */
 export const checkMastraHealth = async (): Promise<MastraHealthResponse> => {

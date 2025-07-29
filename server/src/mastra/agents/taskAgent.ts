@@ -41,9 +41,9 @@ class TaskExecutionState {
     this.mcpTools = mcpTools;
   }
 
-  addTasks(tasks: z.infer<typeof TaskSchema>[]) {
+  addTasks(tasks: Omit<z.infer<typeof TaskSchema>, 'status' | 'result'>[]) {
     tasks.forEach(task => {
-      this.tasks.set(task.id, { ...task, status: "pending" });
+      this.tasks.set(task.id, { ...task, status: "pending" as const });
     });
   }
 

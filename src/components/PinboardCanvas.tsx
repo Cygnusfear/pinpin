@@ -38,14 +38,109 @@ interface PinboardCanvasProps {
 }
 
 // Background pattern generation functions
+interface GridLevel {
+  spacing: number;
+  opacity: number;
+  dotSize: number;
+  color: string;
+}
+
+const calculateGridLevels = (scale: number): { levels: GridLevel[]; maxSpacing: number } => {
+  const baseSpacing = 20;
+  const targetVisualSpacing = 20; // Keep this visual spacing constant
+  const levels: GridLevel[] = [];
+  
+  // True recursive grid: calculate which hierarchy levels should be visible
+  // Each level is 5x the spacing of the previous level
+  const multiplier = 5;
+  
+  // Calculate the "effective" zoom level for grid hierarchy
+  // We want the finest visible grid to maintain ~20px visual spacing
+  let currentSpacing = baseSpacing;
+  let levelIndex = 0;
+  
+  // Find the appropriate base level where spacing would be ~20px when rendered
+  while (currentSpacing * scale < targetVisualSpacing && levelIndex < 10) {
+    currentSpacing *= multiplier;
+    levelIndex++;
+  }
+  
+  // Now add 2-3 visible levels starting from this base
+  for (let i = 0; i < 3; i++) {
+    const spacing = currentSpacing / Math.pow(multiplier, i);
+    const visualSpacing = spacing * scale;
+    
+    // Only show levels that make visual sense
+    if (visualSpacing >= 8 && visualSpacing <= 100) {
+      let opacity: number;
+      let dotSize: number;
+      let color: string;
+      
+      if (i === 0) {
+        // Primary level - most visible
+        opacity = 0.3;
+        dotSize = 1.2;
+        color = "rgba(107, 114, 128, OPACITY)";
+      } else if (i === 1) {
+        // Secondary level - lighter
+        opacity = 0.2;
+        dotSize = 1.0;
+        color = "rgba(156, 163, 175, OPACITY)";
+      } else {
+        // Tertiary level - very light
+        opacity = 0.1;
+        dotSize = 0.8;
+        color = "rgba(203, 213, 225, OPACITY)";
+      }
+      
+      levels.push({
+        spacing,
+        opacity,
+        dotSize,
+        color
+      });
+    }
+  }
+  
+  // Ensure we always have at least one level
+  if (levels.length === 0) {
+    levels.push({
+      spacing: baseSpacing,
+      opacity: 0.25,
+      dotSize: 1,
+      color: "rgba(107, 114, 128, OPACITY)"
+    });
+  }
+  
+  const maxSpacing = Math.max(...levels.map(l => l.spacing));
+  return { levels, maxSpacing };
+};
+
 export const createDotGridPattern = (scale: number): string => {
-  const dotSize = Math.max(0.5, 1 * scale);
-  const spacing = Math.max(8, 20 * scale);
-  const opacity = Math.min(0.6, Math.max(0.2, 0.4 * scale));
+  const { levels, maxSpacing } = calculateGridLevels(scale);
+  
+  // Create SVG with multiple dot layers
+  const dots = levels.map(level => {
+    const adjustedColor = level.color.replace('OPACITY', level.opacity.toString());
+    const dotsPerSide = maxSpacing / level.spacing;
+    const dotElements = [];
+    
+    for (let x = 0; x < dotsPerSide; x++) {
+      for (let y = 0; y < dotsPerSide; y++) {
+        const centerX = (x + 0.5) * level.spacing;
+        const centerY = (y + 0.5) * level.spacing;
+        dotElements.push(
+          `<circle cx="${centerX}" cy="${centerY}" r="${level.dotSize}" fill="${adjustedColor}" />`
+        );
+      }
+    }
+    
+    return dotElements.join('');
+  }).join('');
 
   const svgContent = `
-    <svg width="${spacing}" height="${spacing}" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="${spacing / 2}" cy="${spacing / 2}" r="${dotSize}" fill="rgba(156, 163, 175, ${opacity})" />
+    <svg width="${maxSpacing}" height="${maxSpacing}" xmlns="http://www.w3.org/2000/svg">
+      ${dots}
     </svg>
   `;
 
@@ -523,13 +618,13 @@ export const PinboardCanvas: React.FC<PinboardCanvasProps> = ({
 
     if (backgroundType === "dots") {
       const pattern = createDotGridPattern(scale);
-      const patternSize = Math.max(8, 20 * scale);
+      const { maxSpacing } = calculateGridLevels(scale);
 
       return {
         backgroundImage: `url("${pattern}")`,
         backgroundRepeat: "repeat",
-        backgroundSize: `${patternSize}px ${patternSize}px`,
-        backgroundPosition: `${transform.x % patternSize}px ${transform.y % patternSize}px`,
+        backgroundSize: `${maxSpacing}px ${maxSpacing}px`,
+        backgroundPosition: `${transform.x % maxSpacing}px ${transform.y % maxSpacing}px`,
         backgroundColor: "#f8fafc",
       };
     }

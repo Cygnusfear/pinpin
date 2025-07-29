@@ -220,7 +220,7 @@ export class YouTubeFactory implements WidgetFactory<YouTubeContent> {
       canEdit: false,
       canConfigure: true,
       canGroup: true,
-      canDuplicate: true,
+      canDuplicate: false,
       canExport: true,
       hasContextMenu: true,
       hasToolbar: false,
