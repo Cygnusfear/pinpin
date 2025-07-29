@@ -1,6 +1,7 @@
 import React, { type ReactNode, useEffect, useState } from "react";
 import { initializeSyncEngine } from "../config/syncEngine";
 import { sync } from "@tonk/keepsync";
+import { cn } from "@/lib/utils";
 
 interface SyncProviderProps {
   children: ReactNode;
@@ -106,90 +107,136 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
 // Sync status indicator component
 const SyncStatusIndicator: React.FC = () => {
   const { status, error, retrySync } = useSyncContext();
+  const [randomEmoji, setRandomEmoji] = useState<string>("");
+
+  // Array of emojis similar to index.html
+  const emojis = ['🎯', '🚀', '⭐', '🎮', '🎪', '🎨', '🎭', '🏆', '💫', '🌟', '✨', '🎊', '🎉', '🌈', '🦄', '🎸', '🎲'];
+
+  // Inject CSS animations if not already present
+  useEffect(() => {
+    const styleId = 'sync-status-animations';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-2px); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
+  // Update random emoji periodically when syncing
+  useEffect(() => {
+    if (status === "initializing") {
+      const updateEmoji = () => {
+        setRandomEmoji(emojis[Math.floor(Math.random() * emojis.length)]);
+      };
+      
+      // Set initial emoji
+      updateEmoji();
+      
+      // Update emoji every 1.5 seconds while syncing
+      const interval = setInterval(updateEmoji, 1500);
+      
+      return () => clearInterval(interval);
+    }
+  }, [status, emojis]);
 
   const getStatusConfig = () => {
     switch (status) {
       case "initializing":
         return {
-          icon: "🔄",
+          icon: randomEmoji,
           text: "Connecting...",
           color: "bg-white",
           textColor: "text-grey-500",
+          showSpinner: true,
         };
       case "synced":
         return {
-          icon: "🟢",
+          icon: "dot",
           text: "Synced",
-          color: "bg-green-500",
-          textColor: "text-green-900",
+          color: "bg-transparent",
+          textColor: "text-green-400",
+          showSpinner: false,
         };
       case "offline":
         return {
-          icon: "🟡",
+          icon: "dot",
           text: "Offline",
           color: "bg-yellow-500",
-          textColor: "text-yellow-900",
+          textColor: "text-yellow-400",
+          showSpinner: false,
         };
       case "error":
         return {
-          icon: "🔴",
+          icon: "dot",
           text: "Error",
           color: "bg-red-500",
-          textColor: "text-red-900",
+          textColor: "text-red-400",
+          showSpinner: false,
         };
       default:
         return {
-          icon: "❓",
+          icon: "dot",
           text: "Unknown",
           color: "bg-gray-500",
-          textColor: "text-gray-900",
+          textColor: "text-gray-400",
+          showSpinner: false,
         };
     }
   };
 
   const config = getStatusConfig();
 
+  const isBroken = status === "error" || status === "offline";
+
   return (
     <div className="fixed top-4 right-4 z-50">
-      {status === "error" || status === "offline" ? (
-        <button
-          type="button"
-          className={`flex items-center gap-2 rounded-lg px-3 py-2 shadow-lg ${config.color} ${config.textColor}transition-all cursor-pointer duration-300 ease-in-out hover:shadow-xl `}
-          onClick={retrySync}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              retrySync();
-            }
-          }}
-          title={
-            status === "error"
-              ? `Sync error: ${error}. Click to retry.`
-              : "Working offline. Click to retry sync."
+      <button
+        type="button"
+        className={cn(
+          "relative flex items-center gap-2 rounded-full transition-all duration-300 ease-in-out bg-transparent",
+          config.textColor,
+        )}
+        onClick={isBroken ? retrySync : undefined}
+        onKeyDown={(e) => {
+          if (isBroken && (e.key === "Enter" || e.key === " ")) {
+            retrySync();
           }
-        >
-          <span className="font-medium text-sm">
-            {config.icon} {config.text}
-          </span>
-          <span className="ml-2 text-xs underline hover:no-underline">
-            Retry
-          </span>
-        </button>
-      ) : (
-        <div
-          className={`flex items-center gap-2 rounded-lg px-3 py-2 shadow-lg ${config.color} ${config.textColor}transition-all duration-300 ease-in-out `}
-          title={`Sync status: ${status}`}
-        >
-          <span className="font-medium text-sm">
-            {config.icon} {config.text}
-          </span>
-        </div>
-      )}
+        }}
+        disabled={!isBroken}
+        title={
+          status === "error"
+            ? `Sync error: ${error}. Click to retry.`
+            : status === "offline"
+            ? "Working offline. Click to retry sync."
+            : config.text
+        }
+      >
+          <div className="relative flex items-center justify-center w-8 h-8 ml-2">
+            <div 
+              className={cn("absolute w-10 h-10 border-3 border-slate-300 border-t-sky-300 rounded-full animate-spin", 
+                !config.showSpinner && "hidden"
+              )}
+            />
+            <div 
+              className={cn("relative z-10 text-sm",config.showSpinner && "animate-bounce")} 
+            >
+              {config.icon === "dot" ? <div className={cn("w-3 h-3 rounded-full", config.color)}/> : config.icon}
+            </div>
+          </div>
+        
+      </button>
 
-      {status === "error" && error && (
-        <div className="mt-2 max-w-xs rounded border border-red-300 bg-red-100 p-2 text-red-800 text-xs">
-          {error}
-        </div>
-      )}
     </div>
   );
 };

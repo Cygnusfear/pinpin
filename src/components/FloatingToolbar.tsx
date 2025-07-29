@@ -8,6 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getWidgetRegistry } from "../core/WidgetRegistry";
 import type { CreateWidgetInput } from "../types/widgets";
+import BackgroundToggle from "./BackgroundToggle";
 
 interface FloatingToolbarProps {
   onWidgetAdd: (widget: CreateWidgetInput) => void;
@@ -73,16 +74,18 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   };
 
   return (
-    <div className="pointer-events-none fixed bottom-0 z-50 flex w-screen flex-row items-center justify-center">
-      <div className="glass mb-12 rounded-full bg-slate-50/10 p-0 px-4 shadow-lg backdrop-blur-lg">
-        <div className="flex flex-row gap-2">
+    <div className="pointer-events-none fixed bottom-0 z-50 flex w-screen flex-row items-center justify-center transition-all duration-1000">
+      <div className="mb-6 rounded-md bg-white py-2 px-4 shadow-float transition-all duration-1000">
+        <div className="flex flex-row gap-2 transition-all duration-1000" >
+          <BackgroundToggle/>
+          <div className="w-1 border-r border-gray-200" />
           {widgetButtons.map((button, index) => (
             <Tooltip key={button.type}>
               <TooltipTrigger asChild>
                 <button
                   type="button"
                   className={cn(
-                    `group pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 hover:px-3`,
+                    `group pointer-events-auto flex h-10 w-10 items-center justify-center rounded-md transition-all duration-200 hover:px-3`,
                   )}
                   onClick={() => handleWidgetCreate(button.type)}
                   disabled={isCreating !== null}

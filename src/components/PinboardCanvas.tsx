@@ -53,7 +53,7 @@ export const createDotGridPattern = (scale: number): string => {
 };
 
 export const createCorkboardPattern = (scale: number): string => {
-  return `https://thumbs.dreamstime.com/b/wooden-cork-board-seamless-tileable-texture-29991843.jpg`;
+  return `/textures/024-h-q7c5t2.jpg`;
 };
 
 // NO LEGACY CONVERSION - ELIMINATED ALL LEGACY CODE
