@@ -87,45 +87,41 @@ export async function loadAllPluginsSafely(): Promise<{
 }> {
   console.log("🔌 Starting safe plugin loading...");
   
-  // Define plugin loaders with static imports
-  const pluginLoaders = [
-    {
-      name: 'calculator',
-      loader: () => import('./calculator')
-    },
-    {
-      name: 'chat', 
-      loader: () => import('./chat')
-    },
-    {
-      name: 'note',
-      loader: () => import('./note')
-    },
-    {
-      name: 'todo',
-      loader: () => import('./todo')
-    },
-    {
-      name: 'image',
-      loader: () => import('./image')
-    },
-    {
-      name: 'terminal',
-      loader: () => import('./terminal')
-    },
-    {
-      name: 'youtube',
-      loader: () => import('./youtube')
-    },
-    {
-      name: 'url',
-      loader: () => import('./url')
-    },
-    {
-      name: 'document',
-      loader: () => import('./document')
-    }
-  ];
+  // Get enabled plugins from server configuration
+  const { getEnabledPlugins } = await import('./configLoader');
+  const enabledPlugins = await getEnabledPlugins();
+  console.log(`📋 Found ${enabledPlugins.length} enabled plugins in configuration`);
+  
+  // Create plugin loaders from configuration with static mapping
+  // Note: Using static mapping to ensure Vite can analyze imports properly
+  const importMap: Record<string, () => Promise<any>> = {
+    chat: () => import('./chat'),
+    calculator: () => import('./calculator'),
+    note: () => import('./note'),
+    todo: () => import('./todo'),
+    image: () => import('./image'),
+    terminal: () => import('./terminal'),
+    youtube: () => import('./youtube'),
+    url: () => import('./url'),
+    document: () => import('./document'),
+    drawing: () => import('./drawing'),
+  };
+  
+  const pluginLoaders = enabledPlugins
+    .filter(plugin => {
+      if (!importMap[plugin.name]) {
+        console.warn(`⚠️ No import mapping for plugin: ${plugin.name}`);
+        return false;
+      }
+      return true;
+    })
+    .map((plugin) => {
+      console.log(`🔍 Preparing to load plugin: ${plugin.name}`);
+      return {
+        name: plugin.name,
+        loader: importMap[plugin.name]
+      };
+    });
   
   // Load all plugins concurrently with error handling
   const results = await Promise.all(
@@ -179,12 +175,27 @@ export function getPluginLoadingStatus() {
 
 // Hot Module Replacement support for individual plugins
 if (import.meta.hot) {
-  // Accept changes to individual plugin modules
-  import.meta.hot.accept(['./calculator', './chat', './note', './todo', './image', './terminal', './youtube', './url', './document'], (modules) => {
+  // Accept configuration changes without page reload
+  import.meta.hot.accept('./configLoader', () => {
+    console.log('🔥 HMR: Plugin configuration updated');
+    window.dispatchEvent(new CustomEvent('pluginConfigUpdated'));
+  });
+  
+  // Accept changes to the plugins.json file
+  import.meta.hot.accept('./plugins.json', () => {
+    console.log('🔥 HMR: Plugin list updated from JSON');
+    window.dispatchEvent(new CustomEvent('pluginConfigUpdated'));
+  });
+  
+  // Accept changes to individual plugin modules (dynamically built list)
+  const acceptableModules = [
+    './calculator', './chat', './note', './todo', './image', 
+    './terminal', './youtube', './url', './document', './drawing'
+  ];
+  
+  import.meta.hot.accept(acceptableModules, (modules) => {
     console.log('🔥 HMR: Plugin modules updated');
     
-    // Could implement plugin hot reloading here if needed
-    // For now, just log that modules were updated
     if (modules) {
       modules.forEach((module, index) => {
         if (module) {

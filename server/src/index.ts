@@ -49,6 +49,11 @@ import {
   mastraAgentCapabilitiesHandler,
   mastraAgentHealthHandler,
 } from "./routes/mastraHandlers.js";
+import {
+  getPluginConfigHandler,
+  updatePluginConfigHandler,
+  getEnabledPluginsHandler,
+} from "./routes/pluginHandlers.js";
 import { terminalSessionManager } from "./terminal/terminalSessionManager.js";
 // Import terminal WebSocket setup
 import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
@@ -70,6 +75,11 @@ app.delete("/api/agent/history", mastraClearHistoryHandler);
 app.get("/api/agent/status", mastraAgentStatusHandler);
 app.get("/api/agent/capabilities", mastraAgentCapabilitiesHandler);
 app.get("/api/agent/health", mastraAgentHealthHandler);
+
+// Plugin configuration endpoints
+app.get("/api/plugins/config", getPluginConfigHandler);
+app.put("/api/plugins/config", updatePluginConfigHandler);
+app.get("/api/plugins/enabled", getEnabledPluginsHandler);
 
 // Terminal test endpoint for debugging
 app.post("/api/terminal/test", (req: any, res: any) => {

@@ -587,25 +587,37 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
 };
 ```
 
-### Step 5: Register Plugin in `src/plugins/safePluginLoader.ts`
+### Step 5: Register Plugin in `src/plugins/plugins.json`
 
-⚠️ **IMPORTANT**: The plugin system now uses **safe loading** to prevent individual plugin failures from crashing the entire application.
+⚠️ **IMPORTANT**: The plugin system now uses **configuration-based loading** to prevent page reloads when LLMs modify the plugin list.
 
-```typescript
-// Add your plugin to the CORE_PLUGINS array in safePluginLoader.ts
-const CORE_PLUGINS = [
-  { name: 'calculator', path: './calculator' },
-  { name: 'chat', path: './chat' },
-  { name: 'note', path: './note' },
-  { name: 'todo', path: './todo' },
-  { name: 'image', path: './image' },
-  { name: 'terminal', path: './terminal' },
-  { name: 'youtube', path: './youtube' },
-  { name: 'url', path: './url' },
-  { name: 'document', path: './document' },
-  { name: 'your-plugin', path: './your-plugin' },  // Add your plugin here
-];
+```json
+{
+  "plugins": [
+    {
+      "name": "calculator",
+      "path": "./calculator",
+      "enabled": true
+    },
+    {
+      "name": "chat", 
+      "path": "./chat",
+      "enabled": true
+    },
+    {
+      "name": "your-plugin",
+      "path": "./your-plugin",
+      "enabled": true
+    }
+  ]
+}
 ```
+
+**Benefits of JSON Configuration**:
+- ✅ **No Page Reloads**: LLMs can modify `plugins.json` without triggering HMR on core modules
+- ✅ **Live Reloading**: Plugin list updates automatically without page refresh
+- ✅ **Enable/Disable**: Temporarily disable plugins without removing them
+- ✅ **Clean Separation**: Configuration separate from code logic
 
 **Plugin Export Requirements**:
 - Your plugin must be exported as `yourPluginNamePlugin` (camelCase)
@@ -1035,18 +1047,35 @@ export interface YourPluginContent {
 
 ### Development Workflow
 
+**Configuration-Based Loading**:
+- ✅ Modify `plugins.json` without triggering page reloads
+- ✅ Plugin changes reload automatically without page refresh  
+- ✅ Enable/disable plugins for testing without removing code
+- ✅ Live configuration updates via HMR
+
 **Hot Module Replacement (HMR)**: 
-- ✅ Plugin changes reload automatically without page refresh
+- ✅ Plugin code changes reload automatically without page refresh
+- ✅ Plugin configuration changes reload without page refresh
 - ✅ Individual plugin failures don't break HMR
 - ✅ Error recovery works during development
-- ⚠️ If plugin loading fails completely, check console for export name issues
 
 **Development Tips**:
-1. Keep browser console open to monitor plugin loading
-2. Look for "Successfully loaded plugin: your-plugin" message
-3. If plugin fails to load, check export naming conventions
-4. Use error boundary fallback UI to test error recovery
-5. Test with broken imports to verify error handling works
+1. **Add new plugins**: Edit `plugins.json` instead of TypeScript files
+2. **Disable for testing**: Set `"enabled": false` in `plugins.json`
+3. **Monitor loading**: Keep browser console open to see plugin status
+4. **Check exports**: Look for "Successfully loaded plugin: your-plugin" message
+5. **Test error recovery**: Use error boundary fallback UI testing
+6. **Live reload**: Configuration changes trigger automatic plugin reload
+
+**Adding a New Plugin (LLM-Friendly)**:
+```json
+// Just add to plugins.json - no page reload!
+{
+  "name": "new-plugin",
+  "path": "./new-plugin", 
+  "enabled": true
+}
+```
 
 ### Manual Testing Checklist
 

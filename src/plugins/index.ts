@@ -1,5 +1,6 @@
 import { getWidgetRegistry } from "../core/WidgetRegistry";
 import { loadAllPluginsSafely, getPluginLoadingStatus } from "./safePluginLoader";
+import { setupConfigReloader } from "./configReloader";
 
 // ============================================================================
 // SAFE PLUGIN LOADING - RELIABLE IMPLEMENTATION
@@ -13,6 +14,9 @@ export async function registerAllPlugins(): Promise<void> {
   console.log("🔌 Registering all plugins with safe loading...");
 
   try {
+    // Initialize configuration live reloading
+    setupConfigReloader();
+    
     // Use safe loader that handles individual plugin failures gracefully
     const results = await loadAllPluginsSafely();
 

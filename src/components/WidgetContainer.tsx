@@ -129,12 +129,28 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
     if (renderer?.component) {
       // Check if content is actually available before rendering
       if (!widget.isContentLoaded || !widget.content) {
+        // If we have a content error and we're not actively loading, show error
+        if (widget.contentError && widget.isContentLoaded) {
+          return (
+            <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+              <div className="mb-2 text-2xl">⚠️</div>
+              <div className="mb-1 font-medium text-red-600 text-sm">
+                Content Error
+              </div>
+              <div className="text-gray-500 text-xs">
+                {widget.contentError}
+              </div>
+            </div>
+          );
+        }
+        
+        // Otherwise, show loading state
         return (
           <div className="flex h-full flex-col items-center justify-center p-4 text-center">
             <div className="mb-2 h-8 w-8 animate-spin rounded-full border-blue-500 border-b-2" />
             <div className="mb-1 font-medium text-sm">Loading Content</div>
             <div className="text-gray-500 text-xs">
-              {widget.contentError || "Hydrating widget data..."}
+              Hydrating widget data...
             </div>
           </div>
         );

@@ -5,9 +5,9 @@ import { ChatRenderer } from "./renderer";
 export const chatTypeDefinition: WidgetTypeDefinition[] = [
   {
     type: "chat",
-    name: "AI Chat",
+    name: "🌈 Tonk!",
     description: "WhatsApp-style chat interface",
-    icon: "💬",
+    icon: "🌈",
     category: "app",
     defaultSize: { width: 400, height: 600 },
     minSize: { width: 300, height: 600 },
