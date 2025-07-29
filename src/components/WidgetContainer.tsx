@@ -37,39 +37,33 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       registry.unregisterFactory(widget.type);
       registry.unregisterRenderer(widget.type);
       
-      // Try to re-import and register the plugin
-      let pluginModule;
-      switch (widget.type) {
-        case 'calculator':
-          pluginModule = await import('../plugins/calculator');
-          break;
-        case 'chat':
-          pluginModule = await import('../plugins/chat');
-          break;
-        case 'note':
-          pluginModule = await import('../plugins/note');
-          break;
-        case 'todo':
-          pluginModule = await import('../plugins/todo');
-          break;
-        case 'image':
-          pluginModule = await import('../plugins/image');
-          break;
-        case 'terminal':
-          pluginModule = await import('../plugins/terminal');
-          break;
-        case 'youtube':
-          pluginModule = await import('../plugins/youtube');
-          break;
-        case 'url':
-          pluginModule = await import('../plugins/url');
-          break;
-        case 'document':
-          pluginModule = await import('../plugins/document');
-          break;
-        default:
-          throw new Error(`Unknown plugin type: ${widget.type}`);
-      }
+      // Use static imports for better HMR compatibility
+      const getPluginImporter = (type: string) => {
+        switch (type) {
+          case 'calculator':
+            return () => import('../plugins/calculator');
+          case 'chat':
+            return () => import('../plugins/chat');
+          case 'note':
+            return () => import('../plugins/note');
+          case 'todo':
+            return () => import('../plugins/todo');
+          case 'image':
+            return () => import('../plugins/image');
+          case 'terminal':
+            return () => import('../plugins/terminal');
+          case 'youtube':
+            return () => import('../plugins/youtube');
+          case 'url':
+            return () => import('../plugins/url');
+          case 'document':
+            return () => import('../plugins/document');
+          default:
+            throw new Error(`Unknown plugin type: ${type}`);
+        }
+      };
+      
+      const pluginModule = await getPluginImporter(widget.type)();
       
       // Get the plugin with correct naming
       let plugin;

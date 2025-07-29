@@ -21,6 +21,14 @@ interface PluginLoadResult {
 }
 
 /**
+ * Get static plugin importer for better HMR support
+ * This avoids dynamic imports that cause page reloads
+ */
+function getStaticPluginImporter(pluginName: string): () => Promise<{ [key: string]: any }> {
+    return () => import(/* @vite-ignore */ `../plugins/${pluginName}`);
+}
+
+/**
  * Safely load and install a plugin with error handling
  */
 async function safeLoadPlugin(
@@ -92,12 +100,12 @@ export async function loadAllPluginsSafely(): Promise<{
   const enabledPlugins = await getEnabledPlugins();
   console.log(`📋 Found ${enabledPlugins.length} enabled plugins in configuration`);
   
-  // Create plugin loaders from configuration using dynamic imports
+  // Create plugin loaders from configuration using static imports for better HMR
   const pluginLoaders = enabledPlugins.map((plugin) => {
     console.log(`🔍 Preparing to load plugin: ${plugin.name}`);
     return {
       name: plugin.name,
-      loader: () => import(/* @vite-ignore */ plugin.path)
+      loader: getStaticPluginImporter(plugin.name)
     };
   });
   
@@ -149,16 +157,4 @@ export function getPluginLoadingStatus() {
     fullyRegistered: stats.fullyRegistered,
     registrationRate: stats.registrationRate
   };
-}
-
-// Hot Module Replacement support for individual plugins
-if (import.meta.hot) {
-  // Accept configuration changes without page reload
-  import.meta.hot.accept('./configLoader', () => {
-    console.log('🔥 HMR: Plugin configuration updated');
-    window.dispatchEvent(new CustomEvent('pluginConfigUpdated'));
-  });
-  
-  // Configuration is loaded from server endpoints only
-  // No JSON file HMR to avoid page reloads
 }

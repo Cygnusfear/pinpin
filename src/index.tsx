@@ -56,3 +56,18 @@ async function initApp() {
 
 // Start the application
 initApp().catch(console.error);
+
+// Hot Module Replacement (HMR) support
+if (import.meta.hot) {
+  // Accept HMR for the entire app
+  import.meta.hot.accept(['./App', './plugins'], () => {
+    console.log('🔥 HMR: Main app modules updated');
+  });
+  
+  // Listen for plugin updates and reload without full page refresh
+  window.addEventListener('pluginsReloaded', (event) => {
+    console.log('🔥 HMR: Plugins reloaded, updating app state');
+    // The plugin registry is already updated by the config reloader
+    // Force re-render of any components that depend on plugin state
+  });
+}

@@ -340,7 +340,7 @@ Follow the todo list widget to track progress. Read this note before each step t
       let confidence = '';
 
       // Time-based functionality (ALWAYS needs plugin)
-      if (requestLower.includes('timer') || requestLower.includes('countdown') || requestLower.includes('pomodoro') || 
+      if (requestLower.includes('timer') || requestLower.includes('countdown') || 
           requestLower.includes('stopwatch') || requestLower.includes('alarm') || requestLower.includes('clock') ||
           requestLower.includes('schedule') || requestLower.includes('reminder')) {
         needsPlugin = true;

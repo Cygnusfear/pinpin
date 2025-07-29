@@ -36,8 +36,9 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
-    watch: {
-      ignored: ["**/server/public/plugins.json"],
+    hmr: {
+      // Improve HMR stability and prevent unnecessary reloads
+      overlay: false,
     },
     proxy: {
       "/sync": {
