@@ -8,6 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getWidgetRegistry } from "../core/WidgetRegistry";
 import type { CreateWidgetInput } from "../types/widgets";
+import { usePluginHotReload } from "../hooks/usePluginHotReload";
 import BackgroundToggle from "./BackgroundToggle";
 
 interface FloatingToolbarProps {
@@ -28,9 +29,15 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCreating, setIsCreating] = useState<string | null>(null);
+  
+  // This hook automatically updates when plugins are reloaded
+  const { version, lastReloadInfo } = usePluginHotReload();
 
   const registry = getWidgetRegistry();
   const allTypes = registry.getAllTypes();
+
+  // Debug logging
+  console.log('🔄 FloatingToolbar render - plugin version:', version, 'types:', allTypes.length);
 
   // Filter to only show widgets that are not autoCreateOnly
   const manualCreateTypes = allTypes.filter((type) => !type.autoCreateOnly);
@@ -74,9 +81,9 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   };
 
   return (
-    <div className="pointer-events-none fixed bottom-0 z-50 flex w-screen flex-row items-center justify-center transition-all duration-1000">
-      <div className="mb-6 rounded-md bg-white py-2 px-4 shadow-float transition-all duration-1000">
-        <div className="flex flex-row gap-2 transition-all duration-1000" >
+    <div className="pointer-events-none fixed bottom-0 z-50 flex w-screen flex-row items-center justify-center transition-all duration-100">
+      <div className="mb-6 rounded-md bg-white py-2 px-4 shadow-float transition-all">
+        <div className="flex flex-row gap-2 transition-all" >
           <BackgroundToggle/>
           <div className="w-1 border-r border-gray-200" />
           {widgetButtons.map((button, index) => (
@@ -85,7 +92,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                 <button
                   type="button"
                   className={cn(
-                    `group pointer-events-auto flex h-10 w-10 items-center justify-center rounded-md transition-all duration-200 hover:px-3`,
+                    `group pointer-events-auto flex h-10 w-10 items-center justify-center rounded-md transition-all duration-100 hover:px-3`,
                   )}
                   onClick={() => handleWidgetCreate(button.type)}
                   disabled={isCreating !== null}

@@ -24,68 +24,6 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   const renderer = registry.getRenderer(widget.type);
   const widgetTypeDefinition = registry.getType(widget.type);
 
-  // Enhanced retry handler for failed plugins
-  const handleRetryPlugin = useCallback(async () => {
-    console.log(`🔄 Retrying to load plugin for widget type: ${widget.type}`);
-    
-    try {
-      // Try to reload just this plugin by re-importing and re-registering
-      const registry = getWidgetRegistry();
-      
-      // Clear existing registration for this type
-      registry.unregisterType(widget.type);
-      registry.unregisterFactory(widget.type);
-      registry.unregisterRenderer(widget.type);
-      
-      // Use static imports for better HMR compatibility
-      const getPluginImporter = (type: string) => {
-        switch (type) {
-          case 'calculator':
-            return () => import('../plugins/calculator');
-          case 'chat':
-            return () => import('../plugins/chat');
-          case 'note':
-            return () => import('../plugins/note');
-          case 'todo':
-            return () => import('../plugins/todo');
-          case 'image':
-            return () => import('../plugins/image');
-          case 'terminal':
-            return () => import('../plugins/terminal');
-          case 'youtube':
-            return () => import('../plugins/youtube');
-          case 'url':
-            return () => import('../plugins/url');
-          case 'document':
-            return () => import('../plugins/document');
-          default:
-            throw new Error(`Unknown plugin type: ${type}`);
-        }
-      };
-      
-      const pluginModule = await getPluginImporter(widget.type)();
-      
-      // Get the plugin with correct naming
-      let plugin;
-      if (widget.type === 'youtube') {
-        plugin = pluginModule.youTubePlugin || pluginModule.YouTubePlugin;
-      } else {
-        plugin = pluginModule[`${widget.type}Plugin`];
-      }
-      
-      if (plugin && plugin.install) {
-        await plugin.install(registry);
-        console.log(`✅ Plugin ${widget.type} reloaded successfully without page refresh`);
-        
-        // Force re-render by updating a parent component or triggering a state change
-        // This is a clean way to refresh just this widget
-        window.dispatchEvent(new CustomEvent('pluginReloaded', { detail: { type: widget.type } }));
-      }
-    } catch (error) {
-      console.error(`❌ Error retrying plugin ${widget.type}:`, error);
-    }
-  }, [widget.type]);
-
   // Render widget content using plugin renderer or fallback
   const renderWidgetContent = useMemo(() => {
     if (widget.type === "loading") {
@@ -166,12 +104,6 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
               <div className="mb-2 text-gray-600 text-xs">
                 The "{widget.type}" plugin encountered an error
               </div>
-              <button
-                onClick={handleRetryPlugin}
-                className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 transition-colors"
-              >
-                🔄 Reload Plugin
-              </button>
               <div className="mt-2 text-gray-400 text-xs">
                 Widget will retry automatically
               </div>
@@ -191,13 +123,6 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         <div className="mb-2 text-gray-500 text-xs">Plugin not available</div>
         
         <div className="flex gap-2">
-          <button
-            onClick={handleRetryPlugin}
-            className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
-          >
-            🔄 Retry Load
-          </button>
-          
           <button
             onClick={() => {
               // Copy widget info for debugging
@@ -222,7 +147,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
         </div>
       </div>
     );
-  }, [widget, state, events, renderer?.component, handleRetryPlugin]);
+  }, [widget, state, events, renderer?.component]);
 
   // Handle widget container clicks with interactive content detection
   const handleWidgetClick = useCallback(

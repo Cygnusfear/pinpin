@@ -704,6 +704,301 @@ The widget content has been updated and changes should be visible on the pinboar
     }
   }
 
+  private async handleValidatePluginCode(args: Record<string, unknown>) {
+    try {
+      const pluginName = args.pluginName as string;
+      if (!pluginName) {
+        throw new Error("Plugin name is required");
+      }
+
+      const pluginDir = path.join(process.cwd(), 'public', 'plugins', pluginName);
+      
+      // Check if plugin directory exists
+      try {
+        await fs.access(pluginDir);
+      } catch {
+        throw new Error(`Plugin directory not found: ${pluginName}`);
+      }
+
+      const results = {
+        pluginName,
+        pluginPath: pluginDir,
+        valid: true,
+        errors: [] as string[],
+        warnings: [] as string[],
+        suggestions: [] as string[],
+        fileAnalysis: [] as any[],
+        structure: {
+          hasIndex: false,
+          presentFiles: [] as { file: string; description: string }[]
+        }
+      };
+
+      // 1. Check plugin structure
+      const requiredFiles = ['index.ts', 'index.tsx'];
+      const hasIndex = await Promise.all(
+        requiredFiles.map(async (file) => {
+          try {
+            await fs.access(path.join(pluginDir, file));
+            return true;
+          } catch {
+            return false;
+          }
+        })
+      ).then(results => results.some(exists => exists));
+
+      results.structure.hasIndex = hasIndex;
+      
+      if (!hasIndex) {
+        results.valid = false;
+        results.errors.push('Missing index.ts or index.tsx file');
+        results.suggestions.push('Create an index.ts or index.tsx file as the plugin entry point');
+      }
+
+      // Check for common files
+      const commonFiles = {
+        'config.tsx': 'Plugin configuration component',
+        'renderer.tsx': 'Plugin renderer component', 
+        'factory.ts': 'Plugin factory implementation',
+        'types.ts': 'Type definitions'
+      };
+
+      for (const [file, description] of Object.entries(commonFiles)) {
+        try {
+          await fs.access(path.join(pluginDir, file));
+          results.structure.presentFiles.push({ file, description });
+        } catch {
+          // File doesn't exist, which is fine
+        }
+      }
+
+      // 2. Analyze all TypeScript/JavaScript files
+      const items = await fs.readdir(pluginDir, { withFileTypes: true });
+      const codeFiles = items
+        .filter(item => item.isFile() && /\.(ts|tsx|js|jsx)$/.test(item.name))
+        .map(item => item.name);
+
+      if (codeFiles.length === 0) {
+        results.valid = false;
+        results.errors.push('No TypeScript/JavaScript files found');
+      }
+
+      for (const file of codeFiles) {
+        const filePath = path.join(pluginDir, file);
+        const content = await fs.readFile(filePath, 'utf8');
+        
+        const fileResult = {
+          file,
+          exports: { named: [], default: null, duplicates: [], errors: [] },
+          imports: { statements: [], errors: [], missing: [] },
+          syntaxErrors: []
+        };
+
+        // Parse exports
+        try {
+          const exportMatches = content.match(/export\s+(?:(?:const|let|var|function|class|interface|type)\s+(\w+)|default\s+(\w+|\{[^}]*\})|(\{[^}]*\}))/g) || [];
+          const namedExports = new Set();
+          
+          for (const match of exportMatches) {
+            if (match.includes('export default')) {
+              const defaultMatch = match.match(/export\s+default\s+(\w+)/);
+              if (defaultMatch) {
+                if (fileResult.exports.default) {
+                  results.valid = false;
+                  fileResult.exports.errors.push(`Multiple default exports found: '${fileResult.exports.default}' and '${defaultMatch[1]}'`);
+                }
+                fileResult.exports.default = defaultMatch[1];
+              }
+            } else if (match.includes('export {')) {
+              const namedMatch = match.match(/export\s+\{([^}]*)\}/);
+              if (namedMatch) {
+                const names = namedMatch[1].split(',').map(n => n.trim().split(' as ')[0]);
+                names.forEach(name => {
+                  if (name && namedExports.has(name)) {
+                    results.valid = false;
+                    fileResult.exports.duplicates.push(name);
+                  } else if (name) {
+                    namedExports.add(name);
+                    fileResult.exports.named.push(name);
+                  }
+                });
+              }
+            } else {
+              const namedMatch = match.match(/export\s+(?:const|let|var|function|class|interface|type)\s+(\w+)/);
+              if (namedMatch) {
+                const name = namedMatch[1];
+                if (namedExports.has(name)) {
+                  results.valid = false;
+                  fileResult.exports.duplicates.push(name);
+                } else {
+                  namedExports.add(name);
+                  fileResult.exports.named.push(name);
+                }
+              }
+            }
+          }
+        } catch (error: any) {
+          fileResult.exports.errors.push(`Error parsing exports: ${error.message}`);
+        }
+
+        // Parse imports and check if they exist
+        try {
+          const importMatches = content.match(/import\s+.*?from\s+['"][^'"]*['"]/g) || [];
+          
+          for (const match of importMatches) {
+            const pathMatch = match.match(/from\s+['"]([^'"]*)['"]/);
+            if (pathMatch) {
+              const importPath = pathMatch[1];
+              fileResult.imports.statements.push({
+                statement: match,
+                path: importPath,
+                isRelative: importPath.startsWith('./') || importPath.startsWith('../'),
+                isExternal: !importPath.startsWith('.') && !importPath.startsWith('/')
+              });
+
+              // Check if relative imports exist
+              if (importPath.startsWith('.')) {
+                const importFullPath = path.resolve(path.dirname(filePath), importPath);
+                const possibleExtensions = ['', '.ts', '.tsx', '.js', '.jsx'];
+                
+                const exists = await Promise.all(
+                  possibleExtensions.map(async ext => {
+                    try {
+                      await fs.access(importFullPath + ext);
+                      return true;
+                    } catch {
+                      try {
+                        await fs.access(path.join(importFullPath, 'index' + ext));
+                        return true;
+                      } catch {
+                        return false;
+                      }
+                    }
+                  })
+                ).then(results => results.some(exists => exists));
+
+                if (!exists) {
+                  results.warnings.push(`Import path may not exist: ${importPath} in ${file}`);
+                  fileResult.imports.missing.push(importPath);
+                }
+              }
+            }
+          }
+        } catch (error: any) {
+          fileResult.imports.errors.push(`Error parsing imports: ${error.message}`);
+        }
+
+        // Add syntax error detection (basic)
+        if (content.includes('export export') || content.includes('import import')) {
+          results.valid = false;
+          fileResult.syntaxErrors.push('Duplicate export/import keywords detected');
+        }
+
+        results.fileAnalysis.push(fileResult);
+
+        // Collect errors from file analysis
+        if (fileResult.exports.errors.length > 0) {
+          results.valid = false;
+          results.errors.push(...fileResult.exports.errors.map(e => `${file}: ${e}`));
+        }
+        if (fileResult.exports.duplicates.length > 0) {
+          results.valid = false;
+          results.errors.push(...fileResult.exports.duplicates.map(d => `${file}: Duplicate export '${d}'`));
+        }
+        if (fileResult.imports.errors.length > 0) {
+          results.valid = false;
+          results.errors.push(...fileResult.imports.errors.map(e => `${file}: ${e}`));
+        }
+        if (fileResult.syntaxErrors.length > 0) {
+          results.valid = false;
+          results.errors.push(...fileResult.syntaxErrors.map(e => `${file}: ${e}`));
+        }
+      }
+
+      // Generate summary
+      const status = results.valid ? '✅ VALID' : '❌ INVALID';
+      const errorCount = results.errors.length;
+      const warningCount = results.warnings.length;
+      
+      let summary = `## 🔌 Plugin Validation: ${pluginName}\n\n`;
+      summary += `**Status:** ${status}\n`;
+      summary += `**Errors:** ${errorCount}\n`;
+      summary += `**Warnings:** ${warningCount}\n\n`;
+
+      if (errorCount > 0) {
+        summary += `### ❌ Errors (${errorCount})\n`;
+        results.errors.forEach((error, i) => {
+          summary += `${i + 1}. ${error}\n`;
+        });
+        summary += '\n';
+      }
+
+      if (warningCount > 0) {
+        summary += `### ⚠️ Warnings (${warningCount})\n`;
+        results.warnings.forEach((warning, i) => {
+          summary += `${i + 1}. ${warning}\n`;
+        });
+        summary += '\n';
+      }
+
+      if (results.suggestions.length > 0) {
+        summary += `### 💡 Suggestions\n`;
+        results.suggestions.forEach((suggestion, i) => {
+          summary += `${i + 1}. ${suggestion}\n`;
+        });
+        summary += '\n';
+      }
+
+      // File structure summary
+      summary += `### 📁 Plugin Structure\n`;
+      summary += `- **Has index file:** ${results.structure.hasIndex ? '✅ Yes' : '❌ No'}\n`;
+      summary += `- **Files found:** ${codeFiles.length}\n`;
+      
+      if (results.structure.presentFiles.length > 0) {
+        summary += `- **Components:**\n`;
+        results.structure.presentFiles.forEach(({file, description}) => {
+          summary += `  - ${file} - ${description}\n`;
+        });
+      }
+
+      summary += `\n### 🔍 File Analysis\n`;
+      results.fileAnalysis.forEach(file => {
+        summary += `**${file.file}:**\n`;
+        if (file.exports.named.length > 0) {
+          summary += `- Named exports: ${file.exports.named.join(', ')}\n`;
+        }
+        if (file.exports.default) {
+          summary += `- Default export: ${file.exports.default}\n`;
+        }
+        if (file.imports.statements.length > 0) {
+          summary += `- Imports: ${file.imports.statements.length} statements\n`;
+        }
+        summary += '\n';
+      });
+
+      const recommendation = results.valid 
+        ? '🎉 **Plugin is ready for use!** No blocking issues found.'
+        : '🚨 **Plugin has issues that may cause Vite crashes.** Please fix the errors above before using.';
+
+      summary += `### 📝 Recommendation\n${recommendation}`;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${summary}\n\n**Technical Details:**\n\`\`\`json\n${JSON.stringify(results, null, 2)}\n\`\`\``,
+          },
+        ],
+      };
+
+    } catch (error: any) {
+      throw new McpError(
+        ErrorCode.InternalError,
+        `Failed to validate plugin: ${error.message}`,
+      );
+    }
+  }
+
   private setupHandlers() {
     // List available resources
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
@@ -1128,16 +1423,16 @@ The widget content has been updated and changes should be visible on the pinboar
           },
           {
             name: "validate_plugin_code",
-            description: "Validate generated plugin code for TypeScript errors and best practices",
+            description: "Validate plugin code for double exports, import errors, TypeScript compilation issues, and other problems that would cause Vite crashes",
             inputSchema: {
               type: "object",
               properties: {
-                pluginPath: {
+                pluginName: {
                   type: "string",
-                  description: "Path to the plugin directory to validate",
+                  description: "Name of the plugin to validate (e.g., 'pomodoro', 'weather')",
                 },
               },
-              required: ["pluginPath"],
+              required: ["pluginName"],
             },
           },
           {
@@ -1292,6 +1587,10 @@ The widget content has been updated and changes should be visible on the pinboar
 
           case "list_directory": {
             return await this.handleListDirectory(args);
+          }
+
+          case "validate_plugin_code": {
+            return await this.handleValidatePluginCode(args);
           }
 
           default:

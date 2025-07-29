@@ -11,6 +11,9 @@ import { join } from 'path';
 
 const PLUGINS_CONFIG_PATH = join(process.cwd(), '/public/plugins.json');
 
+// Track last config to only log on changes
+let lastConfigHash: string | null = null;
+
 export interface PluginConfig {
   name: string;
   path: string;
@@ -26,7 +29,6 @@ export interface PluginsConfiguration {
  */
 export const getPluginConfigHandler = async (req: Request, res: Response) => {
   try {
-    console.log('📋 Reading plugin configuration from:', PLUGINS_CONFIG_PATH);
     
     if (!existsSync(PLUGINS_CONFIG_PATH)) {
       console.warn('⚠️ Plugin configuration file not found, creating default');
@@ -50,9 +52,26 @@ export const getPluginConfigHandler = async (req: Request, res: Response) => {
     }
     
     const configData = readFileSync(PLUGINS_CONFIG_PATH, 'utf-8');
-    const config: PluginsConfiguration = JSON.parse(configData);
     
-    console.log(`✅ Loaded ${config.plugins.length} plugins from configuration`);
+    // Attempt to parse JSON with better error handling
+    let config: PluginsConfiguration;
+    try {
+      config = JSON.parse(configData);
+    } catch (parseError) {
+      console.warn('⚠️ Plugin configuration has invalid JSON syntax, skipping this request');
+      return res.status(400).json({
+        error: 'Invalid JSON syntax in plugin configuration',
+        message: 'The plugins.json file contains malformed JSON. Please fix the syntax.',
+        details: parseError instanceof Error ? parseError.message : 'Unknown JSON parsing error'
+      });
+    }
+    
+    // Only log if config actually changed
+    const currentConfigHash = JSON.stringify(config);
+    if (currentConfigHash !== lastConfigHash) {
+      console.log(`✅ Loaded ${config.plugins.length} plugins from configuration`);
+      lastConfigHash = currentConfigHash;
+    }
     
     res.json(config);
     
@@ -118,11 +137,27 @@ export const updatePluginConfigHandler = async (req: Request, res: Response) => 
 export const getEnabledPluginsHandler = async (req: Request, res: Response) => {
   try {
     const configData = readFileSync(PLUGINS_CONFIG_PATH, 'utf-8');
-    const config: PluginsConfiguration = JSON.parse(configData);
+    
+    // Attempt to parse JSON with better error handling
+    let config: PluginsConfiguration;
+    try {
+      config = JSON.parse(configData);
+    } catch (parseError) {
+      console.warn('⚠️ Plugin configuration has invalid JSON syntax for enabled plugins request');
+      return res.status(400).json({
+        error: 'Invalid JSON syntax in plugin configuration',
+        message: 'The plugins.json file contains malformed JSON. Please fix the syntax.',
+        details: parseError instanceof Error ? parseError.message : 'Unknown JSON parsing error'
+      });
+    }
     
     const enabledPlugins = config.plugins.filter(plugin => plugin.enabled);
     
-    console.log(`📋 Found ${enabledPlugins.length} enabled plugins out of ${config.plugins.length} total`);
+    // Reduce logging for enabled plugins endpoint too
+    // Only log if explicitly requested
+    if (req.query.verbose === 'true') {
+      console.log(`📋 Found ${enabledPlugins.length} enabled plugins out of ${config.plugins.length} total`);
+    }
     
     res.json({
       plugins: enabledPlugins,

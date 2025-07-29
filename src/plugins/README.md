@@ -21,15 +21,15 @@ src/plugins/your-plugin-name/
 
 Before building, understand the **7 categories** and their purposes:
 
-| Category | Purpose | Examples | Default Size |
-|----------|---------|----------|--------------|
-| `text` | Text editing/display | note, todo | 200x200 |
-| `media` | Images, videos, audio | image, youtube | 300x200 |
-| `document` | File handling | document, pdf | 300x200 |
-| `web` | Web content | url, embed | 400x300 |
-| `app` | Interactive tools | calculator, terminal | 300x400 |
-| `layout` | Organization | group, container | 400x300 |
-| `other` | Everything else | custom widgets | 250x250 |
+| Category   | Purpose               | Examples             | Default Size |
+| ---------- | --------------------- | -------------------- | ------------ |
+| `text`     | Text editing/display  | note, todo           | 200x200      |
+| `media`    | Images, videos, audio | image, youtube       | 300x200      |
+| `document` | File handling         | document, pdf        | 300x200      |
+| `web`      | Web content           | url, embed           | 400x300      |
+| `app`      | Interactive tools     | calculator, terminal | 300x400      |
+| `layout`   | Organization          | group, container     | 400x300      |
+| `other`    | Everything else       | custom widgets       | 250x250      |
 
 ## 🏗️ Complete Plugin Template
 
@@ -44,19 +44,19 @@ export interface YourPluginContent {
   // Required fields
   title: string;
   description: string;
-  
+
   // Optional fields with defaults
   color?: string;
   fontSize?: number;
   isEnabled?: boolean;
-  
+
   // Complex data structures
   items?: Array<{
     id: string;
     name: string;
     value: number;
   }>;
-  
+
   // File-related fields (if needed)
   fileUrl?: string;
   fileName?: string;
@@ -74,11 +74,11 @@ import { YourPluginRenderer } from "./renderer";
 // Plugin class implementation
 export class YourPlugin implements WidgetPlugin {
   // Plugin metadata
-  id = "your-plugin";                    // Must match type above
-  name = "Your Plugin";                  // Must match name above  
-  version = "1.0.0";                     // Semantic versioning
-  description = "Detailed description";  // Can be longer than type definition
-  author = "Your Name";                  // Credit
+  id = "your-plugin"; // Must match type above
+  name = "Your Plugin"; // Must match name above
+  version = "1.0.0"; // Semantic versioning
+  description = "Detailed description"; // Can be longer than type definition
+  author = "Your Name"; // Credit
 
   // Plugin components - NOTE: Import type definition from factory to avoid circular dependency
   types = yourPluginTypeDefinition;
@@ -95,8 +95,12 @@ export class YourPlugin implements WidgetPlugin {
 
   // Cleanup (called when plugin unloads)
   async uninstall(registry: any): Promise<void> {
-    this.renderers.forEach((renderer) => registry.unregisterRenderer(renderer.type));
-    this.factories.forEach((factory) => registry.unregisterFactory(factory.type));
+    this.renderers.forEach((renderer) =>
+      registry.unregisterRenderer(renderer.type)
+    );
+    this.factories.forEach((factory) =>
+      registry.unregisterFactory(factory.type)
+    );
     this.types.forEach((type) => registry.unregisterType(type.type));
     console.log(`❌ Uninstalled ${this.name}`);
   }
@@ -129,18 +133,18 @@ export const yourPluginTypeDefinition: WidgetTypeDefinition[] = [
     description: "What your plugin does in one sentence",
     icon: "🎯", // Emoji or icon string
     category: "app", // Choose from: text, media, document, web, app, layout, other
-    
+
     // Size constraints
     defaultSize: { width: 300, height: 200 },
     minSize: { width: 200, height: 150 },
     maxSize: { width: 600, height: 400 },
-    
+
     // Capabilities
     aspectRatioLocked: false, // true = maintains aspect ratio when resizing
-    resizable: true,          // Can user resize widget?
-    rotatable: true,          // Can user rotate widget?
-    configurable: true,       // Does widget have settings?
-    autoCreateOnly: false,    // true = only created by other widgets/automation
+    resizable: true, // Can user resize widget?
+    rotatable: true, // Can user rotate widget?
+    configurable: true, // Does widget have settings?
+    autoCreateOnly: false, // true = only created by other widgets/automation
   },
 ];
 
@@ -163,7 +167,7 @@ export class YourPluginFactory implements WidgetFactory<YourPluginContent> {
       if (data.startsWith("https://example.com/")) {
         return true;
       }
-      
+
       // Example: Handle file extensions
       if (data.match(/\.(xyz|abc)$/i)) {
         return true;
@@ -224,7 +228,7 @@ export class YourPluginFactory implements WidgetFactory<YourPluginContent> {
       content.title = data.name;
       content.fileName = data.name;
       content.fileSize = data.size;
-      
+
       // For text files, read content
       if (data.type.startsWith("text/")) {
         try {
@@ -259,8 +263,10 @@ export class YourPluginFactory implements WidgetFactory<YourPluginContent> {
    */
   private extractTitleFromString(str: string): string {
     // Take first line or first 50 characters
-    const firstLine = str.split('\n')[0];
-    return firstLine.length > 50 ? firstLine.substring(0, 47) + "..." : firstLine;
+    const firstLine = str.split("\n")[0];
+    return firstLine.length > 50
+      ? firstLine.substring(0, 47) + "..."
+      : firstLine;
   }
 
   /**
@@ -275,16 +281,16 @@ export class YourPluginFactory implements WidgetFactory<YourPluginContent> {
    */
   getCapabilities(): WidgetCapabilities {
     return {
-      canResize: true,       // Can be resized
-      canRotate: true,       // Can be rotated
-      canEdit: true,         // Has editable content
-      canConfigure: true,    // Has settings/config panel
-      canGroup: true,        // Can be grouped with other widgets
-      canDuplicate: false,   // Can be duplicated (disabled)
-      canExport: true,       // Can be exported
-      hasContextMenu: true,  // Shows context menu on right-click
-      hasToolbar: false,     // Shows toolbar when selected
-      hasInspector: true,    // Shows in property inspector
+      canResize: true, // Can be resized
+      canRotate: true, // Can be rotated
+      canEdit: true, // Has editable content
+      canConfigure: true, // Has settings/config panel
+      canGroup: true, // Can be grouped with other widgets
+      canDuplicate: false, // Can be duplicated (disabled)
+      canExport: true, // Can be exported
+      hasContextMenu: true, // Shows context menu on right-click
+      hasToolbar: false, // Shows toolbar when selected
+      hasInspector: true, // Shows in property inspector
     };
   }
 
@@ -307,7 +313,12 @@ export class YourPluginFactory implements WidgetFactory<YourPluginContent> {
       errors.push("Title is required and must be a string");
     }
 
-    if (data.fontSize && (typeof data.fontSize !== "number" || data.fontSize < 8 || data.fontSize > 72)) {
+    if (
+      data.fontSize &&
+      (typeof data.fontSize !== "number" ||
+        data.fontSize < 8 ||
+        data.fontSize > 72)
+    ) {
       warnings.push("Font size should be between 8 and 72");
     }
 
@@ -408,7 +419,7 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
 
   const updateItem = useCallback((itemId: string, updates: Partial<typeof items[0]>) => {
     updateContent({
-      items: (items || []).map(item => 
+      items: (items || []).map(item =>
         item.id === itemId ? { ...item, ...updates } : item
       ),
     });
@@ -417,11 +428,11 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
   // Render loading state
   if (title === undefined) {
     return (
-      <div style={{ 
-        width: "100%", 
-        height: "100%", 
-        display: "flex", 
-        alignItems: "center", 
+      <div style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
         justifyContent: "center",
         opacity: 0.5
       }}>
@@ -433,9 +444,9 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
   // Render edit mode
   if (isEditing) {
     return (
-      <div style={{ 
-        width: "100%", 
-        height: "100%", 
+      <div style={{
+        width: "100%",
+        height: "100%",
         padding: "8px",
         backgroundColor: color,
         display: "flex",
@@ -505,10 +516,10 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
 
   // Render normal view
   return (
-    <div 
-      style={{ 
-        width: "100%", 
-        height: "100%", 
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
         padding: "8px",
         backgroundColor: color,
         opacity: isEnabled ? 1 : 0.5,
@@ -549,10 +560,10 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
             Items ({items.length})
           </div>
           {items.slice(0, 3).map((item) => ( // Show max 3 items
-            <div 
-              key={item.id} 
-              style={{ 
-                fontSize: "11px", 
+            <div
+              key={item.id}
+              style={{
+                fontSize: "11px",
                 color: "#555",
                 padding: "2px 0",
                 display: "flex",
@@ -587,9 +598,11 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
 };
 ```
 
-### Step 5: Add Plugin to `server/plugins.json`
+### Step 5: Add Plugin to `server/public/plugins.json`
 
 ⚠️ **IMPORTANT**: After creating your plugin files, add it to the plugin configuration.
+
+Use the `file-editor` plugin to add your plugin to the plugin configuration.
 
 ```json
 {
@@ -610,18 +623,24 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
 **MANDATORY RULE**: Never import from `index.ts` in `factory.ts` or any other plugin files. This creates circular dependencies that cause runtime errors.
 
 **✅ CORRECT Structure**:
+
 ```typescript
 // factory.ts - Define type definitions HERE
-export const yourPluginTypeDefinition: WidgetTypeDefinition[] = [/* ... */];
+export const yourPluginTypeDefinition: WidgetTypeDefinition[] = [
+  /* ... */
+];
 
 // index.ts - Import from factory
 import { YourPluginFactory, yourPluginTypeDefinition } from "./factory";
 ```
 
 **❌ INCORRECT Structure**:
+
 ```typescript
 // index.ts - DON'T define types here if factory needs them
-export const yourPluginTypeDefinition: WidgetTypeDefinition[] = [/* ... */];
+export const yourPluginTypeDefinition: WidgetTypeDefinition[] = [
+  /* ... */
+];
 
 // factory.ts - DON'T import from index.ts
 import { yourPluginTypeDefinition } from "./index"; // CIRCULAR DEPENDENCY!
@@ -630,25 +649,27 @@ import { yourPluginTypeDefinition } from "./index"; // CIRCULAR DEPENDENCY!
 **The Rule**: Type definitions should live in `factory.ts` if the factory needs them. The `index.ts` file should import from `factory.ts`, never the other way around.
 
 **Plugin Export Requirements**:
+
 - Your plugin must be exported as `yourPluginNamePlugin` (camelCase)
 - For multi-word names, use camelCase: `myAwesomePlugin`
 - Special case: YouTube uses `youTubePlugin` (capital T)
 
 **Example Plugin Exports**:
+
 ```typescript
 // ✅ CORRECT - Standard naming
 export const calculatorPlugin = new CalculatorPlugin();
 export const notePlugin = new NotePlugin();
 
-// ✅ CORRECT - Multi-word naming  
+// ✅ CORRECT - Multi-word naming
 export const awesomeToolPlugin = new AwesomeToolPlugin();
 
 // ✅ CORRECT - Special case (YouTube)
 export const youTubePlugin = new YouTubePlugin();
 
 // ❌ INCORRECT - Wrong naming
-export const calculator = new CalculatorPlugin();        // Missing "Plugin"
-export const Calculator = new CalculatorPlugin();        // Wrong case
+export const calculator = new CalculatorPlugin(); // Missing "Plugin"
+export const Calculator = new CalculatorPlugin(); // Wrong case
 export const calculator_plugin = new CalculatorPlugin(); // Underscore
 ```
 
@@ -659,14 +680,16 @@ The plugin system includes **automatic error recovery** to ensure broken plugins
 ### Error Boundaries & Safe Loading
 
 **What Happens When a Plugin Fails**:
-1. 🔄 Plugin loading fails gracefully 
+
+1. 🔄 Plugin loading fails gracefully
 2. ⚠️ Error is logged to console with details
 3. 🔄 Application continues with other plugins
 4. 🎨 Broken widgets show fallback UI with retry options
 
 **Error Recovery Features**:
+
 - **Individual isolation**: One broken plugin won't affect others
-- **Fallback UI**: Broken widgets show helpful error messages  
+- **Fallback UI**: Broken widgets show helpful error messages
 - **Retry mechanisms**: Users can attempt to reload failed plugins
 - **Debug information**: Detailed error reporting for developers
 - **HMR support**: Hot module replacement works without page reloads
@@ -674,6 +697,7 @@ The plugin system includes **automatic error recovery** to ensure broken plugins
 ### Plugin Loading Status
 
 Check plugin loading in browser console:
+
 ```
 🔌 Loading plugin: calculator
 ✅ Successfully loaded plugin: calculator
@@ -687,15 +711,19 @@ Check plugin loading in browser console:
 **Common Plugin Errors**:
 
 1. **Export Name Mismatch**:
+
    ```
    ❌ Plugin export "myPlugin" not found. Available exports: MyPlugin, MyPluginFactory
    ```
+
    **Fix**: Ensure your export matches the expected pattern (`myPlugin`)
 
 2. **Missing Install Method**:
+
    ```
    ❌ Plugin "calculator" missing install method
    ```
+
    **Fix**: Implement the `install` method in your plugin class
 
 3. **Import Errors**:
@@ -707,12 +735,14 @@ Check plugin loading in browser console:
 ### Widget Error Recovery
 
 **Broken Widget UI**: When a widget fails to render, users see:
+
 - 🔧 Error icon and description
 - 🔄 "Reload Plugin" button (attempts recovery without page reload)
 - 📋 "Debug" button (copies error info to clipboard)
 - Widget ID for debugging
 
 **Error Boundary Features**:
+
 - Catches React rendering errors
 - Prevents widget crashes from affecting other widgets
 - Provides user-friendly recovery options
@@ -732,7 +762,7 @@ canHandle(data: any): boolean {
     if (data.type.startsWith("image/")) {
       return false; // Let image plugin handle this
     }
-    
+
     // Check file extension
     const validExtensions = [".xyz", ".abc", ".custom"];
     return validExtensions.some(ext => data.name.toLowerCase().endsWith(ext));
@@ -796,11 +826,11 @@ const [showSettings, setShowSettings] = useState(false);
 
 // Configuration panel component
 const ConfigPanel = () => (
-  <div style={{ 
-    position: "absolute", 
-    top: 0, 
-    right: 0, 
-    background: "white", 
+  <div style={{
+    position: "absolute",
+    top: 0,
+    right: 0,
+    background: "white",
     border: "1px solid #ccc",
     borderRadius: "4px",
     padding: "8px",
@@ -808,8 +838,8 @@ const ConfigPanel = () => (
   }}>
     <h4>Settings</h4>
     <label>
-      <input 
-        type="checkbox" 
+      <input
+        type="checkbox"
         checked={settings?.autoRefresh || false}
         onChange={(e) => updateContent({
           settings: { ...settings, autoRefresh: e.target.checked }
@@ -840,9 +870,9 @@ const handleClick = useCallback(() => {
 
 // Use useMemo for expensive calculations
 const processedData = useMemo(() => {
-  return items?.map(item => ({
+  return items?.map((item) => ({
     ...item,
-    processed: expensiveCalculation(item)
+    processed: expensiveCalculation(item),
   }));
 }, [items]);
 ```
@@ -897,11 +927,11 @@ validate(widget: HydratedWidget<YourPluginContent>) {
 // In renderer.tsx - handle errors gracefully
 if (error) {
   return (
-    <div style={{ 
-      width: "100%", 
-      height: "100%", 
-      display: "flex", 
-      alignItems: "center", 
+    <div style={{
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      alignItems: "center",
       justifyContent: "center",
       color: "red",
       padding: "8px",
@@ -921,36 +951,42 @@ if (error) {
 ## 🎨 Plugin Categories Deep Dive
 
 ### Text Plugins (`category: "text"`)
+
 - **Purpose**: Text editing, formatting, note-taking
 - **Examples**: note, todo, rich-text-editor
 - **Common patterns**: Inline editing, text formatting, keyboard shortcuts
 - **Default size**: 200x200 (square for sticky notes)
 
 ### Media Plugins (`category: "media"`)
+
 - **Purpose**: Images, videos, audio, visual content
 - **Examples**: image, youtube, audio-player
 - **Common patterns**: File upload, media controls, thumbnails
 - **Default size**: 300x200 (landscape for media)
 
 ### Document Plugins (`category: "document"`)
+
 - **Purpose**: File handling, document viewing
 - **Examples**: document, pdf-viewer, spreadsheet
 - **Common patterns**: File upload, preview generation, download links
 - **Default size**: 300x200 (document aspect ratio)
 
 ### Web Plugins (`category: "web"`)
+
 - **Purpose**: Web content, embeds, external services
 - **Examples**: url, iframe-embed, api-display
 - **Common patterns**: URL validation, metadata fetching, CORS handling
 - **Default size**: 400x300 (web content ratio)
 
 ### App Plugins (`category: "app"`)
+
 - **Purpose**: Interactive tools and utilities
 - **Examples**: calculator, terminal, timer
 - **Common patterns**: User input, state management, real-time updates
 - **Default size**: 300x400 (portrait for tools)
 
 ### Layout Plugins (`category: "layout"`)
+
 - **Purpose**: Organization and grouping
 - **Examples**: container, grid, separator
 - **Common patterns**: Child widget management, layout algorithms
@@ -1044,9 +1080,10 @@ import type {
 // Ensure your content interface is properly defined
 export interface YourPluginContent {
   // All fields should have explicit types
-  title: string;              // Required string
-  count?: number;             // Optional number
-  items: Array<{              // Required array with typed objects
+  title: string; // Required string
+  count?: number; // Optional number
+  items: Array<{
+    // Required array with typed objects
     id: string;
     name: string;
   }>;
@@ -1058,16 +1095,18 @@ export interface YourPluginContent {
 ### Development Workflow
 
 **Development Tips**:
-1. **Add new plugins**: Edit `server/plugins.json` 
-2. **Disable for testing**: Set `"enabled": false` in `server/plugins.json`
+
+1. **Add new plugins**: Edit `server/public/plugins.json` using your `file-editor` plugin
+2. **Disable for testing**: Set `"enabled": false` in `server/public/plugins.json`
 3. **Monitor loading**: Check browser console for plugin status
 4. **Test exports**: Look for "Successfully loaded plugin: your-plugin" message
 
 **Adding a New Plugin**:
+
 ```json
 {
   "name": "new-plugin",
-  "path": "./new-plugin", 
+  "path": "./new-plugin",
   "enabled": true
 }
 ```
@@ -1100,7 +1139,7 @@ const testCases = [
   {},
 ];
 
-testCases.forEach(testCase => {
+testCases.forEach((testCase) => {
   console.log(`${JSON.stringify(testCase)}: ${factory.canHandle(testCase)}`);
 });
 ```
@@ -1110,21 +1149,24 @@ testCases.forEach(testCase => {
 Before considering your plugin complete:
 
 ### Core Requirements
+
 - [ ] All 4 required files created (`index.ts`, `factory.ts`, `renderer.tsx`, `types.ts`)
-- [ ] Plugin added to `server/plugins.json`
+- [ ] Plugin added to `server/public/plugins.json` using the `file-editor` plugin
 - [ ] Plugin export uses correct naming convention (`yourPluginNamePlugin`)
 - [ ] `canHandle()` method is specific and doesn't conflict with other plugins
 - [ ] Widget renders correctly at different sizes
 - [ ] Content updates work properly
 
 ### Error Handling & Recovery
+
 - [ ] Plugin loads without errors (check console for "✅ Successfully loaded plugin")
 - [ ] Error boundary shows proper fallback UI when plugin crashes
 - [ ] Plugin recovery works (test by breaking renderer temporarily)
 - [ ] All edge cases handled gracefully (null data, empty objects, etc.)
 - [ ] Validation method implemented and working
 
-### Development & Performance  
+### Development & Performance
+
 - [ ] No TypeScript errors or warnings
 - [ ] No console errors during normal operation
 - [ ] HMR works without page reloads
@@ -1136,14 +1178,14 @@ Before considering your plugin complete:
 
 Study these plugins for patterns:
 
-| Plugin | Complexity | Key Features | Learn From |
-|--------|------------|--------------|------------|
-| `note` | Simple | Basic text editing | Inline editing, selective subscriptions |
-| `calculator` | Medium | Interactive app | State management, keyboard handling |
-| `document` | Complex | File handling | File upload, MIME types, validation |
-| `image` | Complex | Media display | File handling, aspect ratios, thumbnails |
-| `todo` | Medium | List management | Array operations, item management |
-| `url` | Medium | Web integration | URL validation, metadata fetching |
+| Plugin       | Complexity | Key Features       | Learn From                               |
+| ------------ | ---------- | ------------------ | ---------------------------------------- |
+| `note`       | Simple     | Basic text editing | Inline editing, selective subscriptions  |
+| `calculator` | Medium     | Interactive app    | State management, keyboard handling      |
+| `document`   | Complex    | File handling      | File upload, MIME types, validation      |
+| `image`      | Complex    | Media display      | File handling, aspect ratios, thumbnails |
+| `todo`       | Medium     | List management    | Array operations, item management        |
+| `url`        | Medium     | Web integration    | URL validation, metadata fetching        |
 
 ## 💡 Pro Tips for LLMs
 

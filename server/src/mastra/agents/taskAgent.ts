@@ -291,11 +291,6 @@ Follow the todo list widget to track progress. Read this note before each step t
     
     const taskLower = task.description.toLowerCase();
     
-    // Widget capability analysis
-    if (taskLower.includes('analyze') && taskLower.includes('widget')) {
-      return await this.analyzeWidgetCapabilities(task.description);
-    }
-    
     // Plugin creation tasks
     if (taskLower.includes('create') && (taskLower.includes('plugin') || taskLower.includes('custom'))) {
       return await this.createCustomPlugin(task.description);
@@ -314,131 +309,6 @@ Follow the todo list widget to track progress. Read this note before each step t
     return `Pinboard task completed: ${task.description}`;
   }
 
-  private async analyzeWidgetCapabilities(description: string): Promise<string> {
-    try {
-      // Get current widgets on pinboard
-      const widgetsResult = await this.mcpTools.viewAllPinboardWidgets.execute({});
-      
-      const requestLower = description.toLowerCase();
-      
-      // Define what each existing widget can ACTUALLY do (be very specific)
-      const widgetCapabilities = {
-        note: ['static text display', 'simple text editing', 'plain text storage only'],
-        todo: ['basic checklist items', 'simple checkbox completion', 'static task lists only'],
-        calculator: ['basic arithmetic only', 'simple math operations', 'no advanced functions'],
-        image: ['display static images only', 'no editing capabilities'],  
-        document: ['display document content only', 'no editing capabilities'],
-        url: ['display web page content only', 'no interactive features'],
-        chat: ['basic text conversations only', 'no custom functionality'],
-        youtube: ['video playback only', 'no custom controls']
-      };
-
-      // CRITICAL ANALYSIS: Does this request need features that existing widgets DON'T have?
-      let needsPlugin = false;
-      let recommendation = '';
-      let reasoning = '';
-      let confidence = '';
-
-      // Time-based functionality (ALWAYS needs plugin)
-      if (requestLower.includes('timer') || requestLower.includes('countdown') || 
-          requestLower.includes('stopwatch') || requestLower.includes('alarm') || requestLower.includes('clock') ||
-          requestLower.includes('schedule') || requestLower.includes('reminder')) {
-        needsPlugin = true;
-        recommendation = '🚨 NEEDS CUSTOM PLUGIN: Time-based functionality';
-        reasoning = 'Requires live timers, countdowns, notifications, and real-time state updates';
-        confidence = 'CERTAIN - No existing widget can handle time-based functionality';
-      }
-      
-      // API/External data (ALWAYS needs plugin)  
-      else if (requestLower.includes('weather') || requestLower.includes('stock') || requestLower.includes('price') ||
-               requestLower.includes('news') || requestLower.includes('api') || requestLower.includes('feed') ||
-               requestLower.includes('data') && (requestLower.includes('live') || requestLower.includes('fetch'))) {
-        needsPlugin = true;
-        recommendation = '🚨 NEEDS CUSTOM PLUGIN: External data integration';
-        reasoning = 'Requires API calls, data fetching, and live updates from external sources';
-        confidence = 'CERTAIN - No existing widget can fetch external data';
-      }
-      
-      // Interactive/Dynamic functionality (ALWAYS needs plugin)
-      else if (requestLower.includes('game') || requestLower.includes('interactive') || requestLower.includes('animation') ||
-               requestLower.includes('chart') || requestLower.includes('graph') || requestLower.includes('visualization') ||
-               requestLower.includes('drag') || requestLower.includes('click') || requestLower.includes('hover')) {
-        needsPlugin = true;
-        recommendation = '🚨 NEEDS CUSTOM PLUGIN: Interactive/dynamic functionality';
-        reasoning = 'Requires custom UI components, interactions, animations, or dynamic behavior';
-        confidence = 'CERTAIN - Existing widgets are static and cannot handle complex interactions';
-      }
-      
-      // Specialized formats/protocols (ALWAYS needs plugin)
-      else if (requestLower.includes('calendar') || requestLower.includes('kanban') || requestLower.includes('board') ||
-               requestLower.includes('agenda') || requestLower.includes('timeline') || requestLower.includes('dashboard')) {
-        needsPlugin = true;
-        recommendation = '🚨 NEEDS CUSTOM PLUGIN: Specialized UI format';
-        reasoning = 'Requires specialized layouts, data structures, and custom user interfaces';
-        confidence = 'CERTAIN - These formats need completely custom implementations';
-      }
-
-      // Pure text/notes (can use existing, but be strict)
-      else if (requestLower.includes('note') && 
-               !requestLower.includes('smart') && !requestLower.includes('auto') && !requestLower.includes('sync') &&
-               !requestLower.includes('link') && !requestLower.includes('tag') && !requestLower.includes('search')) {
-        recommendation = '✅ CAN USE EXISTING: Simple note widget';
-        reasoning = 'Basic text storage and editing can be handled by existing note widget';
-        confidence = 'HIGH - Request matches note widget capabilities exactly';
-      }
-      
-      // Simple task management (can use existing, but be very strict)
-      else if ((requestLower.includes('todo') || requestLower.includes('checklist')) &&
-               !requestLower.includes('smart') && !requestLower.includes('auto') && !requestLower.includes('due') && 
-               !requestLower.includes('reminder') && !requestLower.includes('priority') && !requestLower.includes('assign') &&
-               !requestLower.includes('category') && !requestLower.includes('filter')) {
-        recommendation = '✅ CAN USE EXISTING: Basic todo widget';
-        reasoning = 'Simple checkbox-based task lists can be handled by existing todo widget';
-        confidence = 'HIGH - Request matches todo widget capabilities exactly';
-      }
-      
-      // Basic math (can use existing, but be strict)
-      else if (requestLower.includes('calc') && 
-               !requestLower.includes('advanced') && !requestLower.includes('graph') && !requestLower.includes('scientific') &&
-               !requestLower.includes('function') && !requestLower.includes('equation') && !requestLower.includes('plot')) {
-        recommendation = '✅ CAN USE EXISTING: Calculator widget';
-        reasoning = 'Basic arithmetic operations can be handled by existing calculator widget';
-        confidence = 'HIGH - Request matches calculator widget capabilities exactly';
-      }
-
-      // Default: if unsure, ALWAYS recommend plugin (be conservative)
-      else {
-        needsPlugin = true;
-        recommendation = '🚨 NEEDS CUSTOM PLUGIN: Unclear or complex functionality';
-        reasoning = 'Request does not clearly match the limited capabilities of existing widgets';
-        confidence = 'CONSERVATIVE - When in doubt, create custom plugin for best user experience';
-      }
-      
-      return `🔍 CRITICAL WIDGET CAPABILITY ANALYSIS:
-
-📋 USER REQUEST: "${description}"
-
-🧩 EXISTING WIDGET LIMITATIONS:
-• note: ${widgetCapabilities.note.join(', ')}
-• todo: ${widgetCapabilities.todo.join(', ')}  
-• calculator: ${widgetCapabilities.calculator.join(', ')}
-• image: ${widgetCapabilities.image.join(', ')}
-• document: ${widgetCapabilities.document.join(', ')}
-• url: ${widgetCapabilities.url.join(', ')}
-• chat: ${widgetCapabilities.chat.join(', ')}  
-• youtube: ${widgetCapabilities.youtube.join(', ')}
-
-💡 DECISION: ${recommendation}
-🧠 REASONING: ${reasoning}
-🎯 CONFIDENCE: ${confidence}
-🔧 ACTION: ${needsPlugin ? 'CREATE CUSTOM PLUGIN FIRST' : 'USE EXISTING WIDGET'}
-
-${needsPlugin ? '⚡ NEXT STEP: Proceed with plugin creation for this specialized functionality' : '✨ NEXT STEP: Use existing widget to fulfill request'}`;
-      
-    } catch (error) {
-      return `Widget analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
-    }
-  }
 
   private async createCustomPlugin(description: string): Promise<string> {
     try {
@@ -642,15 +512,13 @@ export const createTaskExecutionTool = (mcpTools: any) => {
         🎯 My Magical Guidelines:
         - Each task sparkles with specificity and measurability! 
         - I expertly identify dependencies like a master conductor! 🎼
-        - I classify tasks with precision (pinboard magic, analysis brilliance, general awesomeness)
+        - I classify tasks with precision (new widget plugin creation, plugin editing, pinboard magic)
         - I order tasks in the most logical, flowing sequence
         - I keep tasks focused and beautifully atomic - each one a perfect gem! 💎
         
         🔍 CRITICAL FIRST TASK - Widget/Plugin Analysis:
-        - THE VERY FIRST TASK must ALWAYS be "Analyze existing widgets and determine if request can be fulfilled with current capabilities"
-        - This analysis task should examine: note, todo, calculator, image, document, url, chat, youtube widgets
-        - If existing widgets work → Next tasks use those widgets
         - If new functionality needed → Next task is "Create custom plugin for [specific functionality]"
+        - Only if we have a widget that EXACTLY does what we need, we use the existing widgets.
         - This analysis task has NO dependencies and comes before everything else!
         
         🎓 For Complex Tasks, I ALWAYS Include Self-Education Steps:
@@ -661,9 +529,12 @@ export const createTaskExecutionTool = (mcpTools: any) => {
         - ✨ Self-education tasks should have minimal dependencies and come early!
         
         🏗️ Plugin Creation Tasks (when needed):
+        - "Always create the plugin in the /src/plugins directory"
+        - "Always register the plugin in the /server/public/plugins.json file"
         - "Create custom [name] plugin with [specific features]" - should depend on analysis task
         - "Test and validate new plugin functionality" - should depend on plugin creation
-        - "Integrate plugin with pinboard system" - should depend on plugin creation`,
+        - "Integrate plugin with pinboard system" - should depend on plugin creation
+        - ALWAYS verify plugin functionality with the "validate_plugin_code"`,
         model: groqTask
       });
 

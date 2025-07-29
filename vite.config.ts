@@ -40,6 +40,13 @@ export default defineConfig({
       // Improve HMR stability and prevent unnecessary reloads
       overlay: false,
     },
+    watch: {
+      // Ignore server files from HMR to prevent page reloads
+      ignored: [
+        '**/server/public/**',
+        '**/node_modules/**'
+      ]
+    },
     proxy: {
       "/sync": {
         target: "ws://localhost:7777",

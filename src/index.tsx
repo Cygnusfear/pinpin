@@ -5,6 +5,9 @@ import App from "./App";
 import { initializeSyncEngine } from "./config/syncEngine";
 import { registerAllPlugins } from "./plugins";
 
+// Import plugin test utilities (makes them available on window object)
+import "./utils/pluginTestUtils";
+
 // Initialize widget plugins with new clean architecture
 async function initializeWidgetPlugins() {
   try {
