@@ -36,6 +36,9 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
+    watch: {
+      ignored: ["**/server/public/plugins.json"],
+    },
     proxy: {
       "/sync": {
         target: "ws://localhost:7777",

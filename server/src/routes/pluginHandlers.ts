@@ -9,7 +9,7 @@ import { Request, Response } from 'express';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-const PLUGINS_CONFIG_PATH = join(process.cwd(), 'plugins.json');
+const PLUGINS_CONFIG_PATH = join(process.cwd(), '/public/plugins.json');
 
 export interface PluginConfig {
   name: string;
@@ -42,7 +42,6 @@ export const getPluginConfigHandler = async (req: Request, res: Response) => {
           { name: 'youtube', path: './youtube', enabled: true },
           { name: 'url', path: './url', enabled: true },
           { name: 'document', path: './document', enabled: true },
-          { name: 'drawing', path: './drawing', enabled: true },
         ]
       };
       

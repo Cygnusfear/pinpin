@@ -562,9 +562,10 @@ The widget content has been updated and changes should be visible on the pinboar
         throw new Error("Path is required");
       }
       
-      // Security: Prevent path traversal attacks
+      // Security: Prevent path traversal attacks, but allow access to src/plugins
       const normalizedPath = path.normalize(filePath);
-      if (normalizedPath.includes("..")) {
+      const isPluginPath = normalizedPath.startsWith("../src/plugins/");
+      if (normalizedPath.includes("..") && !isPluginPath) {
         throw new Error("Path traversal not allowed");
       }
 
@@ -612,9 +613,10 @@ The widget content has been updated and changes should be visible on the pinboar
         throw new Error("Path and content are required");
       }
       
-      // Security: Prevent path traversal attacks
+      // Security: Prevent path traversal attacks, but allow access to src/plugins
       const normalizedPath = path.normalize(filePath);
-      if (normalizedPath.includes("..")) {
+      const isPluginPath = normalizedPath.startsWith("../src/plugins/");
+      if (normalizedPath.includes("..") && !isPluginPath) {
         throw new Error("Path traversal not allowed");
       }
 
@@ -660,9 +662,10 @@ The widget content has been updated and changes should be visible on the pinboar
     try {
       const dirPath = (args.path as string) || ".";
       
-      // Security: Prevent path traversal attacks
+      // Security: Prevent path traversal attacks, but allow access to src/plugins
       const normalizedPath = path.normalize(dirPath);
-      if (normalizedPath.includes("..")) {
+      const isPluginPath = normalizedPath.startsWith("../src/plugins");
+      if (normalizedPath.includes("..") && !isPluginPath) {
         throw new Error("Path traversal not allowed");
       }
 

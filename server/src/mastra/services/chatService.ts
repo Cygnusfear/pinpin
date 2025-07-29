@@ -22,6 +22,12 @@ const getFriendlyToolName = (toolName: string): string => {
     'file-editor_approve_edit': 'edit approval system',
     'file-editor_get_file_lines': 'file inspector',
     'file-editor_search_file': 'file search',
+
+    // Plugins.json (MCP)
+    'plugin-editor_edit_file_lines': 'plugin file line editor',
+    'plugin-editor_approve_edit': 'plugin edit approval system',
+    'plugin-editor_get_file_lines': 'plugin file inspector',
+    'plugin-editor_search_file': 'plugin file search',
     
     // Filesystem tools (MCP)
     'filesystem_read_file': 'file reader',
@@ -31,6 +37,15 @@ const getFriendlyToolName = (toolName: string): string => {
     'filesystem_move_file': 'file mover',
     'filesystem_search_files': 'file search engine',
     'filesystem_get_file_info': 'file info inspector',
+    
+    // Filesystem tools (MCP)
+    'plugin-filesystem_read_file': 'plugin file reader',
+    'plugin-filesystem_write_file': 'plugin file writer',
+    'plugin-filesystem_create_directory': 'plugin directory creator',
+    'plugin-filesystem_list_directory': 'plugin directory browser',
+    'plugin-filesystem_move_file': 'plugin file mover',
+    'plugin-filesystem_search_files': 'plugin file search engine',
+    'plugin-filesystem_get_file_info': 'plugin file info inspector',
   };
   
   return toolMap[toolName] || toolName.replace(/_/g, ' ').toLowerCase();
