@@ -1,8 +1,0 @@
-{
-  "messages": [
-    {
-      "role": "user",
-      "content": "Use the update_widget_content tool to change the text in content ID 'content_ck2act_1753700752888' to 'Updated via MCP - content functionality working!'"
-    }
-  ]
-}

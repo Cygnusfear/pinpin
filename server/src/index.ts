@@ -32,8 +32,7 @@ new FileSystemRoutes(app, projectRoot);
 
 // Import and setup chat routes
 import {
-  claudeChatHandler,
-  claudeLocationHandler,
+  simpleChatHandler,
   healthHandler,
 } from "./routes/chatHandlers.js";
 import {
@@ -54,9 +53,8 @@ import { terminalSessionManager } from "./terminal/terminalSessionManager.js";
 // Import terminal WebSocket setup
 import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
 
-// Claude AI chat endpoints
-app.post("/api/claude/chat", claudeChatHandler);
-app.post("/api/claude/generate-starting-location", claudeLocationHandler);
+// Simple chat endpoints
+app.post("/api/chat", simpleChatHandler);
 app.get("/api/health", healthHandler);
 
 // Groq AI chat endpoints

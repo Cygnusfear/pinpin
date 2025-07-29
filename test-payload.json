@@ -1,9 +1,0 @@
-{
-  "name": "update_widget_content",
-  "args": {
-    "contentId": "content_ck2act_1753700752888",
-    "updates": {
-      "text": "Updated via MCP - content functionality working!"
-    }
-  }
-}
