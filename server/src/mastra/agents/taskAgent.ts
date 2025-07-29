@@ -254,6 +254,9 @@ Follow the todo list widget to track progress. Read this note before each step t
     
     await this.updateTaskStatus(task.id, "in_progress");
     
+    // Add a small delay to make streaming visible
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     try {
       let result = "";
       
@@ -270,6 +273,9 @@ Follow the todo list widget to track progress. Read this note before each step t
         default:
           result = `Task type ${task.type} not supported`;
       }
+      
+      // Add another small delay before completing the task
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       await this.updateTaskStatus(task.id, "completed", result);
       return result;

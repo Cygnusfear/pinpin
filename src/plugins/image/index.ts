@@ -1,36 +1,10 @@
-import type { WidgetPlugin, WidgetTypeDefinition } from "../../types/widgets";
-import { ImageFactory } from "./factory";
+import type { WidgetPlugin } from "../../types/widgets";
+import { ImageFactory, imageTypeDefinition } from "./factory";
 import { ImageRenderer } from "./renderer";
 
 // ============================================================================
 // IMAGE WIDGET PLUGIN - CLEAN IMPLEMENTATION
 // ============================================================================
-
-export const imageTypeDefinition: WidgetTypeDefinition[] = [
-  {
-    type: "image",
-    name: "Image",
-    description: "Display and manage images with filters and effects",
-    icon: "🖼️",
-    category: "media",
-    defaultSize: { width: 50, height: 200 },
-    minSize: { width: 50, height: 200 },
-    maxSize: { width: 800, height: 800 },
-    aspectRatioLocked: false,
-    resizable: true,
-    rotatable: true,
-    configurable: true,
-    supportedMimeTypes: [
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-      "image/svg+xml",
-    ],
-    supportedExtensions: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"],
-    autoCreateOnly: true,
-  },
-];
 
 export class ImagePlugin implements WidgetPlugin {
   id = "image";

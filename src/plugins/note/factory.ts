@@ -4,9 +4,28 @@ import type {
   Position,
   WidgetCapabilities,
   WidgetFactory,
+  WidgetTypeDefinition,
 } from "../../types/widgets";
-import { noteTypeDefinition } from ".";
 import type { NoteContent } from "./types";
+
+// Type definition moved here to avoid circular dependency
+export const noteTypeDefinition: WidgetTypeDefinition[] = [
+  {
+    type: "note",
+    name: "Note",
+    description: "A simple sticky note for text content",
+    icon: "📝",
+    category: "text",
+    defaultSize: { width: 200, height: 200 },
+    minSize: { width: 150, height: 100 },
+    maxSize: { width: 500, height: 400 },
+    aspectRatioLocked: false,
+    resizable: true,
+    rotatable: true,
+    configurable: true,
+    autoCreateOnly: false,
+  },
+];
 
 export class NoteFactory implements WidgetFactory<NoteContent> {
   type = "note";

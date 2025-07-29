@@ -151,7 +151,8 @@ export const streamMastraMessage = async (
   messages: MastraMessage[],
   conversationId?: string,
   userId?: string,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  onContent?: (chunk: string) => void
 ): Promise<{
   success: boolean;
   message?: string;
@@ -212,14 +213,21 @@ export const streamMastraMessage = async (
               
               switch (data.type) {
                 case 'progress':
-                  // Send real-time progress updates to callback
+                  console.log("📡 Received SSE progress:", data.data);
+                  // Send real-time progress updates to callback IMMEDIATELY
                   if (onProgress) {
-                    onProgress(data.data);
+                    // Use immediate callback to ensure React updates immediately
+                    setTimeout(() => onProgress(data.data), 0);
                   }
                   break;
                 case 'content':
+                  console.log("📡 Received SSE content chunk:", data.data);
                   // Accumulate the final response content
                   finalMessage += data.data;
+                  // Send content chunks for real-time streaming
+                  if (onContent) {
+                    setTimeout(() => onContent(data.data), 0);
+                  }
                   break;
                 case 'metadata':
                   // Update conversation ID from metadata

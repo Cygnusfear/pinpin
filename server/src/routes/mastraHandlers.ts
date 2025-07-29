@@ -100,10 +100,15 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
 
       // Progress callback to send real-time updates to user
       const sendProgress = (message: string) => {
+        console.log("📡 SSE Progress:", message);
         res.write(`data: ${JSON.stringify({
           type: 'progress',
           data: message
         })}\n\n`);
+        // Force flush the buffer to ensure immediate delivery
+        if (res.flush) {
+          res.flush();
+        }
       };
 
       const streamResult = await mastraChatService.streamResponse({
@@ -137,10 +142,15 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
       try {
         if (streamResult.stream) {
           for await (const chunk of streamResult.stream) {
+            console.log("📡 SSE Content chunk:", chunk);
             res.write(`data: ${JSON.stringify({
               type: 'content',
               data: chunk
             })}\n\n`);
+            // Force flush each content chunk for real-time streaming
+            if (res.flush) {
+              res.flush();
+            }
           }
         }
 

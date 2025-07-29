@@ -1,26 +1,6 @@
 import type { WidgetPlugin, WidgetTypeDefinition } from "../../types/widgets";
-import { ChatFactory } from "./factory";
+import { ChatFactory, chatTypeDefinition } from "./factory";
 import { ChatRenderer } from "./renderer";
-
-export const chatTypeDefinition: WidgetTypeDefinition[] = [
-  {
-    type: "chat",
-    name: "🌈 Tonk!",
-    description: "WhatsApp-style chat interface",
-    icon: "🌈",
-    category: "app",
-    defaultSize: { width: 400, height: 600 },
-    minSize: { width: 300, height: 600 },
-    maxSize: { width: 800, height: 800 },
-    aspectRatioLocked: false,
-    resizable: true,
-    rotatable: false,
-    configurable: true,
-    autoCreateOnly: false,
-    allowOverflow: false,
-    allowSelection: true
-  },
-];
 
 export class ChatPlugin implements WidgetPlugin {
   id = chatTypeDefinition[0].type;

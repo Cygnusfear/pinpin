@@ -5,9 +5,39 @@ import type {
   Position,
   WidgetCapabilities,
   HydratedWidget,
+  WidgetTypeDefinition,
 } from "../../types/widgets";
-import { imageTypeDefinition } from "./index";
 import type { ImageContent } from "./types";
+
+// ============================================================================
+// IMAGE TYPE DEFINITION - MOVED FROM INDEX.TS TO AVOID CIRCULAR DEPENDENCY
+// ============================================================================
+
+export const imageTypeDefinition: WidgetTypeDefinition[] = [
+  {
+    type: "image",
+    name: "Image",
+    description: "Display and manage images with filters and effects",
+    icon: "🖼️",
+    category: "media",
+    defaultSize: { width: 50, height: 200 },
+    minSize: { width: 50, height: 200 },
+    maxSize: { width: 800, height: 800 },
+    aspectRatioLocked: false,
+    resizable: true,
+    rotatable: true,
+    configurable: true,
+    supportedMimeTypes: [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "image/svg+xml",
+    ],
+    supportedExtensions: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"],
+    autoCreateOnly: true,
+  },
+];
 
 // ============================================================================
 // IMAGE WIDGET FACTORY - CLEAN IMPLEMENTATION

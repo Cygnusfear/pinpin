@@ -1,12 +1,33 @@
-import { chatTypeDefinition } from ".";
 import type {
   CreateWidgetInput,
   HydratedWidget,
   Position,
   WidgetCapabilities,
   WidgetFactory,
+  WidgetTypeDefinition,
 } from "../../types/widgets";
 import type { ChatContent } from "./types";
+
+// Type definition moved here to avoid circular dependency
+export const chatTypeDefinition: WidgetTypeDefinition[] = [
+  {
+    type: "chat",
+    name: "🌈 Tonk!",
+    description: "WhatsApp-style chat interface",
+    icon: "🌈",
+    category: "app",
+    defaultSize: { width: 400, height: 600 },
+    minSize: { width: 300, height: 600 },
+    maxSize: { width: 800, height: 800 },
+    aspectRatioLocked: false,
+    resizable: true,
+    rotatable: false,
+    configurable: true,
+    autoCreateOnly: false,
+    allowOverflow: false,
+    allowSelection: true
+  },
+];
 
 export class ChatFactory implements WidgetFactory<ChatContent> {
   type = "chat";

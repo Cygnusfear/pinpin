@@ -67,32 +67,9 @@ export interface YourPluginContent {
 ### Step 2: Create `index.ts` (Plugin Definition)
 
 ```typescript
-import type { WidgetPlugin, WidgetTypeDefinition } from "../../types/widgets";
-import { YourPluginFactory } from "./factory";
+import type { WidgetPlugin } from "../../types/widgets";
+import { YourPluginFactory, yourPluginTypeDefinition } from "./factory";
 import { YourPluginRenderer } from "./renderer";
-
-// Define widget metadata
-export const yourPluginTypeDefinition: WidgetTypeDefinition[] = [
-  {
-    type: "your-plugin", // Must match factory.type and renderer type
-    name: "Your Plugin", // Display name in UI
-    description: "What your plugin does in one sentence",
-    icon: "🎯", // Emoji or icon string
-    category: "app", // Choose from: text, media, document, web, app, layout, other
-    
-    // Size constraints
-    defaultSize: { width: 300, height: 200 },
-    minSize: { width: 200, height: 150 },
-    maxSize: { width: 600, height: 400 },
-    
-    // Capabilities
-    aspectRatioLocked: false, // true = maintains aspect ratio when resizing
-    resizable: true,          // Can user resize widget?
-    rotatable: true,          // Can user rotate widget?
-    configurable: true,       // Does widget have settings?
-    autoCreateOnly: false,    // true = only created by other widgets/automation
-  },
-];
 
 // Plugin class implementation
 export class YourPlugin implements WidgetPlugin {
@@ -103,8 +80,8 @@ export class YourPlugin implements WidgetPlugin {
   description = "Detailed description";  // Can be longer than type definition
   author = "Your Name";                  // Credit
 
-  // Plugin components
-  types: WidgetTypeDefinition[] = yourPluginTypeDefinition;
+  // Plugin components - NOTE: Import type definition from factory to avoid circular dependency
+  types = yourPluginTypeDefinition;
   factories = [new YourPluginFactory()];
   renderers = [{ type: "your-plugin", component: YourPluginRenderer }];
 
@@ -127,7 +104,7 @@ export class YourPlugin implements WidgetPlugin {
 
 // Export instances
 export const yourPlugin = new YourPlugin();
-export { YourPluginFactory } from "./factory";
+export { YourPluginFactory, yourPluginTypeDefinition } from "./factory";
 export { YourPluginRenderer } from "./renderer";
 ```
 
@@ -140,9 +117,32 @@ import type {
   Position,
   WidgetCapabilities,
   WidgetFactory,
+  WidgetTypeDefinition,
 } from "../../types/widgets";
-import { yourPluginTypeDefinition } from "./index";
 import type { YourPluginContent } from "./types";
+
+// Define widget metadata HERE to avoid circular dependency
+export const yourPluginTypeDefinition: WidgetTypeDefinition[] = [
+  {
+    type: "your-plugin", // Must match factory.type and renderer type
+    name: "Your Plugin", // Display name in UI
+    description: "What your plugin does in one sentence",
+    icon: "🎯", // Emoji or icon string
+    category: "app", // Choose from: text, media, document, web, app, layout, other
+    
+    // Size constraints
+    defaultSize: { width: 300, height: 200 },
+    minSize: { width: 200, height: 150 },
+    maxSize: { width: 600, height: 400 },
+    
+    // Capabilities
+    aspectRatioLocked: false, // true = maintains aspect ratio when resizing
+    resizable: true,          // Can user resize widget?
+    rotatable: true,          // Can user rotate widget?
+    configurable: true,       // Does widget have settings?
+    autoCreateOnly: false,    // true = only created by other widgets/automation
+  },
+];
 
 export class YourPluginFactory implements WidgetFactory<YourPluginContent> {
   type = "your-plugin"; // Must match index.ts type
@@ -587,23 +587,13 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
 };
 ```
 
-### Step 5: Register Plugin in `src/plugins/plugins.json`
+### Step 5: Add Plugin to `src/plugins/plugins.json`
 
-⚠️ **IMPORTANT**: The plugin system now uses **configuration-based loading** to prevent page reloads when LLMs modify the plugin list.
+⚠️ **IMPORTANT**: After creating your plugin files, add it to the plugin configuration.
 
 ```json
 {
   "plugins": [
-    {
-      "name": "calculator",
-      "path": "./calculator",
-      "enabled": true
-    },
-    {
-      "name": "chat", 
-      "path": "./chat",
-      "enabled": true
-    },
     {
       "name": "your-plugin",
       "path": "./your-plugin",
@@ -613,11 +603,31 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
 }
 ```
 
-**Benefits of JSON Configuration**:
-- ✅ **No Page Reloads**: LLMs can modify `plugins.json` without triggering HMR on core modules
-- ✅ **Live Reloading**: Plugin list updates automatically without page refresh
-- ✅ **Enable/Disable**: Temporarily disable plugins without removing them
-- ✅ **Clean Separation**: Configuration separate from code logic
+**That's it!** The plugin will load automatically without page reloads.
+
+## 🚨 CRITICAL: Avoid Circular Dependencies
+
+**MANDATORY RULE**: Never import from `index.ts` in `factory.ts` or any other plugin files. This creates circular dependencies that cause runtime errors.
+
+**✅ CORRECT Structure**:
+```typescript
+// factory.ts - Define type definitions HERE
+export const yourPluginTypeDefinition: WidgetTypeDefinition[] = [/* ... */];
+
+// index.ts - Import from factory
+import { YourPluginFactory, yourPluginTypeDefinition } from "./factory";
+```
+
+**❌ INCORRECT Structure**:
+```typescript
+// index.ts - DON'T define types here if factory needs them
+export const yourPluginTypeDefinition: WidgetTypeDefinition[] = [/* ... */];
+
+// factory.ts - DON'T import from index.ts
+import { yourPluginTypeDefinition } from "./index"; // CIRCULAR DEPENDENCY!
+```
+
+**The Rule**: Type definitions should live in `factory.ts` if the factory needs them. The `index.ts` file should import from `factory.ts`, never the other way around.
 
 **Plugin Export Requirements**:
 - Your plugin must be exported as `yourPluginNamePlugin` (camelCase)
@@ -1047,29 +1057,14 @@ export interface YourPluginContent {
 
 ### Development Workflow
 
-**Configuration-Based Loading**:
-- ✅ Modify `plugins.json` without triggering page reloads
-- ✅ Plugin changes reload automatically without page refresh  
-- ✅ Enable/disable plugins for testing without removing code
-- ✅ Live configuration updates via HMR
-
-**Hot Module Replacement (HMR)**: 
-- ✅ Plugin code changes reload automatically without page refresh
-- ✅ Plugin configuration changes reload without page refresh
-- ✅ Individual plugin failures don't break HMR
-- ✅ Error recovery works during development
-
 **Development Tips**:
-1. **Add new plugins**: Edit `plugins.json` instead of TypeScript files
+1. **Add new plugins**: Edit `plugins.json` 
 2. **Disable for testing**: Set `"enabled": false` in `plugins.json`
-3. **Monitor loading**: Keep browser console open to see plugin status
-4. **Check exports**: Look for "Successfully loaded plugin: your-plugin" message
-5. **Test error recovery**: Use error boundary fallback UI testing
-6. **Live reload**: Configuration changes trigger automatic plugin reload
+3. **Monitor loading**: Check browser console for plugin status
+4. **Test exports**: Look for "Successfully loaded plugin: your-plugin" message
 
-**Adding a New Plugin (LLM-Friendly)**:
+**Adding a New Plugin**:
 ```json
-// Just add to plugins.json - no page reload!
 {
   "name": "new-plugin",
   "path": "./new-plugin", 
@@ -1116,7 +1111,7 @@ Before considering your plugin complete:
 
 ### Core Requirements
 - [ ] All 4 required files created (`index.ts`, `factory.ts`, `renderer.tsx`, `types.ts`)
-- [ ] Plugin added to `CORE_PLUGINS` array in `src/plugins/safePluginLoader.ts`
+- [ ] Plugin added to `src/plugins/plugins.json`
 - [ ] Plugin export uses correct naming convention (`yourPluginNamePlugin`)
 - [ ] `canHandle()` method is specific and doesn't conflict with other plugins
 - [ ] Widget renders correctly at different sizes

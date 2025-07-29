@@ -17,7 +17,7 @@ export interface PluginsConfiguration {
 
 // Simple cache for plugin configuration
 let configCache: PluginsConfiguration | null = null;
-
+let lastFetchTime = 0;
 /**
  * Fetch plugin configuration from server
  */
