@@ -10,6 +10,8 @@ import type { WidgetRendererProps } from "../../types/widgets";
 import type { ChatContent, ChatMessage } from "./types";
 import MarkdownRenderer from "./components/MarkdownRenderer";
 
+// Removed typewriter effect - show bubbles all at once when ready
+
 export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Selective subscriptions - only re-render when these specific values change
   const messages = useWidgetContent(
@@ -90,6 +92,8 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
       let currentMessages = [...updatedMessages];
       let currentStreamingBubble: ChatMessage | null = null;
       let lastContextType: 'thinking' | 'tool' | null = null;
+      let contentBuffer = '';
+      let bufferTimeout: NodeJS.Timeout | null = null;
       
       // Stream Mastra agent response with separate bubbles for each context
       const response = await streamMastraMessage(
@@ -102,6 +106,8 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
         (progressMessage: string) => {
           console.log("🔧 Tool progress:", progressMessage);
           
+          // No need to track active streams anymore
+
           // Tool execution - always create a new bubble
           const toolMsg: ChatMessage = {
             role: "assistant",
@@ -133,52 +139,77 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
         (contentChunk: string) => {
           console.log("💭 AI thinking:", contentChunk);
           
-          // AI thinking - create new bubble if context switched from tool, otherwise update existing
-          if (lastContextType !== 'thinking' || !currentStreamingBubble) {
-            // Create new thinking bubble
-            const thinkingMsg: ChatMessage = {
-              role: "assistant",
-              content: contentChunk,
-              timestamp: Date.now(),
-              provider: "mastra",
-              metadata: {
-                isStreaming: true,
-                bubbleId: `thinking-${Date.now()}-${Math.random()}`,
-                temporary: true,
-              },
-            };
-            
-            currentMessages = [...currentMessages, thinkingMsg];
-            currentStreamingBubble = thinkingMsg;
-            lastContextType = 'thinking';
-          } else {
-            // Update existing thinking bubble
-            const bubbleId = currentStreamingBubble.metadata?.bubbleId;
-            currentMessages = currentMessages.map(msg => 
-              msg.metadata?.bubbleId === bubbleId
-                ? { ...msg, content: msg.content + contentChunk }
-                : msg
-            );
-            
-            // Update our reference
-            currentStreamingBubble = currentMessages.find(msg => 
-              msg.metadata?.bubbleId === bubbleId
-            ) || null;
+          // Buffer content chunks to reduce update frequency
+          contentBuffer += contentChunk;
+          
+          // Clear existing timeout
+          if (bufferTimeout) {
+            clearTimeout(bufferTimeout);
           }
           
-          // Force synchronous React update
-          flushSync(() => {
-            updateContent({
-              messages: currentMessages,
-              isTyping: true,
+          // Flush buffer after a short delay or if it's getting long
+          const flushBuffer = () => {
+            if (contentBuffer.length === 0) return;
+            
+            // AI thinking - create new bubble if context switched from tool, otherwise update existing
+            if (lastContextType !== 'thinking' || !currentStreamingBubble) {
+              // Create new thinking bubble
+              const thinkingMsg: ChatMessage = {
+                role: "assistant",
+                content: contentBuffer,
+                timestamp: Date.now(),
+                provider: "mastra",
+                metadata: {
+                  isStreaming: true,
+                  bubbleId: `thinking-${Date.now()}-${Math.random()}`,
+                  temporary: true,
+                },
+              };
+              
+              currentMessages = [...currentMessages, thinkingMsg];
+              currentStreamingBubble = thinkingMsg;
+              lastContextType = 'thinking';
+            } else {
+              // Update existing thinking bubble
+              const bubbleId = currentStreamingBubble.metadata?.bubbleId;
+              currentMessages = currentMessages.map(msg => 
+                msg.metadata?.bubbleId === bubbleId
+                  ? { ...msg, content: currentStreamingBubble!.content + contentBuffer }
+                  : msg
+              );
+              
+              // Update our reference
+              currentStreamingBubble = currentMessages.find(msg => 
+                msg.metadata?.bubbleId === bubbleId
+              ) || null;
+            }
+            
+            // Force synchronous React update
+            flushSync(() => {
+              updateContent({
+                messages: currentMessages,
+                isTyping: true,
+              });
             });
-          });
-
-          // No scrolling needed - reverse flex auto-positions
+            
+            contentBuffer = '';
+          };
+          
+          // Flush immediately if buffer is getting long, otherwise wait
+          if (contentBuffer.length > 50) {
+            flushBuffer();
+          } else {
+            bufferTimeout = setTimeout(flushBuffer, 100);
+          }
         }
       );
 
       if (response.success && response.message) {
+        // Clear any remaining buffer timeout
+        if (bufferTimeout) {
+          clearTimeout(bufferTimeout);
+        }
+        
         // Remove all temporary bubbles (both tool and thinking), add final response
         const finalMessages = updatedMessages.filter(msg => 
           !msg.metadata?.temporary
@@ -335,13 +366,9 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                         {message.content}
                       </div>
                     ) : message.metadata?.isStreaming ? (
-                      // AI thinking bubble - green with typing cursor
-                      <div className="whitespace-pre-wrap break-words text-sm flex items-center gap-2">
-                        <div className="flex-shrink-0 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                        <div className="flex-1">
-                          {message.content}
-                          <span className="inline-block w-2 h-4 bg-green-600 animate-pulse ml-1"></span>
-                        </div>
+                      // AI thinking bubble - show content all at once
+                      <div className="whitespace-pre-wrap break-words text-sm">
+                        {message.content}
                       </div>
                     ) : (
                       // Regular assistant message - full markdown

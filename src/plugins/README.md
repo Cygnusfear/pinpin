@@ -587,7 +587,7 @@ export const YourPluginRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) 
 };
 ```
 
-### Step 5: Add Plugin to `src/plugins/plugins.json`
+### Step 5: Add Plugin to `server/plugins.json`
 
 ⚠️ **IMPORTANT**: After creating your plugin files, add it to the plugin configuration.
 
@@ -1058,8 +1058,8 @@ export interface YourPluginContent {
 ### Development Workflow
 
 **Development Tips**:
-1. **Add new plugins**: Edit `plugins.json` 
-2. **Disable for testing**: Set `"enabled": false` in `plugins.json`
+1. **Add new plugins**: Edit `server/plugins.json` 
+2. **Disable for testing**: Set `"enabled": false` in `server/plugins.json`
 3. **Monitor loading**: Check browser console for plugin status
 4. **Test exports**: Look for "Successfully loaded plugin: your-plugin" message
 
@@ -1111,7 +1111,7 @@ Before considering your plugin complete:
 
 ### Core Requirements
 - [ ] All 4 required files created (`index.ts`, `factory.ts`, `renderer.tsx`, `types.ts`)
-- [ ] Plugin added to `src/plugins/plugins.json`
+- [ ] Plugin added to `server/plugins.json`
 - [ ] Plugin export uses correct naming convention (`yourPluginNamePlugin`)
 - [ ] `canHandle()` method is specific and doesn't conflict with other plugins
 - [ ] Widget renders correctly at different sizes

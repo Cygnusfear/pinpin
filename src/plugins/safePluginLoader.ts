@@ -159,12 +159,6 @@ if (import.meta.hot) {
     window.dispatchEvent(new CustomEvent('pluginConfigUpdated'));
   });
   
-  // Accept changes to the plugins.json file
-  import.meta.hot.accept('./plugins.json', () => {
-    console.log('🔥 HMR: Plugin list updated from JSON');
-    window.dispatchEvent(new CustomEvent('pluginConfigUpdated'));
-  });
-  
-  // Plugin module changes will trigger their own HMR
-  // JSON config changes above will trigger full plugin reload
+  // Configuration is loaded from server endpoints only
+  // No JSON file HMR to avoid page reloads
 }

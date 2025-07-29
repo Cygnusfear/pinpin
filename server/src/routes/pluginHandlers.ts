@@ -9,7 +9,7 @@ import { Request, Response } from 'express';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-const PLUGINS_CONFIG_PATH = join(process.cwd(), '../src/plugins/plugins.json');
+const PLUGINS_CONFIG_PATH = join(process.cwd(), 'plugins.json');
 
 export interface PluginConfig {
   name: string;

@@ -142,7 +142,7 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
       try {
         if (streamResult.stream) {
           for await (const chunk of streamResult.stream) {
-            console.log("📡 SSE Content chunk:", chunk);
+            // console.log("📡 SSE Content chunk:", chunk);
             res.write(`data: ${JSON.stringify({
               type: 'content',
               data: chunk
