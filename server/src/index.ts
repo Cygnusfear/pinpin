@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
-import { FileSystemRoutes } from "./fileSystemRoutes.js";
 import { ExpressWithRouteTracking } from "./routeTracker.js";
 
 // Import configuration
@@ -27,20 +26,9 @@ app.use(cors());
 // Enable JSON parsing for POST requests
 app.use(express.json());
 
-// Initialize file system routes
-new FileSystemRoutes(app, projectRoot);
-
-// Import and setup chat routes
-import {
-  simpleChatHandler,
-  healthHandler,
-} from "./routes/chatHandlers.js";
-import {
-  groqChatHandler,
-  groqToolsHandler,
-  groqResourcesHandler,
-  groqHealthHandler,
-} from "./routes/groqHandlers.js";
+// Import health handler (chat handlers removed)
+import { healthHandler } from "./routes/chatHandlers.js";
+// Groq handlers removed (deprecated system)
 import {
   mastraAgentChatHandler,
   mastraConversationHistoryHandler,
@@ -58,15 +46,8 @@ import { terminalSessionManager } from "./terminal/terminalSessionManager.js";
 // Import terminal WebSocket setup
 import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
 
-// Simple chat endpoints
-app.post("/api/chat", simpleChatHandler);
+// Health endpoint
 app.get("/api/health", healthHandler);
-
-// Groq AI chat endpoints
-app.post("/api/groq/chat", groqChatHandler);
-app.get("/api/groq/tools", groqToolsHandler);
-app.get("/api/groq/resources", groqResourcesHandler);
-app.get("/api/groq/health", groqHealthHandler);
 
 // Mastra AI agent endpoints
 app.post("/api/agent/chat", mastraAgentChatHandler);
