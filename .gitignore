@@ -74,3 +74,9 @@ Desktop.ini
 
 # Keys
 *.pem
+
+# get this outta here
+dev-dist
+dev-dist/**
+*.db-wal
+*.db-shm
