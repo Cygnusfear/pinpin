@@ -2,7 +2,7 @@ import { Agent } from "@mastra/core/agent";
 import { LibSQLStore } from "@mastra/libsql";
 import { Memory } from "@mastra/memory";
 import { pinboardTools } from "../tools/pinboard.js";
-// import { executeTaskWorkflow } from "../tools/taskWorkflow.js"; // Temporarily disabled due to TS issues
+import { executeTaskWorkflow } from "../tools/taskWorkflow.js";
 import { getFileEditingTools } from "../mcp/fileEditingClient.js";
 // import { claudeAgent, groqTask } from "./taskAgent.js"; // Temporarily disabled due to TS issues
 import { createGroq } from "@ai-sdk/groq";
@@ -61,10 +61,14 @@ const initializeFileEditingTools = async (): Promise<any> => {
 
 // Create agent asynchronously to properly await MCP tools
 const createPinboardAgent = async () => {
-  // Load file editing tools before agent creation
-  const fileEditingTools = await initializeFileEditingTools();
+  try {
+    console.log("🏗️ Creating pinboard agent...");
+    
+    // Load file editing tools before agent creation
+    const fileEditingTools = await initializeFileEditingTools();
+    console.log("🏗️ File editing tools loaded:", Object.keys(fileEditingTools).length);
 
-  return new Agent({
+    const agent = new Agent({
   name: "Tonk Pinboard Hero",
   description:
     "Advanced AI agent for managing pinboard widgets with persistent memory and MCP tool integration",
@@ -121,10 +125,27 @@ const createPinboardAgent = async () => {
 - Request PROBLEM SOLVING with multiple steps
 - Ask me to "help with", "make", "design", "fix", "improve", "set up"
 
+**🚀 CRITICAL: WORKFLOW TOOL USAGE - I MUST use executeTaskWorkflow tool when:**
+- ANY multi-step request that involves creating multiple widgets
+- Building complex layouts or dashboards
+- Organizing existing widgets systematically  
+- Setting up complete workspaces or environments
+- Any request with words: "create", "build", "organize", "setup", "make multiple"
+- Coordinating between multiple pinboard operations
+- ANY task that requires more than just a single widget operation
+
+**⚡ WORKFLOW EXECUTION RULES:**
+- ALWAYS use executeTaskWorkflow for complex multi-step requests
+- NEVER manually chain individual pinboard tools for complex tasks
+- Let executeTaskWorkflow handle task planning and coordination
+- Trust the workflow system to break down and execute tasks properly
+- Single widget operations can use direct tools, everything else uses workflow
+
 **🚀 WHEN IN TASK MODE, I WILL:**
+- **FIRST**: Automatically use executeTaskWorkflow for any complex request
 - Execute up to 100 autonomous steps without stopping
-- Break complex requests into detailed sub-tasks  
-- Use ALL available tools systematically
+- Break complex requests into detailed sub-tasks through the workflow system
+- Use ALL available tools systematically via the workflow
 - Provide detailed progress updates at each step
 - Self-educate by reading documentation first
 - Continue until the task is COMPLETELY finished
@@ -137,11 +158,19 @@ const createPinboardAgent = async () => {
 - 🧠 **For troubleshooting**: Read documentation and analyze related code
 - ✨ **Always proactively**: Learn project patterns to give you the best help!
 
-**🎯 When to Unleash My Workflow Magic:**
-- "Create something amazing" → I'll build it with passion!
-- "Organize my digital life" → I'll restructure everything beautifully!
-- "Set up my perfect workspace" → I'll coordinate every detail!
-- "Help me implement my vision" → I'll make it reality!
+**🎯 When to Unleash My Workflow Magic (MUST use executeTaskWorkflow):**
+- "Create a project dashboard" → executeTaskWorkflow for coordinated widget creation!
+- "Build a todo system with notes" → executeTaskWorkflow for multiple widgets!
+- "Organize my widgets by category" → executeTaskWorkflow for systematic organization!
+- "Set up a meeting workspace" → executeTaskWorkflow for complete layout creation!
+- "Create multiple widgets" → executeTaskWorkflow for batch operations!
+- "Design a productive layout" → executeTaskWorkflow for complex arrangements!
+- "Help me implement my vision" → executeTaskWorkflow for comprehensive execution!
+
+**🔧 Direct Tool Usage (single operations only):**
+- "Add one note widget" → addPinboardWidget (simple single action)
+- "Update this specific widget" → updateWidgetContent (targeted update)
+- "Show me current widgets" → viewAllPinboardWidgets (information request)
 
 **🛠️ File Editing Excellence:**
 When you need code changes, I'm THRILLED to:
@@ -179,8 +208,17 @@ I'm incredibly smart about staying informed! When helping with complex tasks, I 
 - Plugin structure: index.ts, factory.ts, renderer.tsx, types.ts, README.md
 - Current plugins: calculator, chat, document, image, note, terminal, todo, url, youtube
 
+**🎯 WORKFLOW DECISION TREE - I follow this EXACT logic:**
+1. **Single widget request?** → Use direct pinboard tools (addPinboardWidget, etc.)
+2. **Multiple widgets or complex layout?** → **IMMEDIATELY use executeTaskWorkflow**
+3. **Words like "create", "build", "organize", "setup"?** → **FORCE executeTaskWorkflow usage**
+4. **Any coordination between widgets?** → **executeTaskWorkflow is MANDATORY**
+5. **More than one action needed?** → **executeTaskWorkflow handles it**
+
 **💫 My Promise to You:**
 I will NEVER tell you to do something yourself - that's what I'm here for! I'm absolutely thrilled to tackle any challenge, big or small. I'll think through problems WITH you, suggest creative solutions, execute everything with rainbow-powered enthusiasm, AND educate myself on the fly to give you the most informed, helpful assistance possible!
+
+**🎪 CRITICAL REMINDER: For ANY complex request, I will IMMEDIATELY reach for executeTaskWorkflow first, not individual tools!**
 
 Ready to create something absolutely SPECTACULAR together? What magical pinboard adventure shall we embark on today? 🚀✨`;
   },
@@ -218,7 +256,15 @@ Ready to create something absolutely SPECTACULAR together? What magical pinboard
       maxSteps: 100,  // Increased for comprehensive autonomous task execution
       temperature: 0.7,
     },
-  });
+    });
+
+    console.log("🏗️ Agent created successfully:", agent.name);
+    return agent;
+    
+  } catch (error) {
+    console.error("❌ Error creating pinboard agent:", error);
+    throw error;
+  }
 };
 
 // Export the agent instance (async)

@@ -223,7 +223,15 @@ export class MastraChatService {
    */
   async streamResponse(request: MastraChatRequest, progressCallback?: (message: string) => void): Promise<MastraChatStreamResponse> {
     try {
+      console.log("🎯 Getting pinboard agent...");
       const agent = getPinboardAgent();
+      console.log("🎯 Agent retrieved:", !!agent);
+      console.log("🎯 Agent name:", agent?.name);
+      
+      // Check if we have the necessary API keys
+      const hasGroqKey = !!process.env.VITE_GROQ_API_KEY;
+      const hasAnthropicKey = !!process.env.VITE_ANTHROPIC_API_KEY;
+      console.log("🎯 API Keys available - Groq:", hasGroqKey, "Anthropic:", hasAnthropicKey);
       
       // Create runtime context with user and session information
       const runtimeContext = new RuntimeContext();
@@ -241,8 +249,14 @@ export class MastraChatService {
       // Track tool executions for user visibility (streaming)
       let toolExecutionMessages: string[] = [];
 
+      console.log("🎯 Starting Mastra agent stream...");
+      console.log("🎯 Messages to process:", messages.length);
+      console.log("🎯 Latest message:", messages[messages.length - 1]?.content.substring(0, 100));
+      
       // Stream response with memory management
-      const stream = await agent.stream(messages, {
+      let stream;
+      try {
+        stream = await agent.stream(messages, {
         memory: {
           thread: { 
             id: request.conversationId,
@@ -299,10 +313,18 @@ export class MastraChatService {
         onFinish: ({ steps, text, finishReason, usage }) => {
           console.log(`✅ Mastra: Stream completed (${steps.length} steps, reason: ${finishReason})`);
         },
-      });
+        });
+      } catch (streamError) {
+        console.error("❌ Error creating stream:", streamError);
+        throw new Error(`Failed to create stream: ${streamError instanceof Error ? streamError.message : 'Unknown error'}`);
+      }
+
+      console.log("🎯 Stream created successfully");
+      console.log("🎯 Stream has textStream:", !!stream.textStream);
 
       // Determine which model was used
       const model = await agent.getModel({ runtimeContext });
+      console.log("🎯 Model used:", model?.modelId);
       
       return {
         success: true,

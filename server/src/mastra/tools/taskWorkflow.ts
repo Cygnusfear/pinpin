@@ -21,7 +21,7 @@ const taskModel = createGroq({apiKey: ENV.VITE_GROQ_API_KEY})("moonshotai/kimi-k
 const TaskSchema = z.object({
   id: z.string().describe("Unique identifier for the task"),
   description: z.string().describe("What needs to be done"),
-  type: z.enum(["pinboard", "analysis", "general"]).describe("Type of task"),
+  type: z.enum(["pinboard", "plugin", "analysis", "general"]).describe("Type of task"),
   status: z.enum(["pending", "in_progress", "completed", "failed"]).describe("Current status"),
   dependencies: z.array(z.string()).optional().describe("Tasks that must complete first"),
   tool: z.string().optional().describe("Specific tool to use for execution"),
@@ -98,6 +98,9 @@ class TaskExecutionEngine {
         case "pinboard":
           result = await this.executePinboardTask(task);
           break;
+        case "plugin":
+          result = await this.executePluginTask(task);
+          break;
         case "analysis":
           result = await this.executeAnalysisTask(task);
           break;
@@ -141,6 +144,119 @@ class TaskExecutionEngine {
     } catch (error) {
       throw new Error(`Tool ${tool} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  private async executePluginTask(task: z.infer<typeof TaskSchema>): Promise<string> {
+    const { tool, parameters } = task;
+    
+    this.log(`🔌 Executing plugin task: ${task.description}`);
+    
+    // Special handling for plugin validation with retry logic
+    if (tool === 'validate_plugin_code') {
+      return await this.executePluginValidationWithRetry(task);
+    }
+    
+    // For other plugin tasks, execute normally
+    try {
+      const toolFunction = this.tools[tool as keyof typeof this.tools] as any;
+      if (!toolFunction) {
+        throw new Error(`Unknown plugin tool: ${tool}`);
+      }
+      
+      const result = await toolFunction.execute({ 
+        context: parameters || {},
+        runtimeContext: new RuntimeContext()
+      });
+      
+      if (result.success === false) {
+        throw new Error(result.message || 'Plugin tool execution failed');
+      }
+      
+      return result.message || `${tool} executed successfully`;
+    } catch (error) {
+      throw new Error(`Plugin tool ${tool} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private async executePluginValidationWithRetry(task: z.infer<typeof TaskSchema>, maxRetries: number = 5): Promise<string> {
+    const { parameters } = task;
+    let attempt = 1;
+    
+    while (attempt <= maxRetries) {
+      this.log(`🧪 Plugin validation attempt ${attempt}/${maxRetries}`);
+      
+      try {
+        const toolFunction = this.tools.validate_plugin_code as any;
+        if (!toolFunction) {
+          throw new Error('validate_plugin_code tool not available');
+        }
+        
+        const result = await toolFunction.execute({ 
+          context: parameters || {},
+          runtimeContext: new RuntimeContext()
+        });
+        
+        // Check if validation passed
+        if (result.success && (!result.errors || result.errors.length === 0)) {
+          this.log(`✅ Plugin validation passed on attempt ${attempt}`);
+          return result.message || 'Plugin validation successful - no errors found';
+        }
+        
+        // If validation failed and we have retries left, create fix tasks
+        if (attempt < maxRetries && result.errors && result.errors.length > 0) {
+          this.log(`⚠️ Plugin validation found ${result.errors.length} errors, creating fix tasks...`);
+          
+          // Create fix tasks for each error found
+          const errorSummary = result.errors.slice(0, 3).map((error: any, index: number) => 
+            `Error ${index + 1}: ${error.message || error}`
+          ).join('; ');
+          
+          // Auto-generate a fix task
+          const fixTaskId = `fix-validation-${attempt}-${Date.now()}`;
+          const fixTask: z.infer<typeof TaskSchema> = {
+            id: fixTaskId,
+            description: `Fix plugin validation errors: ${errorSummary}`,
+            type: "plugin",
+            status: "pending",
+            tool: "file-editor_edit_file_lines", // Will be determined by task planner
+            parameters: {
+              errors: result.errors,
+              attempt: attempt,
+              pluginPath: parameters?.pluginPath || parameters?.path
+            }
+          };
+          
+          // Add the fix task and execute it
+          this.tasks.set(fixTaskId, fixTask);
+          this.log(`🔧 Created fix task: ${fixTask.description}`);
+          
+          // Execute the fix task
+          await this.executeTask(fixTask);
+          
+          attempt++;
+          continue;
+        }
+        
+        // If we're out of retries or no errors to fix
+        if (result.errors && result.errors.length > 0) {
+          const errorList = result.errors.map((error: any) => error.message || error).join(', ');
+          throw new Error(`Plugin validation failed after ${maxRetries} attempts. Remaining errors: ${errorList}`);
+        }
+        
+        return result.message || 'Plugin validation completed';
+        
+      } catch (error) {
+        this.log(`❌ Plugin validation attempt ${attempt} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        
+        if (attempt >= maxRetries) {
+          throw new Error(`Plugin validation failed after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+        
+        attempt++;
+      }
+    }
+    
+    throw new Error(`Plugin validation failed after ${maxRetries} attempts`);
   }
 
   private async executeAnalysisTask(task: z.infer<typeof TaskSchema>): Promise<string> {
@@ -277,10 +393,17 @@ export const executeTaskWorkflow = createTool({
 - removeWidget: Delete widgets
 - getPinboardUIState: Check UI state
 
+**Available MCP Tools for File Operations:**
+- file-editor_edit_file_lines: Edit specific lines in files
+- file-editor_approve_edit: Approve pending edits
+- file-editor_get_file_lines: Read specific file lines
+- validate_plugin_code: CRITICAL - Always validate plugin code after creation
+
 **Task Types:**
 - "pinboard": Direct widget operations (use specific tool names)
 - "analysis": Examine current state or provide insights  
 - "general": Coordination or informational tasks
+- "plugin": Plugin development and validation tasks
 
 **Guidelines:**
 1. Each task should be specific and atomic
@@ -288,6 +411,15 @@ export const executeTaskWorkflow = createTool({
 3. Order tasks logically with proper dependencies
 4. Use realistic coordinates and sizes for widgets
 5. Consider existing widgets when planning positions
+6. **CRITICAL**: For ANY plugin creation, ALWAYS add a validation task using "validate_plugin_code"
+
+**Plugin Development Rules:**
+- ALWAYS include plugin validation as the final step after any plugin creation
+- Plugin validation should depend on all plugin creation tasks
+- Use "validate_plugin_code" tool for all plugin verification
+- **CRITICAL**: Keep validating and fixing until NO errors remain
+- Create fix tasks for any validation errors found
+- Re-validate after each fix until validation passes completely
 
 **Important:** For pinboard tasks, always specify the exact tool name and all required parameters.`,
       
@@ -312,6 +444,10 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}
 - updateWidgetContent: Modify widget content
 - viewAllPinboardWidgets: Check current state
 
+**Available plugin tools:**
+- file-editor_edit_file_lines: Edit plugin files
+- validate_plugin_code: Validate plugin code (ALWAYS use after plugin creation)
+
 **Task format:** Return ONLY a JSON object with this exact structure:
 {
   "tasks": [
@@ -326,9 +462,24 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}
         "size": {"width": 300, "height": 200},
         "content": {"content": "Project Planning Notes"}
       }
+    },
+    {
+      "id": "task-2",
+      "description": "Validate plugin code and fix any errors",
+      "type": "plugin",
+      "tool": "validate_plugin_code",
+      "dependencies": ["task-1"],
+      "parameters": {
+        "pluginPath": "/path/to/plugin"
+      }
     }
   ]
 }
+
+**CRITICAL Plugin Rules:**
+- For ANY plugin creation, ALWAYS add a validation task as the final step
+- Validation task must depend on all plugin creation tasks
+- Use "plugin" type for validation tasks
 
 **Guidelines:**
 - Use realistic coordinates (0-800 for x, 0-600 for y)

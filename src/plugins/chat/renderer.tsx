@@ -152,11 +152,11 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
             currentStreamingBubble = thinkingMsg;
             lastContextType = 'thinking';
           } else {
-            // Update existing thinking bubble
+            // Update existing thinking bubble - replace content instead of appending
             const bubbleId = currentStreamingBubble.metadata?.bubbleId;
             currentMessages = currentMessages.map(msg => 
               msg.metadata?.bubbleId === bubbleId
-                ? { ...msg, content: msg.content + contentChunk }
+                ? { ...msg, content: contentChunk }
                 : msg
             );
             
@@ -178,7 +178,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
         }
       );
 
-      if (response.success && response.message) {
+      if (response && response.success === true && response.message) {
         // Remove all temporary bubbles (both tool and thinking), add final response
         const finalMessages = updatedMessages.filter(msg => 
           !msg.metadata?.temporary
@@ -207,7 +207,9 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
 
         // No manual scrolling needed - reverse flex handles positioning
       } else {
-        throw new Error(response.error || "Invalid response from Mastra agent");
+        const errorMessage = response?.error || "Invalid response from Mastra agent";
+        console.error("Mastra response error:", response);
+        throw new Error(errorMessage);
       }
     } catch (err) {
       console.error("Chat error:", err);
@@ -329,19 +331,14 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                 >
                   {message.role === "assistant" ? (
                     message.metadata?.isProgress ? (
-                      // Tool execution bubble - orange with tool icon
-                      <div className="whitespace-pre-wrap break-words text-sm flex items-center gap-2">
-                        <div className="flex-shrink-0 w-3 h-3 bg-orange-400 rounded-full animate-pulse"></div>
+                      // Tool execution bubble
+                      <div className="whitespace-pre-wrap break-words text-sm">
                         {message.content}
                       </div>
                     ) : message.metadata?.isStreaming ? (
-                      // AI thinking bubble - green with typing cursor
-                      <div className="whitespace-pre-wrap break-words text-sm flex items-center gap-2">
-                        <div className="flex-shrink-0 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                        <div className="flex-1">
-                          {message.content}
-                          <span className="inline-block w-2 h-4 bg-green-600 animate-pulse ml-1"></span>
-                        </div>
+                      // AI thinking bubble
+                      <div className="whitespace-pre-wrap break-words text-sm">
+                        {message.content}
                       </div>
                     ) : (
                       // Regular assistant message - full markdown

@@ -44,6 +44,7 @@ export default defineConfig({
       // Ignore server files from HMR to prevent page reloads
       ignored: [
         '**/server/public/**',
+        '**/src/plugins/**',
         '**/node_modules/**'
       ]
     },

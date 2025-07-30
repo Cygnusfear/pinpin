@@ -141,8 +141,11 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
 
       try {
         if (streamResult.stream) {
+          console.log("📡 Stream available, starting to read chunks...");
+          let chunkCount = 0;
           for await (const chunk of streamResult.stream) {
-            // console.log("📡 SSE Content chunk:", chunk);
+            chunkCount++;
+            console.log(`📡 SSE Content chunk ${chunkCount}:`, chunk?.substring(0, 100) + '...');
             res.write(`data: ${JSON.stringify({
               type: 'content',
               data: chunk
@@ -152,6 +155,9 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
               res.flush();
             }
           }
+          console.log(`📡 Stream completed - sent ${chunkCount} chunks`);
+        } else {
+          console.log("❌ No stream available in streamResult");
         }
 
         // Send completion signal

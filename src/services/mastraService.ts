@@ -221,7 +221,7 @@ export const streamMastraMessage = async (
                   }
                   break;
                 case 'content':
-                  console.log("📡 Received SSE content chunk:", data.data);
+                  // console.log("📡 Received SSE content chunk:", data.data);
                   // Accumulate the final response content
                   finalMessage += data.data;
                   // Send content chunks for real-time streaming
@@ -237,25 +237,33 @@ export const streamMastraMessage = async (
                   break;
                 case 'done':
                   // Stream completed successfully
+                  console.log("📡 Received 'done' event - Final message length:", finalMessage.length);
                   return {
-                    success: true,
-                    message: finalMessage,
-                    conversationId: finalConversationId
+                    success: finalMessage.length > 0,
+                    message: finalMessage || "Stream completed without content",
+                    conversationId: finalConversationId,
+                    error: finalMessage.length === 0 ? "Stream completed but no content received" : undefined
                   };
                 case 'error':
                   throw new Error(data.data?.error || 'Stream error');
               }
             } catch (parseError) {
-              console.warn('Failed to parse SSE data:', line);
+              console.warn('Failed to parse SSE data:', line, parseError);
+              // Continue processing other lines rather than failing completely
             }
           }
         }
       }
 
+      // Ensure we have a proper final message format
+      console.log("📡 Stream completed - Final message length:", finalMessage.length);
+      console.log("📡 Stream completed - Conversation ID:", finalConversationId);
+      
       return {
-        success: true,
-        message: finalMessage,
-        conversationId: finalConversationId
+        success: finalMessage.length > 0, // Only success if we got actual content
+        message: finalMessage || "No response received from agent",
+        conversationId: finalConversationId,
+        error: finalMessage.length === 0 ? "No content received from stream" : undefined
       };
 
     } finally {
@@ -266,7 +274,9 @@ export const streamMastraMessage = async (
     console.error('Mastra streaming error:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown streaming error'
+      error: error instanceof Error ? error.message : 'Unknown streaming error',
+      message: undefined, // Explicitly set to match expected interface
+      conversationId: request.conversationId
     };
   }
 };
