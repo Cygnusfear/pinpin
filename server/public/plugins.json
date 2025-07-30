@@ -44,6 +44,11 @@
       "name": "document",
       "path": "./document",
       "enabled": true
+    },
+    {
+      "name": "pomodoro",
+      "path": "./pomodoro",
+      "enabled": true
     }
   ]
 }

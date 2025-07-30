@@ -8,6 +8,7 @@ import type {
   WidgetRenderState,
 } from "../types/widgets";
 import WidgetErrorBoundary from "./WidgetErrorBoundary";
+import { useSyncContext } from "./SyncProvider";
 
 interface WidgetContainerProps {
   widget: HydratedWidget;
@@ -23,10 +24,11 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
   const registry = getWidgetRegistry();
   const renderer = registry.getRenderer(widget.type);
   const widgetTypeDefinition = registry.getType(widget.type);
+  const { status } = useSyncContext();
 
   // Render widget content using plugin renderer or fallback
   const renderWidgetContent = useMemo(() => {
-    if (widget.type === "loading") {
+    if (widget.type === "loading" || status !== "synced") {
       return (
         <div className="flex h-full flex-col items-center justify-center p-4 text-center">
           <div className="mb-2 h-8 w-8 animate-spin rounded-full border-blue-500 border-b-2" />

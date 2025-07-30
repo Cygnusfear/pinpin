@@ -471,43 +471,54 @@ export class InteractionController {
     const target = event.target as HTMLElement;
     if (!target) return false;
 
-    // Walk up the DOM tree to find scrollable elements within widgets
+    // First, check if we're within a widget at all
+    const widgetContainer = this.findWidgetContainer(target);
+    if (!widgetContainer) return false;
+
+    // Walk up the DOM tree from target to widget container to find scrollable elements
     let element: HTMLElement | null = target;
-    let foundWidget = false;
 
-    while (element && element !== this.canvasElement) {
-      // Check if we're inside a widget container
-      if (element.hasAttribute("data-widget-id")) {
-        foundWidget = true;
-      }
-
-      // Check for scrollable elements throughout the traversal
-      // (not just after finding widget container)
+    while (element && element !== widgetContainer && element !== this.canvasElement) {
+      // Check if this element is scrollable and can scroll in the wheel direction
       if (this.isElementScrollableInWidget(element, event)) {
-        // Only allow scrolling if we're inside a widget
-        if (foundWidget || this.isWithinWidget(element)) {
-          return true;
-        }
+        return true;
       }
 
       element = element.parentElement;
+    }
+
+    // Also check the widget container itself
+    if (this.isElementScrollableInWidget(widgetContainer, event)) {
+      return true;
     }
 
     return false;
   }
 
   /**
+   * Find the closest widget container element for a given target element
+   */
+  private findWidgetContainer(target: HTMLElement): HTMLElement | null {
+    let element: HTMLElement | null = target;
+    
+    while (element && element !== this.canvasElement) {
+      // Check for widget container markers
+      if (element.hasAttribute("data-widget-id") ||
+          element.classList.contains("widget-container") ||
+          element.getAttribute("role") === "widget") {
+        return element;
+      }
+      element = element.parentElement;
+    }
+    
+    return null;
+  }
+
+  /**
    * Check if an element is within a widget by looking for widget container in its ancestors
    */
   private isWithinWidget(element: HTMLElement): boolean {
-    let current = element.parentElement;
-    while (current && current !== this.canvasElement) {
-      if (current.hasAttribute("data-widget-id")) {
-        return true;
-      }
-      current = current.parentElement;
-    }
-    return false;
+    return this.findWidgetContainer(element) !== null;
   }
 
   /**
@@ -517,19 +528,54 @@ export class InteractionController {
     element: HTMLElement,
     event: WheelEvent,
   ): boolean {
-    // Check for explicit scrollable markers (like our chat widget)
-    if (element.hasAttribute("data-scrollable")) {
+    // Priority 1: Check for explicit scrollable markers
+    if (element.hasAttribute("data-scrollable") &&
+        element.getAttribute("data-scrollable") !== "false") {
       return true;
     }
 
-    // Check if element is naturally scrollable
+    // Priority 2: Check common scrollable container patterns
+    if (this.hasScrollableContentPatterns(element)) {
+      return this.canElementScrollInDirection(element, event);
+    }
+
+    // Priority 3: Check if element is naturally scrollable
     if (this.isElementScrollable(element)) {
-      if (this.canElementScrollInDirection(element, event)) {
-        return true;
-      }
+      return this.canElementScrollInDirection(element, event);
     }
 
     return false;
+  }
+
+  /**
+   * Check for common scrollable content patterns in widgets
+   */
+  private hasScrollableContentPatterns(element: HTMLElement): boolean {
+    const computedStyle = window.getComputedStyle(element);
+    const overflowY = computedStyle.overflowY;
+    const overflowX = computedStyle.overflowX;
+    
+    // Check for overflow styles that indicate scrollable content
+    const hasScrollableOverflow =
+      overflowY === "auto" || overflowY === "scroll" ||
+      overflowX === "auto" || overflowX === "scroll";
+
+    // Check for content that exceeds container bounds
+    const hasOverflowingContent =
+      element.scrollHeight > element.clientHeight ||
+      element.scrollWidth > element.clientWidth;
+
+    // Check for common scrollable class patterns
+    const className = element.className || "";
+    const hasScrollableClasses =
+      className.includes("overflow-auto") ||
+      className.includes("overflow-scroll") ||
+      className.includes("overflow-y-auto") ||
+      className.includes("overflow-x-auto") ||
+      className.includes("scrollable") ||
+      className.includes("scroll-container");
+
+    return hasScrollableOverflow && (hasOverflowingContent || hasScrollableClasses);
   }
 
   /**

@@ -221,7 +221,6 @@ export const streamMastraMessage = async (
                   }
                   break;
                 case 'content':
-                  // console.log("📡 Received SSE content chunk:", data.data);
                   // Accumulate the final response content
                   finalMessage += data.data;
                   // Send content chunks for real-time streaming

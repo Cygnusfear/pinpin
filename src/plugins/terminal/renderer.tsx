@@ -451,6 +451,7 @@ export const TerminalRenderer: React.FC<WidgetRendererProps> = React.memo(
         <div
           ref={terminalRef}
           className="flex-1 overflow-hidden"
+          data-scrollable="true"
           style={{
             backgroundColor: data.theme?.background || "#1a1a1a",
           }}

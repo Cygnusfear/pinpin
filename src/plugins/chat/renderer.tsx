@@ -1,14 +1,14 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { sendMastraMessage, streamMastraMessage } from "../../services/mastraService";
+import { streamMastraMessage } from "../../services/mastraService";
 import {
   useWidgetActions,
   useWidgetContent,
 } from "../../stores/selectiveHooks";
 import type { WidgetRendererProps } from "../../types/widgets";
-import type { ChatContent, ChatMessage } from "./types";
 import MarkdownRenderer from "./components/MarkdownRenderer";
+import type { ChatMessage } from "./types";
 
 export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Selective subscriptions - only re-render when these specific values change
@@ -20,22 +20,23 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     widgetId,
     (content) => content.data.isTyping || false,
   );
-  const settings = useWidgetContent(
-    widgetId,
-    (content) => content.data.settings || {},
-  );
 
   // Get update actions
   const { updateContent } = useWidgetActions(widgetId);
 
   const [inputValue, setInputValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showClearDialog, setShowClearDialog] = useState(false);
-  const [conversationId, setConversationId] = useState<string>(() => `chat-${widgetId}-${Date.now()}`);
+  const [conversationId, setConversationId] = useState<string>(
+    () => `chat-${widgetId}-${Date.now()}`,
+  );
+  const [chunks, setChunks] = useState<string[]>([]);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const currentStreamingBubble = useRef<ChatMessage | null>(null);
+  const lastContextType = useRef<"thinking" | "tool" | null>(null);
+  const currentMessages = useRef<ChatMessage[]>([]);
 
   // Scroll functions removed - reverse flex layout automatically keeps latest content visible
 
@@ -44,14 +45,14 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Minimal observer for content changes - reverse flex handles positioning automatically
   useEffect(() => {
     if (!messagesContainerRef.current) return;
-    
+
     const resizeObserver = new ResizeObserver(() => {
       // With reverse flex, content automatically stays at bottom - no manual scrolling needed
     });
-    
+
     // Observe message container for size changes
     resizeObserver.observe(messagesContainerRef.current);
-    
+
     return () => {
       resizeObserver.disconnect();
     };
@@ -75,7 +76,6 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     });
 
     setInputValue("");
-    setIsLoading(true);
     setError(null);
 
     // Immediately refocus the input field for smooth conversation flow
@@ -86,12 +86,9 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     // No manual scrolling needed - reverse flex handles positioning
 
     try {
-      // Create a temporary array to track all bubbles
-      let currentMessages = [...updatedMessages];
-      let currentStreamingBubble: ChatMessage | null = null;
-      let lastContextType: 'thinking' | 'tool' | null = null;
-      
-      // Stream Mastra agent response with separate bubbles for each context
+      currentMessages.current = [...updatedMessages];
+
+      // Stream Mastra agent response - collect chunks silently
       const response = await streamMastraMessage(
         updatedMessages.map((msg) => ({
           role: msg.role,
@@ -101,8 +98,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
         "chat-user", // Static user ID for chat widget
         (progressMessage: string) => {
           console.log("🔧 Tool progress:", progressMessage);
-          
-          // Tool execution - always create a new bubble
+          // Tool progress is logged but no bubble is created - loading indicator shows instead
           const toolMsg: ChatMessage = {
             role: "assistant",
             content: progressMessage,
@@ -111,30 +107,32 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
             metadata: {
               isProgress: true,
               bubbleId: `tool-${Date.now()}-${Math.random()}`,
-              temporary: true,
+              temporary: false,
             },
           };
 
           // Add new tool bubble
-          currentMessages = [...currentMessages, toolMsg];
-          lastContextType = 'tool';
-          currentStreamingBubble = null; // Reset streaming bubble
-          
+          currentMessages.current = [...currentMessages.current, toolMsg];
+          lastContextType.current = "tool";
+          currentStreamingBubble.current = null; // Reset streaming bubble
+
           // Force synchronous React update
           flushSync(() => {
             updateContent({
-              messages: currentMessages,
+              messages: currentMessages.current,
               isTyping: true,
             });
           });
-
-          // No scrolling needed - reverse flex auto-positions
         },
         (contentChunk: string) => {
           console.log("💭 AI thinking:", contentChunk);
-          
+          // Content chunks are logged but no bubble is created - loading indicator shows instead
+
           // AI thinking - create new bubble if context switched from tool, otherwise update existing
-          if (lastContextType !== 'thinking' || !currentStreamingBubble) {
+          if (
+            lastContextType.current !== "thinking" ||
+            !currentStreamingBubble.current
+          ) {
             // Create new thinking bubble
             const thinkingMsg: ChatMessage = {
               role: "assistant",
@@ -144,46 +142,35 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
               metadata: {
                 isStreaming: true,
                 bubbleId: `thinking-${Date.now()}-${Math.random()}`,
-                temporary: true,
+                temporary: false,
               },
             };
-            
-            currentMessages = [...currentMessages, thinkingMsg];
-            currentStreamingBubble = thinkingMsg;
-            lastContextType = 'thinking';
+
+            currentStreamingBubble.current = thinkingMsg;
+            lastContextType.current = "thinking";
           } else {
             // Update existing thinking bubble - replace content instead of appending
-            const bubbleId = currentStreamingBubble.metadata?.bubbleId;
-            currentMessages = currentMessages.map(msg => 
-              msg.metadata?.bubbleId === bubbleId
-                ? { ...msg, content: contentChunk }
-                : msg
-            );
-            
-            // Update our reference
-            currentStreamingBubble = currentMessages.find(msg => 
-              msg.metadata?.bubbleId === bubbleId
-            ) || null;
+            // const bubbleId = currentStreamingBubble.current?.metadata?.bubbleId;
+            // currentMessages = currentMessages.map((msg) =>
+            //   msg.metadata?.bubbleId === bubbleId
+            //     ? { ...msg, content: contentChunk }
+            //     : msg,
+            // );
+            // // Update our reference
+            // currentStreamingBubble.current =
+            //   currentMessages.find(
+            //     (msg) => msg.metadata?.bubbleId === bubbleId,
+            //   ) || null;
           }
-          
-          // Force synchronous React update
-          flushSync(() => {
-            updateContent({
-              messages: currentMessages,
-              isTyping: true,
-            });
-          });
 
-          // No scrolling needed - reverse flex auto-positions
-        }
+          lastContextType.current = "thinking";
+        },
       );
 
-      if (response && response.success === true && response.message) {
+      if (response.success && response.message) {
         // Remove all temporary bubbles (both tool and thinking), add final response
-        const finalMessages = updatedMessages.filter(msg => 
-          !msg.metadata?.temporary
-        );
-        
+        const finalMessages = currentMessages.current;
+
         const assistantMessage: ChatMessage = {
           role: "assistant",
           content: response.message,
@@ -201,30 +188,36 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
         });
 
         // Update conversationId if changed
-        if (response.conversationId && response.conversationId !== conversationId) {
+        if (
+          response.conversationId &&
+          response.conversationId !== conversationId
+        ) {
           setConversationId(response.conversationId);
         }
 
         // No manual scrolling needed - reverse flex handles positioning
       } else {
-        const errorMessage = response?.error || "Invalid response from Mastra agent";
-        console.error("Mastra response error:", response);
-        throw new Error(errorMessage);
+        console.error("Invalid response from Mastra agent:", response);
+        throw new Error(response.error || "Invalid response from Mastra agent");
       }
     } catch (err) {
       console.error("Chat error:", err);
       setError(err instanceof Error ? err.message : "Failed to send message");
 
       // Remove typing indicator and any temporary bubbles on error
-      const cleanMessages = updatedMessages.filter(msg => 
-        !msg.metadata?.temporary
-      );
+      const cleanMessages = updatedMessages;
       updateContent({
         messages: cleanMessages,
         isTyping: false,
       });
     } finally {
-      setIsLoading(false);
+      // Extra safety: ensure isTyping is reset even if there were issues above
+      setTimeout(() => {
+        updateContent((currentContent) => ({
+          ...currentContent,
+          isTyping: false,
+        }));
+      }, 100);
     }
   }, [inputValue, messages, updateContent, conversationId]);
 
@@ -282,34 +275,54 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   if (!messages) {
     return (
       <div className="flex h-full w-full items-center justify-center rounded-full border border-gray-300 bg-gray-100 p-3 shadow">
-        <div className="text-gray-500 text-sm text-center">Loading chat...</div>
+        <div className="text-center text-gray-500 text-sm">Loading chat...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-gray-50">
-
+    <div className="flex h-full w-full flex-col bg-gray-50">
       {/* Messages Area */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className="relative flex-1 overflow-hidden">
         {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-gray-500 p-4">
-              <div className="text-4xl mb-2">🌈</div>
+          <div className="flex h-full items-center justify-center">
+            <div className="p-4 text-center text-gray-500">
+              <div className="mb-2 text-4xl">🌈</div>
               <p className="text-sm">Talk to Tonk</p>
             </div>
           </div>
         ) : (
           <div
             ref={messagesContainerRef}
-            className="flex flex-col-reverse space-y-reverse space-y-2 overflow-y-auto p-3 h-full"
-            style={{ 
+            className="flex h-full flex-col-reverse space-y-2 space-y-reverse overflow-y-auto p-3"
+            data-scrollable="true"
+            style={{
               scrollBehavior: "smooth",
               scrollbarWidth: "thin",
               // Prevent layout shifts during content updates
-              overflowAnchor: "auto"
+              overflowAnchor: "auto",
             }}
           >
+            {/* Show loading indicator when AI is typing */}
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] animate-pulse rounded-2xl rounded-bl-md border border-gray-200 bg-gray-100 px-4 py-2 text-gray-600 shadow-sm">
+                  <div className="flex items-center gap-2 whitespace-pre-wrap break-words text-sm">
+                    <div className="h-2 w-2 flex-shrink-0 animate-bounce rounded-full bg-gray-400" />
+                    <div
+                      className="h-2 w-2 flex-shrink-0 animate-bounce rounded-full bg-gray-400"
+                      style={{ animationDelay: "0.1s" }}
+                    />
+                    <div
+                      className="h-2 w-2 flex-shrink-0 animate-bounce rounded-full bg-gray-400"
+                      style={{ animationDelay: "0.2s" }}
+                    />
+                    <span className="ml-2">AI is thinking...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {[...messages].reverse().map((message, index) => (
               <div
                 key={`${message.timestamp}-${index}`}
@@ -321,35 +334,19 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-2 shadow-sm ${
                     message.role === "user"
-                      ? "bg-blue-500 text-white rounded-br-md"
-                      : message.metadata?.isProgress
-                        ? "bg-orange-50 text-orange-800 rounded-bl-md border border-orange-200 opacity-90"
-                        : message.metadata?.isStreaming
-                          ? "bg-green-50 text-green-800 rounded-bl-md border border-green-200"
-                          : "bg-white text-gray-800 rounded-bl-md border border-gray-200"
+                      ? "rounded-br-md bg-blue-500 text-white"
+                      : "rounded-bl-md border border-gray-200 bg-white text-gray-800"
                   }`}
                 >
                   {message.role === "assistant" ? (
-                    message.metadata?.isProgress ? (
-                      // Tool execution bubble
-                      <div className="whitespace-pre-wrap break-words text-sm">
-                        {message.content}
-                      </div>
-                    ) : message.metadata?.isStreaming ? (
-                      // AI thinking bubble
-                      <div className="whitespace-pre-wrap break-words text-sm">
-                        {message.content}
-                      </div>
-                    ) : (
-                      // Regular assistant message - full markdown
-                      <MarkdownRenderer
-                        content={message.content}
-                        className="prose prose-sm max-w-none"
-                        showThinkTags={true}
-                        expandThinkTagsByDefault={false}
-                        enableSyntaxHighlighting={true}
-                      />
-                    )
+                    // Regular assistant message - full markdown
+                    <MarkdownRenderer
+                      content={message.content}
+                      className="prose prose-sm max-w-none"
+                      showThinkTags={true}
+                      expandThinkTagsByDefault={false}
+                      enableSyntaxHighlighting={true}
+                    />
                   ) : (
                     <div className="whitespace-pre-wrap break-words text-sm">
                       {message.content}
@@ -365,8 +362,8 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                     <div className="flex items-center justify-between">
                       <span>
                         {new Date(message.timestamp).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit'
+                          hour: "2-digit",
+                          minute: "2-digit",
                         })}
                       </span>
                       {message.role === "assistant" &&
@@ -384,38 +381,13 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                 </div>
               </div>
             ))}
-
             <div ref={messagesEndRef} />
-
-            {/* Typing indicator - now at top due to reverse layout */}
-            {isTyping && (
-              <div className="flex justify-start">
-                <div className="rounded-2xl rounded-bl-md bg-white border border-gray-200 px-4 py-3 shadow-sm">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex space-x-1">
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400" />
-                      <div
-                        className="h-2 w-2 animate-bounce rounded-full bg-gray-400"
-                        style={{ animationDelay: "0.1s" }}
-                      />
-                      <div
-                        className="h-2 w-2 animate-bounce rounded-full bg-gray-400"
-                        style={{ animationDelay: "0.2s" }}
-                      />
-                    </div>
-                    <span className="text-gray-500 text-xs">
-                      Tonk is thinking...
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
         {/* Error display */}
         {error && (
-          <div className="absolute top-0 left-0 right-0 m-3 rounded-lg bg-red-50 border border-red-200 p-2 shadow-sm">
+          <div className="absolute top-0 right-0 left-0 m-3 rounded-lg border border-red-200 bg-red-50 p-2 shadow-sm">
             <div className="text-red-600 text-xs">{error}</div>
             <button
               type="button"
@@ -429,12 +401,12 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
       </div>
 
       {/* Input Area */}
-      <div className="pt-3 bg-white border-t border-gray-200">
+      <div className="border-gray-200 border-t bg-white pt-3">
         <div className="flex items-center space-x-2">
           <button
             type="button"
             onClick={() => setShowClearDialog(true)}
-            className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg"
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-red-500"
             title="Clear conversation"
           >
             <svg
@@ -458,13 +430,13 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="What shall we do..."
-            className="flex-1 rounded-full bg-gray-100 px-4 py-2 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-200 transition-all"
+            className="flex-1 rounded-full border border-gray-200 bg-gray-100 px-4 py-2 text-sm transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="button"
             onClick={handleSendMessage}
             disabled={!inputValue.trim()}
-            className="rounded-full bg-blue-500 p-2 text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300 transition-colors flex-shrink-0"
+            className="flex-shrink-0 rounded-full bg-blue-500 p-2 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
             title="Send message"
           >
             <svg
@@ -502,14 +474,14 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
               <button
                 type="button"
                 onClick={() => setShowClearDialog(false)}
-                className="px-4 py-2 text-gray-600 text-sm hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-gray-600 text-sm transition-colors hover:text-gray-800"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleClearConversation}
-                className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600 transition-colors"
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white transition-colors hover:bg-red-600"
               >
                 Clear
               </button>

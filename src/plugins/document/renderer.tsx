@@ -180,8 +180,8 @@ export const DocumentRenderer: React.FC<WidgetRendererProps> = ({
           )}
 
           {data.content && data.mimeType?.startsWith("text/") && (
-            <div className="max-h-20 overflow-hidden rounded bg-gray-50 p-3 text-gray-700 text-sm">
-              <div className="line-clamp-3">{data.content}</div>
+            <div className="max-h-20 overflow-auto rounded bg-gray-50 p-3 text-gray-700 text-sm" data-scrollable="true">
+              <div className="whitespace-pre-wrap">{data.content}</div>
             </div>
           )}
 

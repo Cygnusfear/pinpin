@@ -145,7 +145,6 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
           let chunkCount = 0;
           for await (const chunk of streamResult.stream) {
             chunkCount++;
-            console.log(`📡 SSE Content chunk ${chunkCount}:`, chunk?.substring(0, 100) + '...');
             res.write(`data: ${JSON.stringify({
               type: 'content',
               data: chunk

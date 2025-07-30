@@ -140,6 +140,7 @@ export const NoteRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
           style={noteStyle}
           onClick={handleStartEdit}
           onDoubleClick={handleStartEdit}
+          data-scrollable="true"
         >
           {content ? (
             <div className="whitespace-pre-wrap break-words">{content}</div>

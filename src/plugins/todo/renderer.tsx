@@ -129,7 +129,7 @@ export const TodoRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
       </div>
 
       {/* Todo Items */}
-      <div className="flex-1 overflow-auto p-2">
+      <div className="flex-1 overflow-auto p-2" data-scrollable="true">
         {items.map((item) => (
           <div
             key={item.id}
