@@ -9,6 +9,7 @@ import {
 import type { WidgetRendererProps } from "../../types/widgets";
 import MarkdownRenderer from "./components/MarkdownRenderer";
 import type { ChatMessage } from "./types";
+import { cn } from "@/lib/utils";
 
 export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
   // Selective subscriptions - only re-render when these specific values change
@@ -327,16 +328,20 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
               <div
                 key={`${message.timestamp}-${index}`}
                 data-message
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={cn(`flex`,
+                  message.role === "user" ? "justify-end" : "justify-start",
+                    message.metadata?.bubbleId?.includes("tool") && "justify-center"
+                )}
               >
                 <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-2 shadow-sm ${
+                  className={cn(`max-w-[85%] rounded-2xl px-4 py-2 shadow-sm`,
                     message.role === "user"
                       ? "rounded-br-md bg-blue-500 text-white"
                       : "rounded-bl-md border border-gray-200 bg-white text-gray-800"
-                  }`}
+                    ,
+                    message.metadata?.temporary && "animate-pulse",
+                    message.metadata?.bubbleId?.includes("tool") && "border-blue-300 rounded-bl-xl justify-center font-mono text-xs opacity-50"
+                  )}
                 >
                   {message.role === "assistant" ? (
                     // Regular assistant message - full markdown
