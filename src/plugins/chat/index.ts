@@ -5,13 +5,19 @@ import { ChatRenderer } from "./renderer";
 export class ChatPlugin implements WidgetPlugin {
   id = chatTypeDefinition[0].type;
   name = chatTypeDefinition[0].name;
-  version = "1.0.0";
+  version = "2.0.0";
   description = chatTypeDefinition[0].description;
   author = "Pinboard Team";
 
   types: WidgetTypeDefinition[] = chatTypeDefinition;
   factories = [new ChatFactory()];
-  renderers = [{ type: "chat", component: ChatRenderer }];
+  
+  get renderers() {
+    return [{ 
+      type: "chat", 
+      component: ChatRenderer
+    }];
+  }
 
   async install(registry: any): Promise<void> {
     // Register type definition
@@ -42,8 +48,3 @@ export class ChatPlugin implements WidgetPlugin {
 
 // Export plugin instance
 export const chatPlugin = new ChatPlugin();
-
-// Export individual components for flexibility
-export { ChatFactory } from "./factory";
-export { ChatRenderer } from "./renderer";
-export type { ChatContent, ChatMessage } from "./types";

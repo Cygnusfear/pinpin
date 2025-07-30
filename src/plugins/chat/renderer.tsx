@@ -1,237 +1,182 @@
-import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
-import { streamMastraMessage } from "../../services/mastraService";
+/**
+ * Chat Renderer - Simplified Claude Code Style
+ * 
+ * Simplified React component using the new ChatStreamManager for
+ * a smooth, predictable streaming experience like Claude Code.
+ * 
+ * Key Improvements:
+ * - Minimal reactive state (only messages + currentStream)
+ * - Non-reactive streaming via ChatStreamManager
+ * - Batched UI updates for better performance
+ * - Clear message boundaries and lifecycle
+ * - Simple, maintainable code structure
+ */
+
+import React, { useCallback, useEffect, useRef, useState } from "react";
+// import { chatStreamManager } from "../../services/chatStreamManager";
+// import type { MessageState } from "../../types/streaming";
 import {
   useWidgetActions,
   useWidgetContent,
 } from "../../stores/selectiveHooks";
 import type { WidgetRendererProps } from "../../types/widgets";
 import MarkdownRenderer from "./components/MarkdownRenderer";
-import type { ChatMessage } from "./types";
 import { cn } from "@/lib/utils";
+import { Check, X, Loader2, Settings } from "lucide-react";
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+  provider?: string;
+  metadata?: {
+    conversationId?: string;
+    tools?: Array<{ name: string; status: string }>;
+    // Streaming metadata
+    isProgress?: boolean;
+    isStreaming?: boolean;
+    isContentBubble?: boolean;
+    isToolBubble?: boolean;
+    toolStatus?: 'running' | 'complete' | 'error';
+    toolKey?: string;
+    bubbleId?: string;
+    temporary?: boolean;
+  };
+}
 
 export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
-  // Selective subscriptions - only re-render when these specific values change
+  // Minimal reactive state - only what React needs to know about
   const messages = useWidgetContent(
     widgetId,
     (content) => content.data.messages || [],
   );
-  const isTyping = useWidgetContent(
-    widgetId,
-    (content) => content.data.isTyping || false,
-  );
-
-  // Get update actions
+  
   const { updateContent } = useWidgetActions(widgetId);
-
+  
+  // Simple component state
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [conversationId, setConversationId] = useState<string>(
     () => `chat-${widgetId}-${Date.now()}`,
   );
-  const [chunks, setChunks] = useState<string[]>([]);
+  
+  // Track streaming bubbles - separate tool and content bubbles
+  const [streamingBubbles, setStreamingBubbles] = useState<ChatMessage[]>([]);
+  
+  // Refs for DOM interaction
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const currentStreamingBubble = useRef<ChatMessage | null>(null);
-  const lastContextType = useRef<"thinking" | "tool" | null>(null);
-  const currentMessages = useRef<ChatMessage[]>([]);
-
-  // Scroll functions removed - reverse flex layout automatically keeps latest content visible
-
-  // No need for auto-scroll with reverse flex layout - content automatically appears at bottom
-
-  // Minimal observer for content changes - reverse flex handles positioning automatically
+  
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (!messagesContainerRef.current) return;
-
-    const resizeObserver = new ResizeObserver(() => {
-      // With reverse flex, content automatically stays at bottom - no manual scrolling needed
-    });
-
-    // Observe message container for size changes
-    resizeObserver.observe(messagesContainerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [messages]);
-
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  }, [messages, streamingBubbles]);
+  
   const handleSendMessage = useCallback(async () => {
     if (!inputValue.trim() || !messages) return;
-
+    
     const userMessage: ChatMessage = {
       role: "user",
       content: inputValue.trim(),
       timestamp: Date.now(),
     };
-
+    
     // Add user message immediately
     const updatedMessages = [...messages, userMessage];
-
     updateContent({
       messages: updatedMessages,
-      isTyping: true,
     });
-
+    
     setInputValue("");
     setError(null);
-
-    // Immediately refocus the input field for smooth conversation flow
+    
+    // Focus input for smooth conversation flow
     setTimeout(() => {
       inputRef.current?.focus();
     }, 0);
-
-    // No manual scrolling needed - reverse flex handles positioning
-
+    
     try {
-      currentMessages.current = [...updatedMessages];
-
-      // Stream Mastra agent response - collect chunks silently
-      const response = await streamMastraMessage(
-        updatedMessages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        conversationId,
-        "chat-user", // Static user ID for chat widget
-        (progressMessage: string) => {
-          console.log("🔧 Tool progress:", progressMessage);
-          // Tool progress is logged but no bubble is created - loading indicator shows instead
-          const toolMsg: ChatMessage = {
-            role: "assistant",
-            content: progressMessage,
-            timestamp: Date.now(),
-            provider: "mastra",
-            metadata: {
-              isProgress: true,
-              bubbleId: `tool-${Date.now()}-${Math.random()}`,
-              temporary: false,
-            },
-          };
-
-          // Add new tool bubble
-          currentMessages.current = [...currentMessages.current, toolMsg];
-          lastContextType.current = "tool";
-          currentStreamingBubble.current = null; // Reset streaming bubble
-
-          // Force synchronous React update
-          flushSync(() => {
-            updateContent({
-              messages: currentMessages.current,
-              isTyping: true,
-            });
-          });
-        },
-        (contentChunk: string) => {
-          console.log("💭 AI thinking:", contentChunk);
-          // Content chunks are logged but no bubble is created - loading indicator shows instead
-
-          // AI thinking - create new bubble if context switched from tool, otherwise update existing
-          if (
-            lastContextType.current !== "thinking" ||
-            !currentStreamingBubble.current
-          ) {
-            // Create new thinking bubble
-            const thinkingMsg: ChatMessage = {
-              role: "assistant",
-              content: contentChunk,
-              timestamp: Date.now(),
-              provider: "mastra",
-              metadata: {
-                isStreaming: true,
-                bubbleId: `thinking-${Date.now()}-${Math.random()}`,
-                temporary: false,
-              },
-            };
-
-            currentMessages.current = [...currentMessages.current, thinkingMsg];
-            currentStreamingBubble.current = thinkingMsg;
-            lastContextType.current = "thinking";
-          } else {
-            // Update existing thinking bubble - replace content instead of appending
-            const bubbleId = currentStreamingBubble.current?.metadata?.bubbleId;
-            currentMessages.current = currentMessages.current.map((msg) =>
-              msg.metadata?.bubbleId === bubbleId
-                ? { ...msg, content: msg.content + contentChunk }
-                : msg,
-            );
-            // Update our reference
-            currentStreamingBubble.current =
-              currentMessages.current.find(
-                (msg) => msg.metadata?.bubbleId === bubbleId,
-              ) || null;
-          }
-
-          lastContextType.current = "thinking";
-        },
-      );
-
-      if (response.success && response.message) {
-        // Remove all temporary bubbles (both tool and thinking), add final response
-        const finalMessages = currentMessages.current;
-        
-        const assistantMessage: ChatMessage = {
-          role: "assistant",
-          content: response.message,
-          timestamp: Date.now(),
-          provider: "mastra",
-          metadata: {
-            conversationId: response.conversationId,
-          },
-        };
-        const completedMessages = [...finalMessages, assistantMessage];
-        updateContent({
-          messages: completedMessages,
-          isTyping: false,
-        });
-
-        currentStreamingBubble.current = null;
-        lastContextType.current = null;
-
-        // Update conversationId if changed
-        if (
-          response.conversationId &&
-          response.conversationId !== conversationId
-        ) {
-          setConversationId(response.conversationId);
+      // Process raw stream events to create separate bubbles like old system
+      const response = await processStreamWithSeparateBubbles(
+        {
+          message: userMessage.content,
+          conversationId,
+          userId: "chat-user",
+          maxSteps: 100,
         }
-
-        // No manual scrolling needed - reverse flex handles positioning
+      );
+      
+      if (response.success) {
+        console.log("🎯 Stream completed successfully");
+        console.log("🎯 Current updatedMessages:", updatedMessages.length);
+        console.log("🎯 Collected bubbles from stream:", response.bubbles?.length || 0);
+        
+        // Convert collected bubbles to permanent messages by updating metadata
+        const permanentBubbles = (response.bubbles || []).map(bubble => ({
+          ...bubble,
+          metadata: {
+            ...bubble.metadata,
+            isStreaming: false,
+            temporary: false,
+            // Mark tool bubbles as completed if they're still running
+            ...(bubble.metadata?.isToolBubble && bubble.metadata?.toolStatus === 'running' ? 
+              { toolStatus: 'complete' as const } : {})
+          }
+        }));
+        
+        console.log("🎯 PermanentBubbles created:", permanentBubbles.length);
+        
+        // Convert streaming bubbles to permanent and ADD to conversation with user message
+        console.log("🎯 Updated messages (with user):", updatedMessages.length);
+        console.log("🎯 Current streaming bubbles to make permanent:", streamingBubbles.length);
+        
+        // Make streaming bubbles permanent by removing temporary flags
+        const permanentStreamingBubbles = streamingBubbles.map(bubble => ({
+          ...bubble,
+          metadata: {
+            ...bubble.metadata,
+            isStreaming: false,
+            temporary: false,
+            // Mark tool bubbles as completed if they're still running
+            ...(bubble.metadata?.isToolBubble && bubble.metadata?.toolStatus === 'running' ? 
+              { toolStatus: 'complete' as const } : {})
+          }
+        }));
+        
+        // Use updatedMessages (which includes user message) + streaming bubbles
+        const allMessages = [...updatedMessages, ...permanentStreamingBubbles];
+        console.log("🎯 Total messages to save:", allMessages.length);
+        
+        updateContent({
+          messages: allMessages,
+        });
+        
+        // Clear streaming bubbles since they're now permanent
+        console.log("🎯 Clearing streaming bubbles (now saved as permanent)");
+        setStreamingBubbles([]);
+        
       } else {
-        console.error("Invalid response from Mastra agent:", response);
-        throw new Error(response.error || "Invalid response from Mastra agent");
+        console.error("Stream failed:", response);
+        throw new Error("Failed to get response from AI agent");
       }
+      
     } catch (err) {
       console.error("Chat error:", err);
       setError(err instanceof Error ? err.message : "Failed to send message");
-
-      // Remove typing indicator and any temporary bubbles on error
-      const cleanMessages = updatedMessages;
-      updateContent({
-        messages: cleanMessages,
-        isTyping: false,
-      });
-    } finally {
-      // Extra safety: ensure isTyping is reset even if there were issues above
-      setTimeout(() => {
-        updateContent((currentContent) => ({
-          ...currentContent,
-          isTyping: false,
-        }));
-      }, 100);
+      setStreamingBubbles([]);
     }
   }, [inputValue, messages, updateContent, conversationId]);
-
+  
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSendMessage();
       }
-      // Ctrl+K to clear conversation
+      // Ctrl/Cmd+K to clear conversation
       if (e.key === "k" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         setShowClearDialog(true);
@@ -244,37 +189,355 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     },
     [handleSendMessage, showClearDialog],
   );
-
+  
   // Global keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Focus input with Ctrl+/ or Cmd+/
+      // Focus input with Ctrl/Cmd+/
       if (e.key === "/" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         inputRef.current?.focus();
       }
     };
-
+    
     document.addEventListener("keydown", handleGlobalKeyDown);
     return () => document.removeEventListener("keydown", handleGlobalKeyDown);
   }, []);
-
-  // Cleanup no longer needed - no scroll timeouts
-
+  
   const handleClearConversation = useCallback(() => {
     if (!messages) return;
-
+    
     updateContent({
       messages: [],
-      isTyping: false,
     });
-
+    
     setShowClearDialog(false);
     setError(null);
+    setStreamingBubbles([]);
     // Reset conversation ID when clearing
     setConversationId(`chat-${widgetId}-${Date.now()}`);
-  }, [messages, updateContent]);
+  }, [messages, updateContent, widgetId]);
 
+  // Custom stream processing that creates separate bubbles by reading event stream
+  const processStreamWithSeparateBubbles = useCallback(async (request: any) => {
+    const response = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("Failed to get response reader");
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalContent = '';
+    let lastEventType: string | null = null; // Track event stream directly
+    let currentContentBubbleId: string | null = null;
+    
+    // Track bubbles created during streaming - independent of React state
+    let collectedBubbles: ChatMessage[] = [];
+
+    // Local bubble handlers that work directly with collectedBubbles array - NO REACT STATE UPDATES
+    function handleToolEventStreamLocal(event: any, lastEventType: string | null, bubbles: ChatMessage[]) {
+      const toolKey = `tool-${event.tool}`;
+      
+      console.log(`🔧 LOCAL TOOL HANDLER: ${event.tool} (${event.status}) - toolKey: ${toolKey}`);
+      
+      // Check if we already have a bubble for this tool
+      const existingIndex = bubbles.findIndex(msg => 
+        msg.metadata?.toolKey === toolKey
+      );
+      
+      console.log(`🔍 Looking for existing tool bubble with key ${toolKey}: found at index ${existingIndex}`);
+      
+      if (existingIndex >= 0) {
+        // Update existing tool bubble
+        console.log(`🔄 UPDATING EXISTING TOOL BUBBLE: ${toolKey} to ${event.status} ${event.tool}`);
+        bubbles[existingIndex] = {
+          ...bubbles[existingIndex],
+          content: event.tool,
+          metadata: {
+            ...bubbles[existingIndex].metadata,
+            toolStatus: event.status
+          }
+        };
+      } else {
+        // Create new tool bubble
+        const bubbleId = `tool-${Date.now()}-${Math.random()}`;
+        const toolMsg: ChatMessage = {
+          role: "assistant",
+          content: event.tool,
+          timestamp: Date.now(),
+          provider: "mastra",
+          metadata: {
+            isProgress: true,
+            bubbleId: bubbleId,
+            toolKey: toolKey,
+            toolStatus: event.status,
+            isToolBubble: true,
+            temporary: false,
+          },
+        };
+        
+        console.log(`🆕 CREATING NEW TOOL BUBBLE: ${bubbleId} with tool "${event.tool}"`);
+        console.log(`📊 Current bubbles before adding tool: ${bubbles.length}`);
+        bubbles.push(toolMsg);
+        console.log(`📊 Current bubbles after adding tool: ${bubbles.length}`);
+        console.log(`✅ TOOL BUBBLE ADDED SUCCESSFULLY`);
+      }
+    }
+
+    function handleContentEventStreamLocal(
+      event: any, 
+      lastEventType: string | null, 
+      currentContentBubbleId: string | null,
+      bubbles: ChatMessage[]
+    ): string {
+      // Create NEW content bubble if:
+      // 1. This is the first content event (lastEventType is null)
+      // 2. Previous event was a tool (lastEventType === 'tool')
+      // 3. We don't have a current content bubble
+      const needNewBubble = lastEventType !== 'content' || !currentContentBubbleId;
+      
+      console.log(`📝 LOCAL CONTENT HANDLER: needNewBubble=${needNewBubble} (lastEventType: ${lastEventType}, currentBubbleId: ${currentContentBubbleId})`);
+      
+      if (needNewBubble) {
+        // Create NEW content bubble (always separate from tools)
+        const bubbleId = `thinking-${Date.now()}-${Math.random()}`;
+        const thinkingMsg: ChatMessage = {
+          role: "assistant",
+          content: event.data,
+          timestamp: Date.now(),
+          provider: "mastra",
+          metadata: {
+            isStreaming: true,
+            bubbleId: bubbleId,
+            isContentBubble: true,
+            temporary: false,
+          },
+        };
+
+        console.log(`🆕 CREATING NEW CONTENT BUBBLE: ${bubbleId} with content "${event.data}"`);
+        console.log(`📊 Current bubbles before adding: ${bubbles.length}`);
+        bubbles.push(thinkingMsg);
+        console.log(`📊 Current bubbles after adding: ${bubbles.length}`);
+        console.log(`✅ CONTENT BUBBLE ADDED SUCCESSFULLY`);
+        
+        return bubbleId; // Return the new bubble ID
+      } else {
+        // Update existing content bubble
+        console.log(`🔄 UPDATING EXISTING CONTENT BUBBLE: ${currentContentBubbleId} with "${event.data}"`);
+        
+        const existingIndex = bubbles.findIndex(msg =>
+          msg.metadata?.bubbleId === currentContentBubbleId && msg.metadata?.isContentBubble
+        );
+        
+        if (existingIndex >= 0) {
+          bubbles[existingIndex] = {
+            ...bubbles[existingIndex],
+            content: bubbles[existingIndex].content + event.data
+          };
+          console.log(`✅ CONTENT BUBBLE UPDATED SUCCESSFULLY`);
+        }
+        
+        console.log(`📊 Updated ${bubbles.length} bubbles`);
+        return currentContentBubbleId; // Return the same bubble ID
+      }
+    }
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const event = JSON.parse(line);
+              
+              console.log(`🔍 STREAM EVENT:`, event.type, event.tool || event.data?.substring(0, 20), `lastEventType: ${lastEventType}`);
+              
+              switch (event.type) {
+                case 'tool':
+                  console.log(`🔧 TOOL EVENT: ${event.tool} (${event.status}) - lastEventType: ${lastEventType}`);
+                  try {
+                    // Call BOTH handlers - local for collection AND React state for real-time display
+                    handleToolEventStreamLocal(event, lastEventType, collectedBubbles);
+                    handleToolEventStream(event, lastEventType);
+                    lastEventType = 'tool';
+                    currentContentBubbleId = null; // Reset content tracking
+                    console.log(`🔧 After tool event - lastEventType: ${lastEventType}`);
+                  } catch (toolError) {
+                    console.error(`🚨 TOOL HANDLER ERROR:`, toolError);
+                    throw toolError;
+                  }
+                  break;
+                case 'content':
+                  console.log(`💭 CONTENT EVENT: "${event.data}" - lastEventType: ${lastEventType}, currentBubbleId: ${currentContentBubbleId}`);
+                  try {
+                    // Call BOTH handlers - local for collection AND React state for real-time display
+                    currentContentBubbleId = handleContentEventStreamLocal(
+                      event, 
+                      lastEventType, 
+                      currentContentBubbleId,
+                      collectedBubbles
+                    );
+                    handleContentEventStream(event, lastEventType, currentContentBubbleId);
+                    lastEventType = 'content';
+                    finalContent += event.data;
+                    console.log(`💭 After content event - lastEventType: ${lastEventType}, currentBubbleId: ${currentContentBubbleId}`);
+                  } catch (contentError) {
+                    console.error(`🚨 CONTENT HANDLER ERROR:`, contentError);
+                    throw contentError;
+                  }
+                  break;
+                case 'message_complete':
+                  console.log(`✅ MESSAGE COMPLETE`);
+                  console.log(`🎯 About to return from processStreamWithSeparateBubbles`);
+                  console.log(`🎯 Current collectedBubbles count:`, collectedBubbles.length);
+                  return { success: true, finalContent: event.final_content || finalContent, bubbles: collectedBubbles };
+                case 'error':
+                  console.log(`❌ ERROR:`, event.error);
+                  throw new Error(event.error);
+              }
+            } catch (parseError) {
+              // Only catch JSON parsing errors, re-throw handler errors
+              if (parseError.message?.includes('HANDLER ERROR') || parseError.name === 'TypeError') {
+                throw parseError;
+              }
+              console.warn('Failed to parse stream event:', line, parseError);
+            }
+          }
+        }
+      }
+
+      return { success: true, finalContent, bubbles: collectedBubbles };
+    } finally {
+      reader.releaseLock();
+    }
+  }, []);
+
+  // Handle tool events based on event stream context
+  const handleToolEventStream = useCallback((event: any, lastEventType: string | null) => {
+    const toolKey = `tool-${event.tool}`;
+    
+    console.log(`🔧 TOOL HANDLER: ${event.tool} (${event.status}) - toolKey: ${toolKey}`);
+    
+    setStreamingBubbles(current => {
+      // Check if we already have a bubble for this tool
+      const existingIndex = current.findIndex(msg => 
+        msg.metadata?.toolKey === toolKey
+      );
+      
+      console.log(`🔍 Looking for existing tool bubble with key ${toolKey}: found at index ${existingIndex}`);
+      
+      if (existingIndex >= 0) {
+        // Update existing tool bubble
+        const updated = [...current];
+        
+        console.log(`🔄 UPDATING EXISTING TOOL BUBBLE: ${toolKey} to ${event.status} ${event.tool}`);
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          content: event.tool,
+          metadata: {
+            ...updated[existingIndex].metadata,
+            toolStatus: event.status
+          }
+        };
+        return updated;
+      } else {
+        // Create new tool bubble - always separate from content
+        const bubbleId = `tool-${Date.now()}-${Math.random()}`;
+        const toolMsg: ChatMessage = {
+          role: "assistant",
+          content: event.tool,
+          timestamp: Date.now(),
+          provider: "mastra",
+          metadata: {
+            isProgress: true,
+            bubbleId: bubbleId,
+            toolKey: toolKey,
+            toolStatus: event.status,
+            isToolBubble: true,
+            temporary: false,
+          },
+        };
+        
+        console.log(`🆕 CREATING NEW TOOL BUBBLE: ${bubbleId} with tool "${event.tool}"`);
+        console.log(`📊 Current bubbles before adding tool: ${current.length}`);
+        const newBubbles = [...current, toolMsg];
+        console.log(`📊 Current bubbles after adding tool: ${newBubbles.length}`);
+        return newBubbles;
+      }
+    });
+  }, []);
+
+  // Handle content events based on event stream context  
+  const handleContentEventStream = useCallback((
+    event: any, 
+    lastEventType: string | null, 
+    currentContentBubbleId: string | null
+  ): string => {
+    // Create NEW content bubble if:
+    // 1. This is the first content event (lastEventType is null)
+    // 2. Previous event was a tool (lastEventType === 'tool')
+    // 3. We don't have a current content bubble
+    const needNewBubble = lastEventType !== 'content' || !currentContentBubbleId;
+    
+    console.log(`📝 CONTENT HANDLER: needNewBubble=${needNewBubble} (lastEventType: ${lastEventType}, currentBubbleId: ${currentContentBubbleId})`);
+    
+    if (needNewBubble) {
+      // Create NEW content bubble (always separate from tools)
+      const bubbleId = `thinking-${Date.now()}-${Math.random()}`;
+      const thinkingMsg: ChatMessage = {
+        role: "assistant",
+        content: event.data,
+        timestamp: Date.now(),
+        provider: "mastra",
+        metadata: {
+          isStreaming: true,
+          bubbleId: bubbleId,
+          isContentBubble: true,
+          temporary: false,
+        },
+      };
+
+      console.log(`🆕 CREATING NEW CONTENT BUBBLE: ${bubbleId} with content "${event.data}"`);
+      setStreamingBubbles(current => {
+        console.log(`📊 Current bubbles before adding: ${current.length}`);
+        const newBubbles = [...current, thinkingMsg];
+        console.log(`📊 Current bubbles after adding: ${newBubbles.length}`);
+        return newBubbles;
+      });
+      return bubbleId; // Return the new bubble ID
+    } else {
+      // Update existing content bubble
+      console.log(`🔄 UPDATING EXISTING CONTENT BUBBLE: ${currentContentBubbleId} with "${event.data}"`);
+      setStreamingBubbles(current => {
+        const updated = current.map(msg =>
+          msg.metadata?.bubbleId === currentContentBubbleId && msg.metadata?.isContentBubble
+            ? { ...msg, content: msg.content + event.data }
+            : msg
+        );
+        console.log(`📊 Updated ${updated.length} bubbles`);
+        return updated;
+      });
+      
+      return currentContentBubbleId; // Return the same bubble ID
+    }
+  }, []);
+  
   // Loading state
   if (!messages) {
     return (
@@ -283,12 +546,12 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
       </div>
     );
   }
-
+  
   return (
     <div className="flex h-full w-full flex-col bg-gray-50">
       {/* Messages Area */}
       <div className="relative flex-1 overflow-hidden">
-        {messages.length === 0 ? (
+        {messages.length === 0 && streamingBubbles.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="p-4 text-center text-gray-500">
               <div className="mb-2 text-4xl">🌈</div>
@@ -298,17 +561,27 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
         ) : (
           <div
             ref={messagesContainerRef}
-            className="flex h-full flex-col-reverse space-y-2 space-y-reverse overflow-y-auto p-3"
+            className="flex h-full flex-col space-y-3 overflow-y-auto p-4"
             data-scrollable="true"
-            style={{
-              scrollBehavior: "smooth",
-              scrollbarWidth: "thin",
-              // Prevent layout shifts during content updates
-              overflowAnchor: "auto",
-            }}
           >
-            {/* Show loading indicator when AI is typing */}
-            {isTyping && (
+            {/* Regular message history */}
+            {messages.map((message, index) => (
+              <MessageBubble
+                key={`${message.timestamp}-${index}`}
+                message={message}
+              />
+            ))}
+            
+            {/* Current streaming bubbles - separate tool and content bubbles */}
+            {streamingBubbles.map((bubble, index) => (
+              <MessageBubble
+                key={`${bubble.timestamp}-${index}`}
+                message={bubble}
+              />
+            ))}
+            
+            {/* Show "AI is thinking..." when we have streaming bubbles */}
+            {streamingBubbles.length > 0 && (
               <div className="flex justify-start">
                 <div className="max-w-[85%] animate-pulse rounded-2xl rounded-bl-md border border-gray-200 bg-gray-100 px-4 py-2 text-gray-600 shadow-sm">
                   <div className="flex items-center gap-2 whitespace-pre-wrap break-words text-sm">
@@ -321,78 +594,14 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
                       className="h-2 w-2 flex-shrink-0 animate-bounce rounded-full bg-gray-400"
                       style={{ animationDelay: "0.2s" }}
                     />
-                    <span className="ml-2">AI is thinking...</span>
+                    <span className="ml-2">Tonk is thinking...</span>
                   </div>
                 </div>
               </div>
             )}
-
-            {[...messages].reverse().map((message, index) => (
-              <div
-                key={`${message.timestamp}-${index}`}
-                data-message
-                className={cn(`flex`,
-                  message.role === "user" ? "justify-end" : "justify-start",
-                    message.metadata?.bubbleId?.includes("tool") && "justify-center"
-                )}
-              >
-                <div
-                  className={cn(`max-w-[85%] rounded-2xl px-4 py-2 shadow-sm`,
-                    message.role === "user"
-                      ? "rounded-br-md bg-blue-500 text-white"
-                      : "rounded-bl-md border border-gray-200 bg-white text-gray-800"
-                    ,
-                    message.metadata?.temporary && "animate-pulse",
-                    message.metadata?.bubbleId?.includes("tool") && "border-blue-300 rounded-bl-xl justify-center font-mono text-xs opacity-50"
-                  )}
-                >
-                  {message.role === "assistant" ? (
-                    // Regular assistant message - full markdown
-                    <MarkdownRenderer
-                      content={message.content}
-                      className="prose prose-sm max-w-none"
-                      showThinkTags={true}
-                      expandThinkTagsByDefault={false}
-                      enableSyntaxHighlighting={true}
-                    />
-                  ) : (
-                    <div className="whitespace-pre-wrap break-words text-sm">
-                      {message.content}
-                    </div>
-                  )}
-                  <div
-                    className={`mt-1 text-xs ${
-                      message.role === "user"
-                        ? "text-blue-100"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span>
-                        {new Date(message.timestamp).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      {message.role === "assistant" &&
-                        message.toolCalls &&
-                        message.toolCalls.length > 0 && (
-                          <span
-                            className="ml-2"
-                            title={`Used ${message.toolCalls.length} MCP tools`}
-                          >
-                            🔧 {message.toolCalls.length}
-                          </span>
-                        )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
           </div>
         )}
-
+        
         {/* Error display */}
         {error && (
           <div className="absolute top-0 right-0 left-0 m-3 rounded-lg border border-red-200 bg-red-50 p-2 shadow-sm">
@@ -407,9 +616,9 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
           </div>
         )}
       </div>
-
+      
       {/* Input Area */}
-      <div className="border-gray-200 border-t bg-white pt-3">
+      <div className="border-gray-200 border-t bg-white p-3">
         <div className="flex items-center space-x-2">
           <button
             type="button"
@@ -438,12 +647,13 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="What shall we do..."
-            className="flex-1 rounded-full border border-gray-200 bg-gray-100 px-4 py-2 text-sm transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={streamingBubbles.length > 0}
+            className="flex-1 rounded-full border border-gray-200 bg-gray-100 px-4 py-2 text-sm transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
           <button
             type="button"
             onClick={handleSendMessage}
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || streamingBubbles.length > 0}
             className="flex-shrink-0 rounded-full bg-blue-500 p-2 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
             title="Send message"
           >
@@ -463,7 +673,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
           </button>
         </div>
       </div>
-
+      
       {/* Clear confirmation dialog */}
       {showClearDialog && (
         <div
@@ -500,3 +710,99 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
     </div>
   );
 };
+
+/**
+ * Regular message bubble component
+ */
+const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
+  // Check if this is a running tool bubble for animation
+  const isRunningTool = message.metadata?.isToolBubble && 
+                       message.metadata?.toolStatus === 'running';
+  
+  // Check if this is a streaming content bubble
+  const isStreamingContent = message.metadata?.isContentBubble && 
+                            message.metadata?.isStreaming;
+  
+  return (
+    <div
+      className={cn(
+        "flex",
+        message.role === "user" ? "justify-end" : "justify-start"
+      )}
+    >
+      <div
+        className={cn(
+          "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
+          message.role === "user"
+            ? "rounded-br-md bg-blue-500 text-white"
+            : "rounded-bl-md border border-gray-200 bg-white text-gray-800",
+          // Add pulse animation for running tools
+          isRunningTool && "animate-pulse border-blue-300",
+          // Add subtle glow for streaming content
+          isStreamingContent && "border-blue-200"
+        )}
+      >
+{message.role === "assistant" ? (
+        message.metadata?.isToolBubble ? (
+          <div className="flex items-center gap-2">
+            <Settings className="h-4 w-4 text-gray-600" />
+            {message.metadata?.toolStatus === 'complete' ? (
+              <Check className="h-3 w-3 text-green-500" />
+            ) : message.metadata?.toolStatus === 'error' ? (
+              <X className="h-3 w-3 text-red-500" />
+            ) : (
+              <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />
+            )}
+            <span className="text-sm">{message.content}</span>
+          </div>
+        ) : (
+          <MarkdownRenderer
+            content={message.content}
+            className="prose prose-sm max-w-none"
+            showThinkTags={true}
+            expandThinkTagsByDefault={false}
+            enableSyntaxHighlighting={true}
+          />
+        )
+      ) : (
+        <div className="whitespace-pre-wrap break-words text-sm">
+          {message.content}
+        </div>
+      )}
+      
+      {/* Message footer */}
+      <div
+        className={cn(
+          "mt-2 flex items-center justify-between text-xs",
+          message.role === "user" ? "text-blue-100" : "text-gray-500"
+        )}
+      >
+        <span>
+          {new Date(message.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </span>
+        <div className="flex items-center gap-2">
+          {/* Show streaming indicator for content bubbles */}
+          {isStreamingContent && (
+            <span className="animate-pulse text-blue-500 text-xs">Streaming...</span>
+          )}
+          {/* Show tool count for completed messages */}
+          {message.role === "assistant" &&
+            message.metadata?.tools &&
+            message.metadata.tools.length > 0 && (
+              <span
+                className="ml-2 text-xs"
+                title={`Used ${message.metadata.tools.length} tools`}
+              >
+                <Settings className="h-3 w-3 inline mr-1" />{message.metadata.tools.length}
+              </span>
+            )}
+        </div>
+      </div>
+    </div>
+  </div>
+  );
+};
+

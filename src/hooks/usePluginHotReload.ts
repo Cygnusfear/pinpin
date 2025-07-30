@@ -51,6 +51,6 @@ export function forcePluginRefresh() {
  * This clears the registry and re-registers all plugins
  */
 export async function forceReloadPlugins() {
-  const { forceReloadPlugins } = await import('../plugins/configReloader');
+  const { forceReloadPlugins } = await import('../pluginLoader/configReloader');
   return forceReloadPlugins();
 }

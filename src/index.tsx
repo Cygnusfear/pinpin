@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { initializeSyncEngine } from "./config/syncEngine";
-import { registerAllPlugins } from "./plugins";
+import { registerAllPlugins } from "./pluginLoader";
 
 // Import plugin test utilities (makes them available on window object)
 import "./utils/pluginTestUtils";

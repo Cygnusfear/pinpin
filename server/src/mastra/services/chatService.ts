@@ -14,8 +14,6 @@ const getFriendlyToolName = (toolName: string): string => {
     'removeWidget': 'widget remover',
     'getPinboardUIState': 'UI state inspector',
     
-    // Task workflow
-    'executeTaskWorkflow': 'task workflow system',
     
     // File editing tools (MCP)
     'file-editor_edit_file_lines': 'file line editor',

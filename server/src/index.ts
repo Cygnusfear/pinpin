@@ -38,6 +38,10 @@ import {
   mastraAgentHealthHandler,
 } from "./routes/mastraHandlers.js";
 import {
+  streamChatHandler,
+  streamHealthHandler,
+} from "./routes/streamHandlers.js";
+import {
   getPluginConfigHandler,
   updatePluginConfigHandler,
   getEnabledPluginsHandler,
@@ -49,13 +53,17 @@ import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
 // Health endpoint
 app.get("/api/health", healthHandler);
 
-// Mastra AI agent endpoints
+// Mastra AI agent endpoints (legacy SSE-based)
 app.post("/api/agent/chat", mastraAgentChatHandler);
 app.get("/api/agent/history", mastraConversationHistoryHandler);
 app.delete("/api/agent/history", mastraClearHistoryHandler);
 app.get("/api/agent/status", mastraAgentStatusHandler);
 app.get("/api/agent/capabilities", mastraAgentCapabilitiesHandler);
 app.get("/api/agent/health", mastraAgentHealthHandler);
+
+// New unified streaming endpoints (JSON-lines based)
+app.post("/api/chat/stream", streamChatHandler);
+app.get("/api/chat/stream/health", streamHealthHandler);
 
 // Plugin configuration endpoints
 app.get("/api/plugins/config", getPluginConfigHandler);

@@ -8,7 +8,7 @@ export { getWidgetFactory as getGenericWidgetFactory } from "../core/GenericWidg
 // Export core services
 export { getWidgetRegistry } from "../core/WidgetRegistry";
 // Export plugin system
-export { getAvailableWidgetTypes, registerAllPlugins } from "../plugins";
+export { getAvailableWidgetTypes, registerAllPlugins } from "../pluginLoader";
 export type { CalculatorContent } from "../plugins/calculator/types";
 export type { NoteContent } from "../plugins/note/types";
 // Export plugin-specific content types from their respective locations

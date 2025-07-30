@@ -24,8 +24,8 @@ export const fileEditingMcpClient = new MCPClient({
       args: [
         // Use the installed package via npx with allowed directories
         'edit-file-lines',
-        path.join(process.cwd(),'../src/plugins'), // Allow editing files in the current project directory
-        path.join(process.cwd(),'public'), // Allow editing files in the current project directory
+        path.join(process.cwd(),'../src/plugins'), // Allow editing files in the plugins directory
+        path.join(process.cwd(),'public'), // Allow editing files in the public directory
       ],
       // Note: Working directory is set to the process cwd by default
       env: {
@@ -40,8 +40,8 @@ export const fileEditingMcpClient = new MCPClient({
       args: [
         '-y',
         '@modelcontextprotocol/server-filesystem',
-        path.join(process.cwd(),'../src/plugins'), // Allow filesystem access to the current project directory
-        path.join(process.cwd(),'public'), // Allow filesystem access to the current project directory
+        path.join(process.cwd(),'../src/plugins'), // Allow filesystem access to the plugins directory
+        path.join(process.cwd(),'public'), // Allow filesystem access to the public directory
       ],
     },
   },

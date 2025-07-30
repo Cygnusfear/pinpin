@@ -515,8 +515,8 @@ export const getPinboardUIState = createTool({
   },
 });
 
-// Import task workflow tool
-import { executeTaskWorkflow } from './taskWorkflow.js';
+// Import workflow executor
+import { executeWidgetCreationWorkflow } from './workflowExecutor.js';
 
 // Export all tools as a collection
 export const pinboardTools = {
@@ -526,5 +526,5 @@ export const pinboardTools = {
   updateWidgetProperties,
   removeWidget,
   getPinboardUIState,
-  executeTaskWorkflow,
+  executeWidgetCreationWorkflow,
 };
