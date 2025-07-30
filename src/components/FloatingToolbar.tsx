@@ -29,15 +29,9 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCreating, setIsCreating] = useState<string | null>(null);
-  
-  // This hook automatically updates when plugins are reloaded
-  const { version, lastReloadInfo } = usePluginHotReload();
 
   const registry = getWidgetRegistry();
   const allTypes = registry.getAllTypes();
-
-  // Debug logging
-  console.log('🔄 FloatingToolbar render - plugin version:', version, 'types:', allTypes.length);
 
   // Filter to only show widgets that are not autoCreateOnly
   const manualCreateTypes = allTypes.filter((type) => !type.autoCreateOnly);
