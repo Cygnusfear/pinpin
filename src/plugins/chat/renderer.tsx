@@ -147,21 +147,22 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
               },
             };
 
+            currentMessages.current = [...currentMessages.current, thinkingMsg];
             currentStreamingBubble.current = thinkingMsg;
             lastContextType.current = "thinking";
           } else {
             // Update existing thinking bubble - replace content instead of appending
-            // const bubbleId = currentStreamingBubble.current?.metadata?.bubbleId;
-            // currentMessages = currentMessages.map((msg) =>
-            //   msg.metadata?.bubbleId === bubbleId
-            //     ? { ...msg, content: contentChunk }
-            //     : msg,
-            // );
-            // // Update our reference
-            // currentStreamingBubble.current =
-            //   currentMessages.find(
-            //     (msg) => msg.metadata?.bubbleId === bubbleId,
-            //   ) || null;
+            const bubbleId = currentStreamingBubble.current?.metadata?.bubbleId;
+            currentMessages.current = currentMessages.current.map((msg) =>
+              msg.metadata?.bubbleId === bubbleId
+                ? { ...msg, content: msg.content + contentChunk }
+                : msg,
+            );
+            // Update our reference
+            currentStreamingBubble.current =
+              currentMessages.current.find(
+                (msg) => msg.metadata?.bubbleId === bubbleId,
+              ) || null;
           }
 
           lastContextType.current = "thinking";
@@ -171,7 +172,7 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
       if (response.success && response.message) {
         // Remove all temporary bubbles (both tool and thinking), add final response
         const finalMessages = currentMessages.current;
-
+        
         const assistantMessage: ChatMessage = {
           role: "assistant",
           content: response.message,
@@ -181,12 +182,14 @@ export const ChatRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
             conversationId: response.conversationId,
           },
         };
-
         const completedMessages = [...finalMessages, assistantMessage];
         updateContent({
           messages: completedMessages,
           isTyping: false,
         });
+
+        currentStreamingBubble.current = null;
+        lastContextType.current = null;
 
         // Update conversationId if changed
         if (

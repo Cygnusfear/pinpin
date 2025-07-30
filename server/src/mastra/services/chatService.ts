@@ -303,7 +303,7 @@ export class MastraChatService {
                 console.log(`📊 [STREAM] Tool ${index + 1} result:`, success ? '✅ Success' : '❌ Failed');
                 
                 // Send tool result as progress update
-                if (progressCallback) {
+                if (!success && progressCallback) {
                   progressCallback(resultMessage);
                 }
               });
