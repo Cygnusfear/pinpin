@@ -154,6 +154,10 @@ export const mastraAgentChatHandler = async (req: Request, res: Response) => {
               res.flush();
             }
           }
+            res.write(`data: ${JSON.stringify({
+              type: 'end-stream',
+              data: 'end-stream'
+            })}\n\n`);
           console.log(`📡 Stream completed - sent ${chunkCount} chunks`);
         } else {
           console.log("❌ No stream available in streamResult");

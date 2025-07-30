@@ -234,6 +234,10 @@ export const streamMastraMessage = async (
                     finalConversationId = data.data.conversationId;
                   }
                   break;
+                case 'end-stream':
+                  // Stream content completed - finalize the chunked message
+                  console.log("📡 Received 'end-stream' event - Finalizing chunked message");
+                  break;
                 case 'done':
                   // Stream completed successfully
                   console.log("📡 Received 'done' event - Final message length:", finalMessage.length);
