@@ -1,0 +1,49 @@
+{
+  "plugins": [
+    {
+      "name": "chat", 
+      "path": "./chat",
+      "enabled": true
+    },
+    {
+      "name": "calculator",
+      "path": "./calculator",
+      "enabled": true
+    },
+    {
+      "name": "note",
+      "path": "./note", 
+      "enabled": true
+    },
+    {
+      "name": "todo",
+      "path": "./todo",
+      "enabled": true
+    },
+    {
+      "name": "image",
+      "path": "./image",
+      "enabled": true
+    },
+    {
+      "name": "terminal",
+      "path": "./terminal",
+      "enabled": true
+    },
+    {
+      "name": "youtube",
+      "path": "./youtube",
+      "enabled": true
+    },
+    {
+      "name": "url",
+      "path": "./url",
+      "enabled": true
+    },
+    {
+      "name": "document",
+      "path": "./document",
+      "enabled": true
+    }
+  ]
+}

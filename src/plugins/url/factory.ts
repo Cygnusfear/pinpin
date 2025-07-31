@@ -333,7 +333,7 @@ export class UrlFactory implements WidgetFactory<UrlContent> {
       canEdit: true,
       canConfigure: true,
       canGroup: true,
-      canDuplicate: true,
+      canDuplicate: false,
       canExport: true,
       hasContextMenu: true,
       hasToolbar: false,

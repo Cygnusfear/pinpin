@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import type { CanvasTransform } from "../types/canvas";
 
 // Background type options
-export type BackgroundType = 'corkboard' | 'dots';
+export type BackgroundType = 'board' | 'dots';
 
 // Local UI state interface
 export interface UIState {
@@ -59,7 +59,7 @@ const initialState: UIState = {
   selectedWidgets: new Set(),
   hoveredWidget: null,
   canvasTransform: { x: 0, y: 0, scale: 1 },
-  backgroundType: "corkboard",
+  backgroundType: "board",
   mode: "select",
   isFileOver: false,
   selectionBox: null,
@@ -122,7 +122,7 @@ export const useUIStore = create<UIStore>()(
 
       toggleBackgroundType: () => {
         set((state) => ({
-          backgroundType: state.backgroundType === 'corkboard' ? 'dots' : 'corkboard',
+          backgroundType: state.backgroundType === 'board' ? 'dots' : 'board',
         }));
       },
 

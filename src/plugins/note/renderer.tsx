@@ -1,44 +1,69 @@
 import type React from "react";
-import { useCallback, useState, useRef, useEffect } from "react";
-import { useContentActions } from "../../stores/widgetStore";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useWidgetActions,
+  useWidgetContent,
+} from "../../stores/selectiveHooks";
 import type { WidgetRendererProps } from "../../types/widgets";
 import type { NoteContent } from "./types";
 
-export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
-  widget,
-  state,
-  events,
-}) => {
-  const { updateContent } = useContentActions();
+export const NoteRenderer: React.FC<WidgetRendererProps> = ({ widgetId }) => {
+  // Selective subscriptions - only re-render when these specific values change
+  const content = useWidgetContent(widgetId, (content) => content.data.content);
+  const backgroundColor = useWidgetContent(
+    widgetId,
+    (content) => content.data.backgroundColor,
+  );
+  const textColor = useWidgetContent(
+    widgetId,
+    (content) => content.data.textColor,
+  );
+  const fontSize = useWidgetContent(
+    widgetId,
+    (content) => content.data.fontSize,
+  );
+  const fontFamily = useWidgetContent(
+    widgetId,
+    (content) => content.data.fontFamily,
+  );
+  const textAlign = useWidgetContent(
+    widgetId,
+    (content) => content.data.textAlign,
+  );
+  const formatting = useWidgetContent(
+    widgetId,
+    (content) => content.data.formatting,
+  );
+
+  // Get update actions
+  const { updateContent } = useWidgetActions(widgetId);
+
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleStartEdit = useCallback(() => {
-    if (!widget.isContentLoaded || !widget.content.data) return;
+    if (content === undefined) return;
 
-    setEditValue(widget.content.data.content);
+    setEditValue(content || "");
     setIsEditing(true);
-  }, [widget]);
+  }, [content]);
 
   const handleSaveEdit = useCallback(() => {
-    if (!widget.isContentLoaded || !widget.content.data) return;
+    if (content === undefined) return;
 
-    const newData = {
-      ...widget.content.data,
+    updateContent({
       content: editValue,
-    };
-
-    updateContent(widget.contentId, { data: newData });
+    });
     setIsEditing(false);
-  }, [widget, editValue, updateContent]);
+  }, [content, editValue, updateContent]);
 
   const handleCancelEdit = useCallback(() => {
-    if (!widget.isContentLoaded || !widget.content.data) return;
+    if (content === undefined) return;
 
-    setEditValue(widget.content.data.content);
+    setEditValue(content || "");
     setIsEditing(false);
-  }, [widget]);
+  }, [content]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -61,7 +86,8 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
     }
   }, [isEditing]);
 
-  if (!widget.isContentLoaded) {
+  // Loading state
+  if (content === undefined) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg bg-yellow-100 shadow">
         <div className="text-gray-500">Loading...</div>
@@ -69,31 +95,21 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
     );
   }
 
-  if (widget.contentError) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-lg bg-red-100 shadow">
-        <div className="text-red-500">Error: {widget.contentError}</div>
-      </div>
-    );
-  }
-
-  const data = widget.content.data;
-
   const noteStyle = {
-    backgroundColor: data.backgroundColor,
-    color: data.textColor,
-    fontSize: `${data.fontSize}px`,
-    fontFamily: data.fontFamily,
-    textAlign: data.textAlign as "left" | "center" | "right",
-    fontWeight: data.formatting?.bold ? "bold" : "normal",
-    fontStyle: data.formatting?.italic ? "italic" : "normal",
-    textDecoration: data.formatting?.underline ? "underline" : "none",
+    backgroundColor: backgroundColor || "#fef3c7",
+    color: textColor || "#000000",
+    fontSize: `${fontSize || 14}px`,
+    fontFamily: fontFamily || "Arial, sans-serif",
+    textAlign: (textAlign || "left") as "left" | "center" | "right",
+    fontWeight: formatting?.bold ? "bold" : "normal",
+    fontStyle: formatting?.italic ? "italic" : "normal",
+    textDecoration: formatting?.underline ? "underline" : "none",
   };
 
   return (
     <div
       className="h-full overflow-hidden rounded-lg border border-yellow-200 shadow-md"
-      style={{ backgroundColor: data.backgroundColor }}
+      style={{ backgroundColor: backgroundColor || "#fef3c7" }}
     >
       {isEditing ? (
         <div className="h-full p-3">
@@ -105,12 +121,12 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
             onKeyDown={handleKeyDown}
             className="h-full w-full resize-none border-none bg-transparent outline-none"
             style={{
-              color: data.textColor,
-              fontSize: `${data.fontSize}px`,
-              fontFamily: data.fontFamily,
-              fontWeight: data.formatting?.bold ? "bold" : "normal",
-              fontStyle: data.formatting?.italic ? "italic" : "normal",
-              textDecoration: data.formatting?.underline ? "underline" : "none",
+              color: textColor || "#000000",
+              fontSize: `${fontSize || 14}px`,
+              fontFamily: fontFamily || "Arial, sans-serif",
+              fontWeight: formatting?.bold ? "bold" : "normal",
+              fontStyle: formatting?.italic ? "italic" : "normal",
+              textDecoration: formatting?.underline ? "underline" : "none",
             }}
             placeholder="Type your note here..."
           />
@@ -124,11 +140,10 @@ export const NoteRenderer: React.FC<WidgetRendererProps<NoteContent>> = ({
           style={noteStyle}
           onClick={handleStartEdit}
           onDoubleClick={handleStartEdit}
+          data-scrollable="true"
         >
-          {data.content ? (
-            <div className="whitespace-pre-wrap break-words">
-              {data.content}
-            </div>
+          {content ? (
+            <div className="whitespace-pre-wrap break-words">{content}</div>
           ) : (
             <div className="text-gray-400 italic">Click to add a note...</div>
           )}

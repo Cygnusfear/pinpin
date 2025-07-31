@@ -1,28 +1,6 @@
 import type { WidgetPlugin, WidgetTypeDefinition } from "../../types/widgets";
-import { CalculatorFactory } from "./factory";
+import { CalculatorFactory, calculatorTypeDefinition } from "./factory";
 import { CalculatorRenderer } from "./renderer";
-
-// ============================================================================
-// CALCULATOR WIDGET PLUGIN - CLEAN IMPLEMENTATION
-// ============================================================================
-
-export const calculatorTypeDefinition: WidgetTypeDefinition[] = [
-  {
-    type: "calculator",
-    name: "Calculator",
-    description: "A functional calculator for basic math operations",
-    icon: "🧮",
-    category: "app",
-    defaultSize: { width: 280, height: 370 },
-    minSize: { width: 240, height: 370 },
-    maxSize: { width: 400, height: 500 },
-    aspectRatioLocked: false,
-    resizable: true,
-    rotatable: false,
-    configurable: true,
-    autoCreateOnly: false,
-  },
-];
 
 export class CalculatorPlugin implements WidgetPlugin {
   id = "calculator";

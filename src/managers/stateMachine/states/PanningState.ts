@@ -135,6 +135,11 @@ export class PanningState extends BaseState {
   onWheel(
     event: Extract<StateMachineEvent, { type: "wheel" }>,
   ): StateTransition | null {
+    // If wheel event is over scrollable content, don't handle it here
+    if (event.overScrollableContent) {
+      return { nextState: "panning", preventDefault: false };
+    }
+
     // Handle zoom while panning
     if (event.modifiers.ctrl || event.modifiers.meta) {
       // Zoom

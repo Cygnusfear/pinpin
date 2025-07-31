@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "mastra": {
+      "command": "bunx",
+      "args": [
+        "-y",
+        "@mastra/mcp-docs-server"
+      ],
+      "alwaysAllow": [
+        "mastraDocs",
+        "mastraExamples"
+      ]
+    }
+  }
+}

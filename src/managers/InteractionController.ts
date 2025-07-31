@@ -433,7 +433,10 @@ export class InteractionController {
     const screenPoint = this.getScreenPoint(event);
     const modifiers = this.getModifiers(event);
 
-    // Create state machine event
+    // Check if the wheel event is over scrollable content within a widget
+    const shouldAllowScrolling = this.isWheelEventOverScrollableContent(event);
+
+    // Create state machine event with scrollable content information
     const stateMachineEvent: StateMachineEvent = {
       type: "wheel",
       point: canvasPoint,
@@ -441,19 +444,209 @@ export class InteractionController {
       deltaX: event.deltaX,
       deltaY: event.deltaY,
       modifiers: modifiers,
+      overScrollableContent: shouldAllowScrolling,
     };
 
     // Process through state machine
     const result = this.stateMachine.processEvent(stateMachineEvent);
 
-    if (result.preventDefault) {
+    // Only prevent default if we're not over scrollable content OR the state machine explicitly requests it
+    if (result.preventDefault && !shouldAllowScrolling) {
       event.preventDefault();
+    } else {
+      // Allow natural scroll if not over scrollable content or state machine allows it
+      // The state machine handles the actual scrolling if it's not over scrollable content
     }
     if (result.stopPropagation) {
       event.stopPropagation();
     }
 
     this.updateLegacyInteractionState();
+  }
+
+  /**
+   * Check if a wheel event target is within scrollable content inside a widget
+   */
+  private isWheelEventOverScrollableContent(event: WheelEvent): boolean {
+    const target = event.target as HTMLElement;
+    if (!target) return false;
+
+    // First, check if we're within a widget at all
+    const widgetContainer = this.findWidgetContainer(target);
+    if (!widgetContainer) return false;
+
+    // Walk up the DOM tree from target to widget container to find scrollable elements
+    let element: HTMLElement | null = target;
+
+    while (element && element !== widgetContainer && element !== this.canvasElement) {
+      // Check if this element is scrollable and can scroll in the wheel direction
+      if (this.isElementScrollableInWidget(element, event)) {
+        return true;
+      }
+
+      element = element.parentElement;
+    }
+
+    // Also check the widget container itself
+    if (this.isElementScrollableInWidget(widgetContainer, event)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Find the closest widget container element for a given target element
+   */
+  private findWidgetContainer(target: HTMLElement): HTMLElement | null {
+    let element: HTMLElement | null = target;
+    
+    while (element && element !== this.canvasElement) {
+      // Check for widget container markers
+      if (element.hasAttribute("data-widget-id") ||
+          element.classList.contains("widget-container") ||
+          element.getAttribute("role") === "widget") {
+        return element;
+      }
+      element = element.parentElement;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Check if an element is within a widget by looking for widget container in its ancestors
+   */
+  private isWithinWidget(element: HTMLElement): boolean {
+    return this.findWidgetContainer(element) !== null;
+  }
+
+  /**
+   * Check if an element within a widget is scrollable
+   */
+  private isElementScrollableInWidget(
+    element: HTMLElement,
+    event: WheelEvent,
+  ): boolean {
+    // Priority 1: Check for explicit scrollable markers
+    if (element.hasAttribute("data-scrollable") &&
+        element.getAttribute("data-scrollable") !== "false") {
+      return true;
+    }
+
+    // Priority 2: Check common scrollable container patterns
+    if (this.hasScrollableContentPatterns(element)) {
+      return this.canElementScrollInDirection(element, event);
+    }
+
+    // Priority 3: Check if element is naturally scrollable
+    if (this.isElementScrollable(element)) {
+      return this.canElementScrollInDirection(element, event);
+    }
+
+    return false;
+  }
+
+  /**
+   * Check for common scrollable content patterns in widgets
+   */
+  private hasScrollableContentPatterns(element: HTMLElement): boolean {
+    const computedStyle = window.getComputedStyle(element);
+    const overflowY = computedStyle.overflowY;
+    const overflowX = computedStyle.overflowX;
+    
+    // Check for overflow styles that indicate scrollable content
+    const hasScrollableOverflow =
+      overflowY === "auto" || overflowY === "scroll" ||
+      overflowX === "auto" || overflowX === "scroll";
+
+    // Check for content that exceeds container bounds
+    const hasOverflowingContent =
+      element.scrollHeight > element.clientHeight ||
+      element.scrollWidth > element.clientWidth;
+
+    // Check for common scrollable class patterns
+    const className = element.className || "";
+    const hasScrollableClasses =
+      className.includes("overflow-auto") ||
+      className.includes("overflow-scroll") ||
+      className.includes("overflow-y-auto") ||
+      className.includes("overflow-x-auto") ||
+      className.includes("scrollable") ||
+      className.includes("scroll-container");
+
+    return hasScrollableOverflow && (hasOverflowingContent || hasScrollableClasses);
+  }
+
+  /**
+   * Check if an element is scrollable
+   */
+  private isElementScrollable(element: HTMLElement): boolean {
+    const computedStyle = window.getComputedStyle(element);
+    const overflowY = computedStyle.overflowY;
+    const overflowX = computedStyle.overflowX;
+
+    const isScrollableY =
+      (overflowY === "auto" || overflowY === "scroll") &&
+      element.scrollHeight > element.clientHeight;
+    const isScrollableX =
+      (overflowX === "auto" || overflowX === "scroll") &&
+      element.scrollWidth > element.clientWidth;
+
+    return isScrollableY || isScrollableX;
+  }
+
+  /**
+   * Check if an element can scroll in the direction of the wheel event
+   */
+  private canElementScrollInDirection(
+    element: HTMLElement,
+    event: WheelEvent,
+  ): boolean {
+    const computedStyle = window.getComputedStyle(element);
+    const overflowY = computedStyle.overflowY;
+    const overflowX = computedStyle.overflowX;
+
+    const isScrollableY =
+      (overflowY === "auto" || overflowY === "scroll") &&
+      element.scrollHeight > element.clientHeight;
+    const isScrollableX =
+      (overflowX === "auto" || overflowX === "scroll") &&
+      element.scrollWidth > element.clientWidth;
+
+    // Check vertical scrolling
+    if (isScrollableY && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+      return this.canScrollVertically(element, event.deltaY);
+    }
+
+    // Check horizontal scrolling
+    if (isScrollableX && Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+      return this.canScrollHorizontally(element, event.deltaX);
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if an element can scroll vertically in the given direction
+   */
+  private canScrollVertically(element: HTMLElement, deltaY: number): boolean {
+    const canScrollUp = element.scrollTop > 0;
+    const canScrollDown =
+      element.scrollTop < element.scrollHeight - element.clientHeight;
+
+    return (deltaY < 0 && canScrollUp) || (deltaY > 0 && canScrollDown);
+  }
+
+  /**
+   * Check if an element can scroll horizontally in the given direction
+   */
+  private canScrollHorizontally(element: HTMLElement, deltaX: number): boolean {
+    const canScrollLeft = element.scrollLeft > 0;
+    const canScrollRight =
+      element.scrollLeft < element.scrollWidth - element.clientWidth;
+
+    return (deltaX < 0 && canScrollLeft) || (deltaX > 0 && canScrollRight);
   }
 
   private handleContextMenu(event: MouseEvent): void {
@@ -606,20 +799,8 @@ export class InteractionController {
       this.selectionManager.selectAll(this.widgets);
     });
 
-    this.keyboardManager.registerCommand("duplicate", () => {
-      this.duplicateSelection();
-    });
-
     this.keyboardManager.registerCommand("delete", () => {
       this.deleteSelection();
-    });
-
-    this.keyboardManager.registerCommand("copy", () => {
-      this.copySelection();
-    });
-
-    this.keyboardManager.registerCommand("paste", () => {
-      this.pasteSelection();
     });
 
     this.keyboardManager.registerCommand("handTool", () => {
@@ -651,25 +832,6 @@ export class InteractionController {
   }
 
   // Command implementations
-  private duplicateSelection(): void {
-    const selectedWidgets = this.getSelectedWidgets();
-    if (selectedWidgets.length === 0) return;
-
-    const duplicates = selectedWidgets.map((widget) => ({
-      ...widget,
-      id: `${widget.id}-copy-${Date.now()}`,
-      x: widget.x + 20,
-      y: widget.y + 20,
-      selected: false,
-    }));
-
-    // Add duplicates and select them
-    duplicates.forEach((duplicate) => {
-      this.callbacks.onWidgetUpdate(duplicate.id, duplicate);
-    });
-
-    this.selectionManager.selectMultiple(duplicates.map((d) => d.id));
-  }
 
   private deleteSelection(): void {
     const selectedIds = this.selectionManager.getSelectedIds();
@@ -684,205 +846,8 @@ export class InteractionController {
     this.selectionManager.clearSelection();
   }
 
-  private copySelection(): void {
-    const selectedWidgets = this.getSelectedWidgets();
-    if (selectedWidgets.length === 0) return;
 
-    // TODO: Implement clipboard functionality
-    console.log("Copy widgets:", selectedWidgets);
-  }
 
-  private async pasteSelection(): Promise<void> {
-    console.log("🎯 InteractionController paste command triggered");
-
-    try {
-      // Check if we have clipboard access
-      if (!navigator.clipboard || !navigator.clipboard.read) {
-        console.warn(
-          "⚠️ Clipboard API not available, falling back to execCommand",
-        );
-        this.fallbackPaste();
-        return;
-      }
-
-      // Read clipboard data
-      const clipboardItems = await navigator.clipboard.read();
-      console.log("📋 Clipboard items:", clipboardItems);
-
-      if (clipboardItems.length === 0) {
-        console.log("📋 No clipboard data available");
-        return;
-      }
-
-      const genericFactory = getWidgetFactory();
-
-      // Calculate paste position (center of viewport or near mouse)
-      const canvasRect = this.canvasElement?.getBoundingClientRect();
-      const centerPosition = canvasRect
-        ? {
-            x: canvasRect.left + canvasRect.width / 2,
-            y: canvasRect.top + canvasRect.height / 2,
-          }
-        : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-
-      // Convert to canvas coordinates
-      const canvasPosition = {
-        x:
-          (centerPosition.x -
-            (canvasRect?.left || 0) -
-            this.canvasTransform.x) /
-          this.canvasTransform.scale,
-        y:
-          (centerPosition.y - (canvasRect?.top || 0) - this.canvasTransform.y) /
-          this.canvasTransform.scale,
-      };
-
-      // Process each clipboard item
-      for (const clipboardItem of clipboardItems) {
-        console.log("📋 Processing clipboard item types:", clipboardItem.types);
-
-        // Try to handle images first - check for any image type
-        const imageTypes = clipboardItem.types.filter((type) =>
-          type.startsWith("image/"),
-        );
-
-        if (imageTypes.length > 0) {
-          console.log("🖼️ Found image types in clipboard:", imageTypes);
-
-          for (const imageType of imageTypes) {
-            try {
-              console.log(`🖼️ Processing image type: ${imageType}`);
-              const blob = await clipboardItem.getType(imageType);
-              console.log(`🖼️ Got blob for ${imageType}, size:`, blob.size);
-
-              const file = new File([blob], "pasted-image", {
-                type: imageType,
-              });
-              console.log(`🖼️ Created file object:`, {
-                name: file.name,
-                type: file.type,
-                size: file.size,
-              });
-
-              const widget = await genericFactory.createWidgetFromData(
-                file,
-                canvasPosition,
-              );
-              if (widget) {
-                console.log("✅ Created image widget from clipboard:", widget);
-                this.callbacks.onWidgetAdd(widget);
-                canvasPosition.x += 20;
-                canvasPosition.y += 20;
-                // Only process the first successful image
-                break;
-              }
-              console.warn(`⚠️ No widget created for image type ${imageType}`);
-            } catch (error) {
-              console.warn(
-                `⚠️ Failed to process clipboard image ${imageType}:`,
-                error,
-              );
-            }
-          }
-        }
-
-        // Try to handle text data
-        if (clipboardItem.types.includes("text/plain")) {
-          try {
-            const blob = await clipboardItem.getType("text/plain");
-            const text = await blob.text();
-
-            if (text.trim()) {
-              const widget = await genericFactory.createWidgetFromData(
-                text.trim(),
-                canvasPosition,
-              );
-              if (widget) {
-                console.log(
-                  "✅ Created text widget from clipboard:",
-                  text.substring(0, 50),
-                );
-                this.callbacks.onWidgetAdd(widget);
-                canvasPosition.x += 20;
-                canvasPosition.y += 20;
-              }
-            }
-          } catch (error) {
-            console.warn("⚠️ Failed to process clipboard text:", error);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("❌ Paste operation failed:", error);
-      // Try fallback
-      this.fallbackPaste();
-    }
-  }
-
-  private fallbackPaste(): void {
-    console.log("🔄 Attempting fallback paste using document.execCommand");
-
-    // Create a temporary textarea to capture paste content
-    const tempElement = document.createElement("textarea");
-    tempElement.style.position = "fixed";
-    tempElement.style.left = "-9999px";
-    tempElement.style.opacity = "0";
-    document.body.appendChild(tempElement);
-
-    tempElement.focus();
-
-    // Execute paste command
-    const success = document.execCommand("paste");
-
-    if (success && tempElement.value) {
-      console.log(
-        "✅ Fallback paste successful:",
-        tempElement.value.substring(0, 50),
-      );
-
-      // Calculate paste position
-      const canvasRect = this.canvasElement?.getBoundingClientRect();
-      const centerPosition = canvasRect
-        ? {
-            x: canvasRect.left + canvasRect.width / 2,
-            y: canvasRect.top + canvasRect.height / 2,
-          }
-        : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-
-      const canvasPosition = {
-        x:
-          (centerPosition.x -
-            (canvasRect?.left || 0) -
-            this.canvasTransform.x) /
-          this.canvasTransform.scale,
-        y:
-          (centerPosition.y - (canvasRect?.top || 0) - this.canvasTransform.y) /
-          this.canvasTransform.scale,
-      };
-
-      // Create widget from pasted text
-      const genericFactory = getWidgetFactory();
-      genericFactory
-        .createWidgetFromData(tempElement.value.trim(), canvasPosition)
-        .then((widget) => {
-          if (widget) {
-            console.log("✅ Created widget from fallback paste");
-            this.callbacks.onWidgetAdd(widget);
-          }
-        })
-        .catch((error) => {
-          console.error(
-            "❌ Failed to create widget from fallback paste:",
-            error,
-          );
-        });
-    } else {
-      console.warn("⚠️ Fallback paste failed or no content");
-    }
-
-    // Clean up
-    document.body.removeChild(tempElement);
-  }
 
   private zoomToFit(): void {
     if (this.widgets.length === 0) return;

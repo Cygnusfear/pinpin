@@ -1,4 +1,6 @@
-import express, { Application, RequestHandler } from "express";
+import express, { type Application, type RequestHandler } from "express";
+import expressWs from "express-ws";
+import type { WebSocket } from "ws";
 
 interface RouteInfo {
   method: string;
@@ -9,15 +11,17 @@ interface RouteInfo {
 
 export class ExpressWithRouteTracking {
   private app: Application;
+  private wsInstance: expressWs.Instance;
   private routes: RouteInfo[] = [];
 
   constructor() {
     this.app = express();
+    this.wsInstance = expressWs(this.app);
   }
 
   // Extract parameters from a route path
   private extractParams(path: string): string[] {
-    const paramMatches = path.match(/:([^\/]+)/g);
+    const paramMatches = path.match(/:([^/]+)/g);
     return paramMatches ? paramMatches.map((param) => param.substring(1)) : [];
   }
 
@@ -56,6 +60,12 @@ export class ExpressWithRouteTracking {
   patch(path: string, ...handlers: RequestHandler[]) {
     this.trackRoute("PATCH", path);
     return this.app.patch(path, ...handlers);
+  }
+
+  // WebSocket route method
+  ws(path: string, ...handlers: any[]) {
+    this.trackRoute("WS", path, "WebSocket route");
+    return this.wsInstance.app.ws(path, ...handlers);
   }
 
   // Get all tracked routes

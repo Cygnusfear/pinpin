@@ -11,7 +11,15 @@ export default defineConfig({
   base: process.env.VITE_BASE_PATH || "/",
   plugins: [
     wasm(),
-    react(),
+    react({
+      // Enhanced error handling for React components
+      babel: {
+        plugins: [
+          // Add error boundary support
+          ["@babel/plugin-transform-react-jsx", { runtime: "automatic" }]
+        ]
+      }
+    }),
     tailwindcss(),
     topLevelAwait(),
     VitePWA({
@@ -28,6 +36,18 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
+    hmr: {
+      // Improve HMR stability and prevent unnecessary reloads
+      overlay: false,
+    },
+    watch: {
+      // Ignore server files from HMR to prevent page reloads
+      ignored: [
+        '**/server/public/**',
+        '**/src/plugins/**',
+        '**/node_modules/**'
+      ]
+    },
     proxy: {
       "/sync": {
         target: "ws://localhost:7777",
@@ -42,6 +62,7 @@ export default defineConfig({
         target: "http://localhost:6080",
         changeOrigin: true,
         secure: false,
+        ws: true, // Enable websocket proxying
       },
     },
   },

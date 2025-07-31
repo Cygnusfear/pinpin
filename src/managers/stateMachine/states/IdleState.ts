@@ -123,6 +123,11 @@ export class IdleState extends BaseState {
   onWheel(
     event: Extract<StateMachineEvent, { type: "wheel" }>,
   ): StateTransition | null {
+    // If wheel event is over scrollable content, don't handle it here
+    if (event.overScrollableContent) {
+      return { nextState: "idle", preventDefault: false };
+    }
+
     // Handle zoom and pan
     if (event.modifiers.ctrl || event.modifiers.meta) {
       // Zoom

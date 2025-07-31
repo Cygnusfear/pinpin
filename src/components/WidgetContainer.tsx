@@ -1,12 +1,14 @@
 import { motion } from "framer-motion";
 import type React from "react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { getWidgetRegistry } from "../core/WidgetRegistry";
 import type {
   HydratedWidget,
   WidgetEvents,
   WidgetRenderState,
 } from "../types/widgets";
+import WidgetErrorBoundary from "./WidgetErrorBoundary";
+import { useSyncContext } from "./SyncProvider";
 
 interface WidgetContainerProps {
   widget: HydratedWidget;
@@ -21,10 +23,12 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 }) => {
   const registry = getWidgetRegistry();
   const renderer = registry.getRenderer(widget.type);
+  const widgetTypeDefinition = registry.getType(widget.type);
+  const { status } = useSyncContext();
 
   // Render widget content using plugin renderer or fallback
   const renderWidgetContent = useMemo(() => {
-    if (widget.type === "loading") {
+    if (widget.type === "loading" || status !== "synced") {
       return (
         <div className="flex h-full flex-col items-center justify-center p-4 text-center">
           <div className="mb-2 h-8 w-8 animate-spin rounded-full border-blue-500 border-b-2" />
@@ -55,41 +59,97 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
       );
     }
 
-    // Only render the actual widget renderer if content is properly loaded
+    // Check if renderer exists and is available
     if (renderer?.component) {
       // Check if content is actually available before rendering
       if (!widget.isContentLoaded || !widget.content) {
+        // If we have a content error and we're not actively loading, show error
+        if (widget.contentError && widget.isContentLoaded) {
+          return (
+            <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+              <div className="mb-2 text-2xl">⚠️</div>
+              <div className="mb-1 font-medium text-red-600 text-sm">
+                Content Error
+              </div>
+              <div className="text-gray-500 text-xs">
+                {widget.contentError}
+              </div>
+            </div>
+          );
+        }
+        
+        // Otherwise, show loading state
         return (
           <div className="flex h-full flex-col items-center justify-center p-4 text-center">
             <div className="mb-2 h-8 w-8 animate-spin rounded-full border-blue-500 border-b-2" />
             <div className="mb-1 font-medium text-sm">Loading Content</div>
             <div className="text-gray-500 text-xs">
-              {widget.contentError || "Hydrating widget data..."}
+              Hydrating widget data...
             </div>
           </div>
         );
       }
 
       const RendererComponent = renderer.component;
+
+      // All widgets now use the selective reactivity interface - wrapped in error boundary
       return (
-        <RendererComponent
-          widget={widget}
-          state={state}
-          events={events}
-          canvasTransform={state.transform}
-        />
+        <WidgetErrorBoundary
+          widgetId={widget.id}
+          widgetType={widget.type}
+          fallback={
+            <div className="flex h-full flex-col items-center justify-center p-4 text-center bg-orange-50 border border-orange-200 rounded">
+              <div className="mb-3 text-3xl">🔧</div>
+              <div className="mb-2 font-semibold text-orange-700 text-sm">
+                Plugin Error
+              </div>
+              <div className="mb-2 text-gray-600 text-xs">
+                The "{widget.type}" plugin encountered an error
+              </div>
+              <div className="mt-2 text-gray-400 text-xs">
+                Widget will retry automatically
+              </div>
+            </div>
+          }
+        >
+          <RendererComponent key={widget.id} widgetId={widget.id} />
+        </WidgetErrorBoundary>
       );
     }
 
-    // Fallback renderer for unknown widget types
+    // Enhanced fallback renderer for unknown/failed widget types
     return (
-      <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+      <div className="flex h-full flex-col items-center justify-center p-4 text-center bg-gray-50 border border-gray-200 rounded">
         <div className="mb-2 text-2xl">📦</div>
         <div className="mb-1 font-medium text-sm">{widget.type}</div>
-        <div className="text-gray-500 text-xs">No renderer available</div>
+        <div className="mb-2 text-gray-500 text-xs">Plugin not available</div>
+        
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              // Copy widget info for debugging
+              const debugInfo = {
+                widgetId: widget.id,
+                widgetType: widget.type,
+                hasRenderer: !!renderer,
+                isContentLoaded: widget.isContentLoaded,
+                timestamp: new Date().toISOString()
+              };
+              navigator.clipboard.writeText(JSON.stringify(debugInfo, null, 2));
+              alert('Widget debug info copied to clipboard');
+            }}
+            className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+          >
+            📋 Debug
+          </button>
+        </div>
+        
+        <div className="mt-2 text-gray-400 text-xs">
+          ID: {widget.id.slice(-8)}
+        </div>
       </div>
     );
-  }, [renderer?.component, events, state, widget]);
+  }, [widget, state, events, renderer?.component]);
 
   // Handle widget container clicks with interactive content detection
   const handleWidgetClick = useCallback(
@@ -154,7 +214,8 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
             : "pointer",
         pointerEvents: widget.locked ? "none" : "auto",
       }}
-      className="select-none"
+      className={widgetTypeDefinition?.allowSelection ? "select-text" : "select-none"}
+      data-widget-id={widget.id}
       initial={{ opacity: 0, scale: 0.8, rotateY: widget.rotation }}
       animate={{
         opacity: 1,
@@ -207,7 +268,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
           border: state.isSelected
             ? "2px solid #3b82f6"
             : "2px solid transparent",
-          overflow: "hidden",
+          overflow: widgetTypeDefinition?.allowOverflow ? "visible" : "hidden",
         }}
       >
         {renderWidgetContent}

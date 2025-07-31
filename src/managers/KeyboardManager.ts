@@ -3,7 +3,6 @@ import type { KeyModifiers } from "../types/canvas";
 export type KeyboardCommand =
   // Selection
   | "selectAll"
-  | "duplicate"
   | "group"
   | "ungroup"
 
@@ -26,9 +25,6 @@ export type KeyboardCommand =
   // Editing
   | "undo"
   | "redo"
-  | "copy"
-  | "paste"
-  | "cut"
   | "delete"
 
   // Alignment
@@ -60,12 +56,6 @@ export class KeyboardManager {
       modifiers: { meta: true },
       command: "selectAll",
       description: "Select All",
-    },
-    {
-      key: "d",
-      modifiers: { meta: true },
-      command: "duplicate",
-      description: "Duplicate",
     },
     {
       key: "g",
@@ -141,19 +131,6 @@ export class KeyboardManager {
       command: "redo",
       description: "Redo",
     },
-    {
-      key: "c",
-      modifiers: { meta: true },
-      command: "copy",
-      description: "Copy",
-    },
-    {
-      key: "v",
-      modifiers: { meta: true },
-      command: "paste",
-      description: "Paste",
-    },
-    { key: "x", modifiers: { meta: true }, command: "cut", description: "Cut" },
     { key: "Delete", modifiers: {}, command: "delete", description: "Delete" },
     {
       key: "Backspace",

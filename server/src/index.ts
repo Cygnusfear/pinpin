@@ -1,8 +1,10 @@
+import fs from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+// Removed keepsync imports - using WebSocket bridge instead
 import cors from "cors";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import fs from "fs";
 import dotenv from "dotenv";
+import express from "express";
 import { ExpressWithRouteTracking } from "./routeTracker.js";
 
 // Import configuration
@@ -20,6 +22,83 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 6080;
 
 // Enable CORS
 app.use(cors());
+
+// Enable JSON parsing for POST requests
+app.use(express.json());
+
+// Import health handler (chat handlers removed)
+import { healthHandler } from "./routes/chatHandlers.js";
+// Groq handlers removed (deprecated system)
+import {
+  mastraAgentChatHandler,
+  mastraConversationHistoryHandler,
+  mastraClearHistoryHandler,
+  mastraAgentStatusHandler,
+  mastraAgentCapabilitiesHandler,
+  mastraAgentHealthHandler,
+} from "./routes/mastraHandlers.js";
+import {
+  streamChatHandler,
+  streamHealthHandler,
+} from "./routes/streamHandlers.js";
+import {
+  getPluginConfigHandler,
+  updatePluginConfigHandler,
+  getEnabledPluginsHandler,
+} from "./routes/pluginHandlers.js";
+import { terminalSessionManager } from "./terminal/terminalSessionManager.js";
+// Import terminal WebSocket setup
+import { setupTerminalWebSocket } from "./terminal/terminalWebSocketHandler.js";
+
+// Health endpoint
+app.get("/api/health", healthHandler);
+
+// Mastra AI agent endpoints (legacy SSE-based)
+app.post("/api/agent/chat", mastraAgentChatHandler);
+app.get("/api/agent/history", mastraConversationHistoryHandler);
+app.delete("/api/agent/history", mastraClearHistoryHandler);
+app.get("/api/agent/status", mastraAgentStatusHandler);
+app.get("/api/agent/capabilities", mastraAgentCapabilitiesHandler);
+app.get("/api/agent/health", mastraAgentHealthHandler);
+
+// New unified streaming endpoints (JSON-lines based)
+app.post("/api/chat/stream", streamChatHandler);
+app.get("/api/chat/stream/health", streamHealthHandler);
+
+// Plugin configuration endpoints
+app.get("/api/plugins/config", getPluginConfigHandler);
+app.put("/api/plugins/config", updatePluginConfigHandler);
+app.get("/api/plugins/enabled", getEnabledPluginsHandler);
+
+// Terminal test endpoint for debugging
+app.post("/api/terminal/test", (req: any, res: any) => {
+  const { sessionId, data } = req.body;
+  if (!sessionId || !data) {
+    return res.status(400).json({ error: "sessionId and data required" });
+  }
+
+  const success = terminalSessionManager.writeToSession(sessionId, data);
+  res.json({ success, sessionId, data });
+});
+
+// List all active sessions for debugging
+app.get("/api/terminal/sessions", (_req: any, res: any) => {
+  const sessions = terminalSessionManager.getActiveSessions();
+  const sessionInfo = sessions.map((s) => ({
+    id: s.id,
+    widgetId: s.widgetId,
+    createdAt: new Date(s.createdAt).toISOString(),
+    lastActivity: new Date(s.lastActivity).toISOString(),
+  }));
+  res.json({ sessions: sessionInfo });
+});
+
+// Set up terminal WebSocket routes
+setupTerminalWebSocket(app);
+
+// WebSocket bridge removed - MCP server now connects directly to keepsync
+
+// Keepsync API endpoints removed - MCP server now connects directly to keepsync
 
 // Add ping endpoint for health checks
 // WARNING: ALL SERVERS MUST INCLUDE A /ping ENDPOINT FOR HEALTH CHECKS, OTHERWISE THEY WILL FAIL

@@ -4,9 +4,28 @@ import type {
   Position,
   WidgetCapabilities,
   WidgetFactory,
+  WidgetTypeDefinition,
 } from "../../types/widgets";
-import { calculatorTypeDefinition } from ".";
 import type { CalculatorContent } from "./types";
+
+// Type definition moved here to avoid circular dependency
+export const calculatorTypeDefinition: WidgetTypeDefinition[] = [
+  {
+    type: "calculator",
+    name: "Calculator",
+    description: "A functional calculator for basic math operations",
+    icon: "🧮",
+    category: "app",
+    defaultSize: { width: 280, height: 370 },
+    minSize: { width: 240, height: 370 },
+    maxSize: { width: 400, height: 500 },
+    aspectRatioLocked: false,
+    resizable: true,
+    rotatable: false,
+    configurable: true,
+    autoCreateOnly: false,
+  },
+];
 
 // ============================================================================
 // CALCULATOR WIDGET FACTORY - CLEAN IMPLEMENTATION
@@ -82,7 +101,7 @@ export class CalculatorFactory implements WidgetFactory<CalculatorContent> {
       canEdit: false,
       canConfigure: true,
       canGroup: true,
-      canDuplicate: true,
+      canDuplicate: false,
       canExport: true,
       hasContextMenu: true,
       hasToolbar: false,

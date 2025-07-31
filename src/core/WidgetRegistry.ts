@@ -1,8 +1,8 @@
 import type {
-  WidgetTypeDefinition,
+  WidgetRegistry as IWidgetRegistry,
   WidgetFactory,
   WidgetRenderer,
-  WidgetRegistry as IWidgetRegistry,
+  WidgetTypeDefinition,
 } from "../types/widgets";
 
 // ============================================================================
@@ -26,9 +26,8 @@ export class WidgetRegistry implements IWidgetRegistry {
     if (this.types.has(definition.type)) {
       console.warn(`Widget type "${definition.type}" is already registered`);
     }
-    
+
     this.types.set(definition.type, definition);
-    console.log(`✅ Registered widget type: ${definition.type}`);
   }
 
   unregisterType(type: string): void {
@@ -61,11 +60,12 @@ export class WidgetRegistry implements IWidgetRegistry {
 
   registerFactory<T>(factory: WidgetFactory<T>): void {
     if (this.factories.has(factory.type)) {
-      console.warn(`Factory for widget type "${factory.type}" is already registered`);
+      console.warn(
+        `Factory for widget type "${factory.type}" is already registered`,
+      );
     }
 
     this.factories.set(factory.type, factory as WidgetFactory);
-    console.log(`✅ Registered factory: ${factory.type}`);
   }
 
   unregisterFactory(type: string): void {
@@ -88,11 +88,12 @@ export class WidgetRegistry implements IWidgetRegistry {
 
   registerRenderer<T>(renderer: WidgetRenderer<T>): void {
     if (this.renderers.has(renderer.type)) {
-      console.warn(`Renderer for widget type "${renderer.type}" is already registered`);
+      console.warn(
+        `Renderer for widget type "${renderer.type}" is already registered`,
+      );
     }
 
     this.renderers.set(renderer.type, renderer as WidgetRenderer);
-    console.log(`✅ Registered renderer: ${renderer.type}`);
   }
 
   unregisterRenderer(type: string): void {
@@ -210,11 +211,11 @@ export function registerWidget<T>(
   renderer: WidgetRenderer<T>,
 ): void {
   const registry = getWidgetRegistry();
-  
+
   registry.registerType(type);
   registry.registerFactory(factory);
   registry.registerRenderer(renderer);
-  
+
   console.log(`🎯 Fully registered widget: ${type.type}`);
 }
 
@@ -223,11 +224,11 @@ export function registerWidget<T>(
  */
 export function unregisterWidget(type: string): void {
   const registry = getWidgetRegistry();
-  
+
   registry.unregisterType(type);
   registry.unregisterFactory(type);
   registry.unregisterRenderer(type);
-  
+
   console.log(`🗑️ Fully unregistered widget: ${type}`);
 }
 

@@ -3,7 +3,10 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { initializeSyncEngine } from "./config/syncEngine";
-import { registerAllPlugins } from "./plugins";
+import { registerAllPlugins } from "./pluginLoader";
+
+// Import plugin test utilities (makes them available on window object)
+import "./utils/pluginTestUtils";
 
 // Initialize widget plugins with new clean architecture
 async function initializeWidgetPlugins() {
@@ -56,3 +59,18 @@ async function initApp() {
 
 // Start the application
 initApp().catch(console.error);
+
+// Hot Module Replacement (HMR) support
+if (import.meta.hot) {
+  // Accept HMR for the entire app
+  import.meta.hot.accept(['./App', './plugins'], () => {
+    console.log('🔥 HMR: Main app modules updated');
+  });
+  
+  // Listen for plugin updates and reload without full page refresh
+  window.addEventListener('pluginsReloaded', (event) => {
+    console.log('🔥 HMR: Plugins reloaded, updating app state');
+    // The plugin registry is already updated by the config reloader
+    // Force re-render of any components that depend on plugin state
+  });
+}
