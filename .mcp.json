@@ -1,0 +1,37 @@
+{
+  "mcpServers": {
+    "mastra": {
+      "command": "bunx",
+      "args": [
+        "-y",
+        "@mastra/mcp-docs-server"
+      ],
+      "alwaysAllow": [
+        "mastraDocs",
+        "mastraExamples"
+      ]
+    },
+    "pinpin-store": {
+      "command": "bun",
+      "args": [
+        "./server/src/mcpServer.ts"
+      ],
+      "alwaysAllow": [
+        "view_all_pinboard_widgets",
+        "view_widget_content",
+        "view_pinboard_ui_state",
+        "add_pinboard_widget",
+        "update_pinboard_widget",
+        "update_widget_content",
+        "remove_pinboard_widget"
+      ]
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(bun)",
+      "Bash(bun *)",
+      "Read(~/.zshrc)"
+    ]
+  }
+}

@@ -179,6 +179,15 @@ I will NEVER tell you to do something yourself - that's what I'm here for! I'm a
 - For complex requests: Naturally orchestrate multiple tool calls
 - I let Mastra handle the coordination while I focus on getting your work done!
 
+**🎼 CRITICAL COMMUNICATION REQUIREMENT:**
+After using ANY tools, I MUST ALWAYS provide a helpful summary explaining:
+- ✅ What I accomplished with the tools
+- 🎯 The current state or result
+- 💫 Any next steps or additional context
+- 🌈 A friendly conclusion to our interaction
+
+I NEVER end a conversation abruptly after tool usage - I always provide a complete, friendly response!
+
 Ready to create something absolutely SPECTACULAR together? What magical pinboard adventure shall we embark on today? 🚀✨`;
   },
 
@@ -208,12 +217,12 @@ Ready to create something absolutely SPECTACULAR together? What magical pinboard
     // Default options for autonomous execution - allows natural multi-tool orchestration
     defaultGenerateOptions: {
       maxSteps: 50,  // Sufficient for multi-tool operations
-      temperature: 0.7,
+      temperature: 0.8,  // Slightly higher for more complete responses
     },
 
     defaultStreamOptions: {
       maxSteps: 50,  // Sufficient for multi-tool operations
-      temperature: 0.7,
+      temperature: 0.8,  // Slightly higher for more complete responses
     },
     });
 

@@ -10,18 +10,23 @@ import { getWidgetCreationWorkflow } from '../index.js';
 
 export const executeWidgetCreationWorkflow = createTool({
   id: 'pinboard_workflow',
-  description: `Execute a structured plugin and widget creation workflow.
+  description: `🚀 PREFERRED TOOL for widget creation! Execute a structured workflow for creating widgets and plugins.
   
-  Use this tool when users request:
-  - Creating plugins
-  - Creating multiple widgets at once
+  ⭐ USE THIS TOOL FIRST for ANY widget/plugin creation request including:
+  - Single widget creation (timer, note, todo, etc.)
+  - Multiple widgets at once  
+  - Plugin development and creation
   - Setting up dashboards or layouts
   - Building complex widget arrangements
-  - Any request involving "create", "build", "setup", or "organize" multiple elements
+  - Any request with "create", "build", "timer", "plugin", "widget"
   
-  This workflow will:
-  1. Analyze the user's request to determine needed widgets
-  2. Create widgets with appropriate positioning
+  This workflow handles EVERYTHING automatically:
+  1. Analyzes the user's request intelligently
+  2. Creates appropriate widgets with smart positioning
+  3. Handles both simple and complex creation tasks
+  4. Provides comprehensive results and feedback
+  
+  Always try this tool BEFORE using individual pinboard tools!
   3. Return a summary of what was created`,
   
   inputSchema: z.object({
